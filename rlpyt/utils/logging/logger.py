@@ -432,7 +432,7 @@ def log_variant(log_file, variant_data):
         json.dump(variant_json, f, indent=2, sort_keys=True, cls=MyEncoder)
 
 
-def record_tabular_misc_stat(key, values, placement='back'):
+def record_tabular_misc_stat(key, values, itr=None, placement='back'):
     if placement == 'front':
         prefix = ""
         suffix = key
@@ -445,6 +445,12 @@ def record_tabular_misc_stat(key, values, placement='back'):
         record_tabular(prefix + "Median" + suffix, np.median(values))
         record_tabular(prefix + "Min" + suffix, np.min(values))
         record_tabular(prefix + "Max" + suffix, np.max(values))
+        if itr is not None and _tf_summary_writer is not None:
+            _tf_summary_writer.add_scalars(prefix, {'Avg': np.average(values),
+                                                    'Std': np.std(values),
+                                                    'Median': np.median(values),
+                                                    'Min': np.min(values),
+                                                    'Max': np.max(values)}, itr)
     else:
         record_tabular(prefix + "Average" + suffix, np.nan)
         record_tabular(prefix + "Std" + suffix, np.nan)

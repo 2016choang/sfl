@@ -1,6 +1,7 @@
 
 import numpy as np
 import torch
+from torch._six import inf
 
 
 def iterate_mb_idxs(data_length, minibatch_size, shuffle=False, horizon=1):
@@ -84,3 +85,33 @@ def extract_sequences(array_or_tensor, T_idxs, B_idxs, T):
 #             loc = [loc]
 #         slc[axis] = [loc_ % ax_len for loc_ in loc]
 #         x[tuple(slc)] = y
+
+
+def param_norm_(parameters, norm_type=2):
+    r"""Computes norm of an iterable of parameters.
+
+    The norm is computed over all parameters together, as if they were
+    concatenated into a single vector.
+
+    Arguments:
+        parameters (Iterable[Tensor] or Tensor): an iterable of Tensors or a
+            single Tensor that will have gradients normalized
+        norm_type (float or int): type of the used p-norm. Can be ``'inf'`` for
+            infinity norm.
+
+    Returns:
+        Total norm of the parameters (viewed as a single vector).
+    """
+    if isinstance(parameters, torch.Tensor):
+        parameters = [parameters]
+    parameters = list(filter(lambda p: p.grad is not None, parameters))
+    norm_type = float(norm_type)
+    if norm_type == inf:
+        total_norm = max(p.data.abs().max() for p in parameters)
+    else:
+        total_norm = 0
+        for p in parameters:
+            param_norm = p.data.norm(norm_type)
+            total_norm += param_norm.item() ** norm_type
+        total_norm = total_norm ** (1. / norm_type)
+    return total_norm

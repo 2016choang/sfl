@@ -4,6 +4,7 @@ import datetime
 import os
 import os.path as osp
 import json
+from torch.utils.tensorboard import SummaryWriter
 
 from rlpyt.utils.logging import logger
 
@@ -17,7 +18,7 @@ def get_log_dir(experiment_name):
 
 
 @contextmanager
-def logger_context(log_dir, run_ID, name, log_params=None, snapshot_mode="none"):
+def logger_context(log_dir, run_ID, name, log_params=None, snapshot_mode="none", tensorboard=False):
     logger.set_snapshot_mode(snapshot_mode)
     logger.set_log_tabular_only(False)
     log_dir = osp.join(log_dir, f"run_{run_ID}")
@@ -34,6 +35,10 @@ def logger_context(log_dir, run_ID, name, log_params=None, snapshot_mode="none")
     logger.add_text_output(text_log_file)
     logger.add_tabular_output(tabular_log_file)
     logger.push_prefix(f"{name}_{run_ID} ")
+    
+    if tensorboard:
+        writer = SummaryWriter(exp_dir, flush_secs=10)
+        logger.set_tf_summary_writer(writer)
 
     if log_params is None:
         log_params = dict()

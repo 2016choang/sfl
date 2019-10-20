@@ -1,6 +1,7 @@
 
 import numpy as np
 import gym
+from gym_minigrid.wrappers import FullyObsWrapper
 from gym import Wrapper
 from gym.wrappers.time_limit import TimeLimit
 from collections import namedtuple
@@ -125,8 +126,10 @@ def infill_info(info, sometimes_info):
     return info
 
 
-def make(*args, info_example=None, **kwargs):
-    if info_example is None:
+def make(*args, info_example=None, minigrid=False, **kwargs):
+    if minigrid:
+        return GymEnvWrapper(FullyObsWrapper(gym.make(*args, **kwargs)))
+    elif info_example is None:
         return GymEnvWrapper(gym.make(*args, **kwargs))
     else:
         return GymEnvWrapper(EnvInfoWrapper(

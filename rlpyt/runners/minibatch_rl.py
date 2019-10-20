@@ -154,7 +154,7 @@ class MinibatchRlBase(BaseRunner):
         logger.record_tabular('UpdatesPerSecond', updates_per_second)
         logger.record_tabular('ReplayRatio', replay_ratio)
         logger.record_tabular('CumReplayRatio', cum_replay_ratio)
-        self._log_infos(traj_infos)
+        self._log_infos(traj_infos, itr)
         logger.dump_tabular(with_prefix=False)
 
         self._last_time = new_time
@@ -163,18 +163,18 @@ class MinibatchRlBase(BaseRunner):
             logger.log(f"Optimizing over {self.log_interval_itrs} iterations.")
             self.pbar = ProgBarCounter(self.log_interval_itrs)
 
-    def _log_infos(self, traj_infos=None):
+    def _log_infos(self, traj_infos=None, itr=None):
         if traj_infos is None:
             traj_infos = self._traj_infos
         if traj_infos:
             for k in traj_infos[0]:
                 if not k.startswith("_"):
                     logger.record_tabular_misc_stat(k,
-                        [info[k] for info in traj_infos])
+                        [info[k] for info in traj_infos], itr)
 
         if self._opt_infos:
             for k, v in self._opt_infos.items():
-                logger.record_tabular_misc_stat(k, v)
+                logger.record_tabular_misc_stat(k, v, itr)
         self._opt_infos = {k: list() for k in self._opt_infos}  # (reset)
 
 
