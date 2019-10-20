@@ -35,7 +35,7 @@ class GridDsrModel(torch.nn.Module):
             nn.ReLU()
         )
 
-        self.image_embedding_size = (h // 16) * (w // 16) * 64
+        self.image_embedding_size = (h // 32) * (w // 32) * 64
 
         self.decoder = nn.Sequential(
             nn.ConvTranspose2d(64, 64, kernel_size=3, stride=2),
@@ -45,8 +45,8 @@ class GridDsrModel(torch.nn.Module):
             nn.ConvTranspose2d(32, 16, kernel_size=2, stride=2, padding=3),
             nn.ReLU(),
             nn.ConvTranspose2d(16, c, kernel_size=2, stride=2),
-            nn.Tanh()
-            nn.Upsample((h, w), mode='blinear')
+            nn.Tanh(),
+            nn.Upsample((h, w), mode='bilinear')
         )
 
         self.dsr = MlpModel(self.image_embedding_size, fc_sizes,
@@ -59,7 +59,7 @@ class GridDsrModel(torch.nn.Module):
 
             x = self.encoder(x.view(T * B, *img_shape))
             features = x.view(T * B, -1)
-            
+
             if mode == 'reconstruct':
                 reconstructed = self.decoder(x).transpose(3, 1).transpose(2, 1)
                 reconstructed = restore_leading_dims(reconstructed, lead_dim, T, B)

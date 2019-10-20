@@ -188,7 +188,6 @@ class DSR(RlAlgorithm):
     
     def reconstruct_loss(self, samples):
         reconstructed = self.agent.reconstruct(samples.agent_inputs.observation)
-        import pdb; pdb.set_trace()
         loss = self.l2_loss(samples.agent_inputs.observation.type(torch.float), reconstructed)
         return loss
 
