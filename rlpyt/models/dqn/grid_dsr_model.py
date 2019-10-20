@@ -20,29 +20,33 @@ class GridDsrModel(torch.nn.Module):
         h, w, c = image_shape
 
         self.encoder = nn.Sequential(
-            nn.Conv2d(c, 16, (2, 2)),
+            nn.AvgPool2d(2, stride=2),
+            nn.Conv2d(c, 16, (3, 3), padding=1),
             nn.ReLU(),
             nn.MaxPool2d((2, 2)),
-            nn.Conv2d(16, 32, (2, 2)),
+            nn.Conv2d(16, 32, (3, 3), padding=1),
             nn.ReLU(),
             nn.MaxPool2d((2, 2)),
-            nn.Conv2d(32, 64, (2, 2)),
+            nn.Conv2d(32, 64, (3, 3), padding=1),
+            nn.MaxPool2d((2, 2)),
             nn.ReLU(),
-            nn.Conv2d(64, 64, (2, 2)),
+            nn.Conv2d(64, 64, (3, 3), padding=1),
+            nn.MaxPool2d((2, 2)),
             nn.ReLU()
         )
 
-        self.image_embedding_size = (((h - 1) // 2 - 1) // 2 - 2) * (((w - 1) // 2 - 1) // 2 - 2) * 64
+        self.image_embedding_size = (h // 16) * (w // 16) * 64
 
         self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(64, 32, (3, 3), stride=2),
+            nn.ConvTranspose2d(64, 64, kernel_size=3, stride=2),
             nn.ReLU(),
-            nn.ConvTranspose2d(32, 16, (3, 3), stride=2),
+            nn.ConvTranspose2d(64, 32, kernel_size=3, stride=2),
             nn.ReLU(),
-            nn.ConvTranspose2d(16, 8, (5, 5)),
+            nn.ConvTranspose2d(32, 16, kernel_size=2, stride=2, padding=3),
             nn.ReLU(),
-            nn.ConvTranspose2d(8, c, (5, 5)),
+            nn.ConvTranspose2d(16, c, kernel_size=2, stride=2),
             nn.Tanh()
+            nn.Upsample((h, w), mode='blinear')
         )
 
         self.dsr = MlpModel(self.image_embedding_size, fc_sizes,
