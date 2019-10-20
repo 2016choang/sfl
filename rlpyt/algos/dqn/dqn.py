@@ -171,7 +171,6 @@ class DQN(RlAlgorithm):
     def loss(self, samples):
         """Samples have leading batch dimension [B,..] (but not time)."""
         qs = self.agent(*samples.agent_inputs)
-        import pdb; pdb.set_trace()
         q = select_at_indexes(samples.action, qs)
         with torch.no_grad():
             target_qs = self.agent.target(*samples.target_inputs)
