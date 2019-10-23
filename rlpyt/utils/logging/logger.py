@@ -446,11 +446,7 @@ def record_tabular_misc_stat(key, values, itr=None, placement='back'):
         record_tabular(prefix + "Min" + suffix, np.min(values))
         record_tabular(prefix + "Max" + suffix, np.max(values))
         if itr is not None and _tf_summary_writer is not None:
-            _tf_summary_writer.add_scalars(prefix, {'Avg': np.average(values),
-                                                    'Std': np.std(values),
-                                                    'Median': np.median(values),
-                                                    'Min': np.min(values),
-                                                    'Max': np.max(values)}, itr)
+            _tf_summary_writer.add_scalar(prefix, np.average(values), itr)
     else:
         record_tabular(prefix + "Average" + suffix, np.nan)
         record_tabular(prefix + "Std" + suffix, np.nan)

@@ -43,8 +43,7 @@ class GridDsrModel(torch.nn.Module):
             nn.ReLU(),
             nn.ConvTranspose2d(32, 16, kernel_size=4, stride=2),
             nn.ReLU(),
-            nn.ConvTranspose2d(16, c, kernel_size=2, stride=2),
-            nn.Tanh(),
+            nn.ConvTranspose2d(16, c, kernel_size=2, stride=2)
         )
 
         self.dsr = MlpModel(self.image_embedding_size, fc_sizes,
@@ -52,14 +51,16 @@ class GridDsrModel(torch.nn.Module):
 
     def forward(self, x, mode='features'):
         if mode == 'features' or mode =='reconstruct':
-            x = x.transpose(1, 3).transpose(2, 3).type(torch.float)
+            x = x.type(torch.float)
+            x = (x - x.mean(dim=[0, 1, 2])) / x.std(dim=[0, 1, 2])
+            x = x.permute(0, 3, 1, 2)
             lead_dim, T, B, img_shape = infer_leading_dims(x, 3)
 
             x = self.encoder(x.view(T * B, *img_shape))
             features = x.view(T * B, -1)
 
             if mode == 'reconstruct':
-                reconstructed = self.decoder(x).transpose(3, 1).transpose(2, 1)
+                reconstructed = self.decoder(x).permute(0, 2, 3, 1)
                 reconstructed = restore_leading_dims(reconstructed, lead_dim, T, B)
                 return reconstructed
             else:

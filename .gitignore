@@ -76,7 +76,8 @@ docs/_build/
 target/
 
 # Jupyter Notebook
-.ipynb_checkpoints
+*.ipynb_checkpoints
+*.ipynb
 
 # pyenv
 .python-version
@@ -111,3 +112,8 @@ venv.bak/
 
 # vim editing and such
 *.*~
+
+# Mac files
+*.DS_Store
+
+

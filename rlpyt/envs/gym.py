@@ -128,8 +128,8 @@ def infill_info(info, sometimes_info):
 
 def make(*args, info_example=None, minigrid=False, **kwargs):
     if minigrid:
-        # return GymEnvWrapper(FullyObsWrapper(gym.make(*args, **kwargs)))
-        return GymEnvWrapper(RGBImgObsWrapper(gym.make(*args, **kwargs)))
+        # return GymEnvWrapper(FullyObsWrapper(gym.make(*args, **kwargs)))  # compact
+        return GymEnvWrapper(RGBImgObsWrapper(gym.make(*args, **kwargs)))  # full RGB
     elif info_example is None:
         return GymEnvWrapper(gym.make(*args, **kwargs))
     else:

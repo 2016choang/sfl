@@ -188,7 +188,9 @@ class DSR(RlAlgorithm):
     
     def reconstruct_loss(self, samples):
         reconstructed = self.agent.reconstruct(samples.agent_inputs.observation)
-        loss = self.l2_loss(samples.agent_inputs.observation.type(torch.float), reconstructed)
+        target = samples.agent_inputs.observation.type(torch.float)
+        target = (target - target.mean(dim=[0, 1, 2])) / target.std(dim=[0, 1, 2])
+        loss = self.l2_loss(target, reconstructed)
         return loss
 
     def dsr_loss(self, samples):
