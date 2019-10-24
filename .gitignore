@@ -116,4 +116,6 @@ venv.bak/
 # Mac files
 *.DS_Store
 
+# Pickle
+*.pkl
 
