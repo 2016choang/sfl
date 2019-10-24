@@ -1,7 +1,7 @@
 
 import numpy as np
 import gym
-from gym_minigrid.wrappers import FullyObsWrapper, RGBImgObsWrapper
+from gym_minigrid.wrappers import FullyObsWrapper, RGBImgObsWrapper, ReseedWraper
 from gym import Wrapper
 from gym.wrappers.time_limit import TimeLimit
 from collections import namedtuple
@@ -129,7 +129,7 @@ def infill_info(info, sometimes_info):
 def make(*args, info_example=None, minigrid=False, **kwargs):
     if minigrid:
         # return GymEnvWrapper(FullyObsWrapper(gym.make(*args, **kwargs)))  # compact
-        return GymEnvWrapper(RGBImgObsWrapper(gym.make(*args, **kwargs)))  # full RGB
+        return GymEnvWrapper(RGBImgObsWrapper(ReseedWrapper(gym.make(*args, **kwargs))))  # full RGB
     elif info_example is None:
         return GymEnvWrapper(gym.make(*args, **kwargs))
     else:
