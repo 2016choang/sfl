@@ -30,7 +30,7 @@ def build_and_train(env_id="MiniGrid-FourRooms-v0", run_ID=0, cuda_idx=None):
         eval_max_steps=int(10e3),
         eval_max_trajectories=5,
     )
-    algo = DSR(min_steps_learn=int(1e3), learning_rate=2e-3)  # Run with defaults.
+    algo = DSR(min_steps_learn=int(1e3))  # Run with defaults.
     agent = GridDsrAgent()
     runner = MinibatchRlEval(
         algo=algo,
@@ -43,7 +43,7 @@ def build_and_train(env_id="MiniGrid-FourRooms-v0", run_ID=0, cuda_idx=None):
     config = dict(env_id=env_id)
     name = "dsr_" + env_id
     log_dir = "minigrid_test"
-    with logger_context(log_dir, run_ID, name, config, tensorboard=True):
+    with logger_context(log_dir, run_ID, name, config, snapshot_mode='gap', tensorboard=True):
         runner.train()
 
 

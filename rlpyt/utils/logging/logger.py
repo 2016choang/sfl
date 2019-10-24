@@ -35,7 +35,7 @@ _tabular_header_written = set()
 
 _snapshot_dir = None
 _snapshot_mode = 'all'
-_snapshot_gap = 1
+_snapshot_gap = 10
 
 _log_tabular_only = False
 _header_printed = False
