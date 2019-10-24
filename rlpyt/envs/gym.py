@@ -1,7 +1,7 @@
 
 import numpy as np
 import gym
-from gym_minigrid.wrappers import FullyObsWrapper, RGBImgObsWrapper, ReseedWraper
+from gym_minigrid.wrappers import FullyObsWrapper, RGBImgObsWrapper, ReseedWrapper
 from gym import Wrapper
 from gym.wrappers.time_limit import TimeLimit
 from collections import namedtuple
