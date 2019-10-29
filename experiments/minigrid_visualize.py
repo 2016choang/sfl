@@ -44,8 +44,7 @@ def visualize(checkpoint, output, cuda_idx=None):
         # calculate successor reprsentation for each position
         if pos not in SR:
             with torch.no_grad():
-                # features = model(observation.to(device))
-                features = model(observation)
+                features = model(observation.to(device))
 
             dsr = model(features, mode='dsr').mean(dim=1).squeeze(0)
             SR[pos] = dsr
