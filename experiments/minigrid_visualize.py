@@ -74,4 +74,4 @@ if __name__ == "__main__":
     parser.add_argument('--output', help='output location')
     parser.add_argument('--cuda_idx', help='gpu to use ', type=int, default=None)
     args = parser.parse_args()
-    visualize(checkpoint=args.input, output=args.out, cuda_idx=args.cuda_idx)
+    visualize(checkpoint=args.input, output=args.output, cuda_idx=args.cuda_idx)
