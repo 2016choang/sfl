@@ -11,11 +11,14 @@ from rlpyt.models.dqn.grid_dsr_model import GridDsrModel
 ENV_ID = 'MiniGrid-FourRooms-v0'
 
 
-def visualize(checkpoint, cuda_idx):
-    # device = torch.device('cuda', index=cuda_idx)
+def visualize(checkpoint, output, cuda_idx=None):
+    if cuda_idx is not None:
+        device = torch.device('cuda', index=cuda_idx)
+    else:
+        device = torch.device('cpu')
 
     # load in checkpoint into agent
-    params = torch.load(checkpoint, map_location=torch.device('cpu'))
+    params = torch.load(checkpoint, map_location=device)
 
     
     # sample all possible agent positions within environment
@@ -23,12 +26,13 @@ def visualize(checkpoint, cuda_idx):
     observation = env.reset()
 
     starting_pos = tuple(env.unwrapped.agent_pos)
+    print(starting_pos)
 
     SR = {}
 
     model = GridDsrModel(env.observation_space.shape, env.action_space.n)
     model.load_state_dict(params['agent_state_dict']['model'])
-    # model.to(device)
+    model.to(device)
 
     unique_states = 0
     step = 0
@@ -44,11 +48,9 @@ def visualize(checkpoint, cuda_idx):
                 features = model(observation)
 
             dsr = model(features, mode='dsr').mean(dim=1).squeeze(0)
-            print(model(features, mode='dsr').std())
             SR[pos] = dsr
             unique_states += 1
-            print(unique_states)
-            if unique_states == 250:
+            if unique_states == 210:
                 break
 
         if (step + 1) % 1000 == 0:
@@ -58,7 +60,7 @@ def visualize(checkpoint, cuda_idx):
 
     env.close()
 
-    with open('successor.pkl', 'wb') as handle:
+    with open(output, 'wb') as handle:
         pickle.dump(SR, handle)
 
     # calculate L2 norm between SR of beginning state and other position
@@ -68,7 +70,8 @@ def visualize(checkpoint, cuda_idx):
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--file', help='checkpoint file')
+    parser.add_argument('--input', help='checkpoint file')
+    parser.add_argument('--output', help='output location')
     parser.add_argument('--cuda_idx', help='gpu to use ', type=int, default=None)
     args = parser.parse_args()
-    visualize(checkpoint=args.file, cuda_idx=args.cuda_idx)
+    visualize(checkpoint=args.input, out=args.out, cuda_idx=args.cuda_idx)
