@@ -7,9 +7,11 @@ from collections import namedtuple
 from rlpyt.algos.base import RlAlgorithm
 from rlpyt.utils.quick_args import save__init__args
 from rlpyt.utils.logging import logger
-from rlpyt.replays.non_sequence.frame import (UniformReplayFrameBuffer,
-    PrioritizedReplayFrameBuffer, AsyncUniformReplayFrameBuffer,
-    AsyncPrioritizedReplayFrameBuffer)
+# from rlpyt.replays.non_sequence.frame import (UniformReplayFrameBuffer,
+#     PrioritizedReplayFrameBuffer, AsyncUniformReplayFrameBuffer,
+#     AsyncPrioritizedReplayFrameBuffer)
+from rlpyt.replays.non_sequence.uniform import (UniformReplayBuffer,
+    AsyncUniformReplayBuffer)
 from rlpyt.utils.collections import namedarraytuple
 from rlpyt.utils.misc import param_norm_
 from rlpyt.utils.tensor import select_at_indexes, valid_mean
@@ -131,8 +133,10 @@ class DSR(RlAlgorithm):
         #     ReplayCls = (AsyncPrioritizedReplayFrameBuffer if async_ else
         #         PrioritizedReplayFrameBuffer)
         # else:
-        ReplayCls = (AsyncUniformReplayFrameBuffer if async_ else
-            UniformReplayFrameBuffer)
+        # ReplayCls = (AsyncUniformReplayFrameBuffer if async_ else
+        #     UniformReplayFrameBuffer)
+        ReplayCls = (AsyncUniformReplayBuffer if async_ else
+            UniformReplayBuffer)
         self.replay_buffer = ReplayCls(**replay_kwargs)
 
         self.l2_loss = nn.MSELoss()
