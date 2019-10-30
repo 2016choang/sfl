@@ -47,8 +47,12 @@ def visualize(checkpoint, output, cuda_idx=None):
                 features = model(observation.to(device))
 
             dsr = model(features, mode='dsr').mean(dim=1).squeeze(0)
-            SR[pos] = dsr
+            SR[pos] = dsr.to(torch.device('cpu'))
             unique_states += 1
+
+            if unique_states % 10 == 0:
+                print('Reached {} unique states'.format(unique_states))
+
             if unique_states == 210:
                 break
         
