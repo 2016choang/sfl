@@ -35,7 +35,7 @@ _tabular_header_written = set()
 
 _snapshot_dir = None
 _snapshot_mode = 'all'
-_snapshot_gap = 5000
+_snapshot_gap = None
 
 _log_tabular_only = False
 _header_printed = False
@@ -121,6 +121,10 @@ def set_snapshot_dir(dir_name):
     os.system("mkdir -p %s" % dir_name)
     global _snapshot_dir
     _snapshot_dir = dir_name
+
+def set_snapshot_gap(gap):
+    global _snapshot_gap
+    _snapshot_gap = gap
 
 
 def get_snapshot_dir():
@@ -325,7 +329,7 @@ def save_itr_params(itr, params):
             # override previous params
             file_name = osp.join(get_snapshot_dir(), 'params.pkl')
         elif _snapshot_mode == "gap":
-            if itr == 0 or (itr + 1) % _snapshot_gap == 0:
+            if itr == 0 or (itr + 1) % get_snapshot_gap() == 0:
                 file_name = osp.join(get_snapshot_dir(), 'itr_%d.pkl' % itr)
             else:
                 return
@@ -446,7 +450,9 @@ def record_tabular_misc_stat(key, values, itr=None, placement='back'):
         record_tabular(prefix + "Min" + suffix, np.min(values))
         record_tabular(prefix + "Max" + suffix, np.max(values))
         if itr is not None and _tf_summary_writer is not None:
-            _tf_summary_writer.add_scalar(prefix, np.average(values), itr)
+            _tf_summary_writer.add_scalar(prefix + "Average", np.average(values), itr)
+            for i, val in enumerate(values):
+                _tf_summary_writer.add_scalar(prefix, val, itr + i)
     else:
         record_tabular(prefix + "Average" + suffix, np.nan)
         record_tabular(prefix + "Std" + suffix, np.nan)

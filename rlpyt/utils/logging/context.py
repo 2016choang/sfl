@@ -18,8 +18,9 @@ def get_log_dir(experiment_name):
 
 
 @contextmanager
-def logger_context(log_dir, run_ID, name, log_params=None, snapshot_mode="none", tensorboard=False):
+def logger_context(log_dir, run_ID, name, log_params=None, snapshot_mode="none", snapshot_gap=None, tensorboard=False):
     logger.set_snapshot_mode(snapshot_mode)
+    logger.set_snapshot_gap(snapshot_gap)
     logger.set_log_tabular_only(False)
     log_dir = osp.join(log_dir, f"run_{run_ID}")
     exp_dir = osp.abspath(log_dir)
