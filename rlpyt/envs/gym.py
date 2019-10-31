@@ -1,4 +1,6 @@
 
+from skimage.transform import resize
+from skimage.util import img_as_ubyte
 import numpy as np
 import gym
 from gym_minigrid.wrappers import FullyObsWrapper, RGBImgObsWrapper, ReseedWrapper
@@ -14,7 +16,7 @@ from rlpyt.utils.collections import is_namedtuple_class
 class GymEnvWrapper(Wrapper):
 
     def __init__(self, env,
-            act_null_value=0, obs_null_value=0, force_float32=True):
+            act_null_value=0, obs_null_value=0, force_float32=True, update_obs_func=None):
         super().__init__(env)
         o = self.env.reset()
         o, r, d, info = self.env.step(self.env.action_space.sample())
@@ -39,6 +41,7 @@ class GymEnvWrapper(Wrapper):
             force_float32=force_float32,
         )
         build_info_tuples(info)
+        self.update_obs_func = update_obs_func
 
     def step(self, action):
         a = self.action_space.revert(action)
@@ -50,10 +53,12 @@ class GymEnvWrapper(Wrapper):
             else:
                 info["timeout"] = False
         info = info_to_nt(info)
+        obs = self.update_obs_func(obs)
         return EnvStep(obs, r, d, info)
 
     def reset(self):
-        return self.observation_space.convert(self.env.reset())
+        obs = self.observation_space.convert(self.env.reset())
+        return self.update_obs_func(obs)
 
     @property
     def spaces(self):
@@ -126,10 +131,17 @@ def infill_info(info, sometimes_info):
     return info
 
 
+def update_obs_minigrid(obs):
+    H, W = 84, 84
+    resized_obs = resize(obs, (H, W), anti_aliasing=True)
+    return img_as_ubyte(resized_obs)
+
+
 def make(*args, info_example=None, minigrid=False, **kwargs):
     if minigrid:
         # return GymEnvWrapper(FullyObsWrapper(gym.make(*args, **kwargs)))  # compact
-        return GymEnvWrapper(RGBImgObsWrapper(ReseedWrapper(gym.make(*args, **kwargs))))  # full RGB
+        return GymEnvWrapper(RGBImgObsWrapper(ReseedWrapper(gym.make(*args, **kwargs))),
+                             update_obs_func=update_obs_minigrid)  # full RGB
     elif info_example is None:
         return GymEnvWrapper(gym.make(*args, **kwargs))
     else:

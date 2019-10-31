@@ -20,30 +20,22 @@ class GridDsrModel(torch.nn.Module):
         h, w, c = image_shape
 
         self.encoder = nn.Sequential(
-            nn.Conv2d(c, 16, (3, 3), padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d((2, 2)),
-            nn.Conv2d(16, 32, (3, 3), padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d((2, 2)),
-            nn.Conv2d(32, 64, (3, 3), padding=1),
-            nn.MaxPool2d((2, 2)),
-            nn.ReLU(),
-            nn.Conv2d(64, 64, (4, 4)),
-            nn.MaxPool2d((2, 2)),
-            nn.ReLU()
+            nn.Conv2d(c, 4, (4, 4), padding=2, stride=4), # 22 x 22 x 4
+            nn.LeakyReLU(),
+            nn.Conv2d(4, 4, (4, 4), stride=3), # 7 x 7 x 4
+            nn.LeakyReLU(),
+            nn.Conv2d(4, 4, (4, 4)) 
         )
 
-        self.image_embedding_size = (((h // 8) - 3) // 2) * (((w // 8) - 3) // 2) * 64
+        # Want feature encoding of 64 (4 * 4 * 4)
+        self.image_embedding_size = 64
 
         self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(64, 64, kernel_size=4, stride=2),
-            nn.ReLU(),
-            nn.ConvTranspose2d(64, 32, kernel_size=3, stride=2),
-            nn.ReLU(),
-            nn.ConvTranspose2d(32, 16, kernel_size=4, stride=2),
-            nn.ReLU(),
-            nn.ConvTranspose2d(16, c, kernel_size=2, stride=2)
+            nn.ConvTranspose2d(4, 4, kernel_size=4), # 7 x 7 x 4
+            nn.LeakyReLU(),
+            nn.ConvTranspose2d(4, 4, kernel_size=4, stride=3), # 22 x 22 x 4
+            nn.LeakyReLU(),
+            nn.ConvTranspose2d(4, c, padding=2, kernel_size=4, stride=4), # 84 x 84 x 3
         )
 
         self.dsr = MlpModel(self.image_embedding_size, fc_sizes,

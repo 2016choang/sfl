@@ -139,8 +139,6 @@ class DSR(RlAlgorithm):
             UniformReplayBuffer)
         self.replay_buffer = ReplayCls(**replay_kwargs)
 
-        self.l2_loss = nn.MSELoss()
-
     def optimize_agent(self, itr, samples=None, sampler_itr=None):
         itr = itr if sampler_itr is None else sampler_itr  # Async uses sampler_itr.
         if samples is not None:
@@ -194,7 +192,8 @@ class DSR(RlAlgorithm):
         reconstructed = self.agent.reconstruct(samples.agent_inputs.observation)
         target = samples.agent_inputs.observation.type(torch.float)
         # target = (target - target.mean(dim=[0, 1, 2])) / target.std(dim=[0, 1, 2])
-        loss = self.l2_loss(target, reconstructed)
+        # loss = self.l2_loss(target, reconstructed)
+        loss = torch.sum(torch.mean(((target - reconstructed) ** 2), dim=[0, 1, 2]))
         return loss
 
     def dsr_loss(self, samples):
