@@ -4,7 +4,7 @@ Runs one instance of the environment and optimizes using the Soft Actor
 Critic algorithm. Can use a GPU for the agent (applies to both sample and
 train). No parallelism employed, everything happens in one python process; can
 be easier to debug.
-å
+
 Requires OpenAI gym (and maybe mujoco).  If not installed, move on to next
 example.
 

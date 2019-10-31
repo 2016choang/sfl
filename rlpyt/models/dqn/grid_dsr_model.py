@@ -17,23 +17,23 @@ class GridDsrModel(torch.nn.Module):
         super().__init__()
         self.output_size = output_size
 
-        h, w, c = image_shape
+        h, w, c = image_shape  # 84 x 84 x 3
 
         self.encoder = nn.Sequential(
             nn.Conv2d(c, 4, (4, 4), padding=2, stride=4), # 22 x 22 x 4
             nn.LeakyReLU(),
-            nn.Conv2d(4, 4, (4, 4), stride=3), # 7 x 7 x 4
+            nn.Conv2d(4, 8, (4, 4), stride=3), # 7 x 7 x 8
             nn.LeakyReLU(),
-            nn.Conv2d(4, 4, (4, 4)) 
+            nn.Conv2d(8, 8, (4, 4)) 
         )
 
-        # Want feature encoding of 64 (4 * 4 * 4)
-        self.image_embedding_size = 64
+        # Want feature encoding of 64 (4 * 4 * 8)
+        self.image_embedding_size = 128
 
         self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(4, 4, kernel_size=4), # 7 x 7 x 4
+            nn.ConvTranspose2d(8, 8, kernel_size=4), # 7 x 7 x 8
             nn.LeakyReLU(),
-            nn.ConvTranspose2d(4, 4, kernel_size=4, stride=3), # 22 x 22 x 4
+            nn.ConvTranspose2d(8, 4, kernel_size=4, stride=3), # 22 x 22 x 4
             nn.LeakyReLU(),
             nn.ConvTranspose2d(4, c, padding=2, kernel_size=4, stride=4), # 84 x 84 x 3
         )
