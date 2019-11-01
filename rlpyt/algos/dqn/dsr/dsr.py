@@ -66,6 +66,8 @@ class DSR(RlAlgorithm):
         save__init__args(locals())
         self.update_counter = 0
 
+        self.l2_loss = nn.MSELoss()
+
     def initialize(self, agent, n_itr, batch_spec, mid_batch_reset, examples,
             world_size=1, rank=0):
         """Used in basic or synchronous multi-GPU runners, not async."""
@@ -192,7 +194,8 @@ class DSR(RlAlgorithm):
         reconstructed = self.agent.reconstruct(samples.agent_inputs.observation)
         target = samples.agent_inputs.observation.type(torch.float)
         # target = (target - target.mean(dim=[0, 1, 2])) / target.std(dim=[0, 1, 2])
-        loss = torch.sum(torch.mean(((target - reconstructed) ** 2), dim=[0, 1, 2]))
+        # loss = torch.sum(torch.mean(((target - reconstructed) ** 2), dim=[0, 1, 2]))
+        loss = self.l2_loss(target, reconstructed)
         return loss
 
     def dsr_loss(self, samples):

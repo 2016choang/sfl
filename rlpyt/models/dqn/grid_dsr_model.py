@@ -24,7 +24,7 @@ class GridDsrModel(torch.nn.Module):
             nn.LeakyReLU(),
             nn.Conv2d(4, 8, (4, 4), stride=3), # 7 x 7 x 8
             nn.LeakyReLU(),
-            nn.Conv2d(8, 8, (4, 4)) 
+            nn.Conv2d(8, 8, (4, 4))  # 4 x 4 x 8
         )
 
         # Want feature encoding of 64 (4 * 4 * 8)
