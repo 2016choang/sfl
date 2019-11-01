@@ -54,7 +54,7 @@ class GridDsrModel(torch.nn.Module):
             features = x.view(T * B, -1)
 
             if mode == 'reconstruct':
-                x = x.view(T * B, 4, 4, 8)
+                x = x.view(T * B, 8, 4, 4)
                 reconstructed = self.decoder(x).permute(0, 2, 3, 1)
                 reconstructed = restore_leading_dims(reconstructed, lead_dim, T, B)
                 return reconstructed
