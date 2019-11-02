@@ -166,12 +166,12 @@ class DSR(RlAlgorithm):
             opt_info.reParamNorm.append(param_norm)
             opt_info.reParamRatio.append(grad_norm / param_norm)
 
-            if i == 0:
-                summary_writer = logger.get_tf_summary_writer()
-                # Debugging layer parameter gradients
-                for name, param in self.agent.model.named_parameters():
-                    if param.requires_grad and param.grad is not None:
-                        summary_writer.add_histogram(name + 'Grad', param.grad.flatten(), itr)
+            # if i == 0:
+            #     summary_writer = logger.get_tf_summary_writer()
+            #     # Debugging layer parameter gradients
+            #     for name, param in self.agent.model.named_parameters():
+            #         if param.requires_grad and param.grad is not None:
+            #             summary_writer.add_histogram(name + 'Grad', param.grad.flatten(), itr)
 
             self.optimizer.zero_grad()
             loss, td_abs_errors = self.dsr_loss(samples_from_replay)
