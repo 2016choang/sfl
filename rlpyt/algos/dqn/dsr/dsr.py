@@ -13,6 +13,7 @@ from rlpyt.utils.logging import logger
 from rlpyt.replays.non_sequence.uniform import (UniformReplayBuffer,
     AsyncUniformReplayBuffer)
 from rlpyt.utils.collections import namedarraytuple
+from rlpyt.utils.logging import logger
 from rlpyt.utils.misc import param_norm_
 from rlpyt.utils.tensor import select_at_indexes, valid_mean
 from rlpyt.algos.utils import valid_from_done
@@ -150,7 +151,7 @@ class DSR(RlAlgorithm):
         if itr < self.min_itr_learn:
             return opt_info
 
-        for _ in range(self.updates_per_optimize):
+        for i in range(self.updates_per_optimize):
             samples_from_replay = self.replay_buffer.sample_batch(self.batch_size)
             self.optimizer.zero_grad()
             loss = self.reconstruct_loss(samples_from_replay)
@@ -164,6 +165,13 @@ class DSR(RlAlgorithm):
             opt_info.reGradNorm.append(grad_norm)
             opt_info.reParamNorm.append(param_norm)
             opt_info.reParamRatio.append(grad_norm / param_norm)
+
+            if i == 0:
+                summary_writer = logger.get_tf_summary_writer()
+                # Debugging layer parameter gradients
+                for name, param in self.agent.model.named_parameters():
+                    if param.requires_grad and param.grad is not None:
+                        summary_writer.add_histogram(name + 'Grad', param.grad.flatten(), itr)
 
             self.optimizer.zero_grad()
             loss, td_abs_errors = self.dsr_loss(samples_from_replay)

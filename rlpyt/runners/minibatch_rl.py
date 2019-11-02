@@ -242,11 +242,11 @@ class MinibatchRlEval(MinibatchRlBase):
                     eval_traj_infos, eval_time = self.evaluate_agent(itr)
                     self.log_diagnostics(itr, eval_traj_infos, eval_time)
 
-                    # summary_writer = logger.get_tf_summary_writer()
-                    # # Debugging layer parameters
-                    # for name, param in self.agent.model.named_parameters():
-                    #     if param.requires_grad:
-                    #         summary_writer.add_histogram(name, param.flatten(), itr)
+                    summary_writer = logger.get_tf_summary_writer()
+                    # Debugging layer parameters
+                    for name, param in self.agent.model.named_parameters():
+                        if param.requires_grad:
+                            summary_writer.add_histogram(name, param.flatten(), itr)
 
 
         self.shutdown()
