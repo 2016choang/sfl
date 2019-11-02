@@ -41,6 +41,7 @@ class DSR(RlAlgorithm):
             learning_rate=2.5e-4,
             OptimCls=torch.optim.Adam,
             optim_kwargs=None,
+            lr_schedule_config=None,
             initial_optim_state_dict=None,
             clip_grad_norm=10.,
             # eps_init=1,  # NOW IN AGENT.
@@ -108,6 +109,17 @@ class DSR(RlAlgorithm):
         self.rank = rank
         self.optimizer = self.OptimCls(self.agent.parameters(),
             lr=self.learning_rate, **self.optim_kwargs)
+        self.scheduler = None
+        if self.lr_schedule_config is not None:
+            schedule_mode = self.lr_schedule_config.get('mode')
+            if schedule_mode == 'milestone':
+                milestones = self.lr_schedule_config.get('milestones')
+                self.scheduler = torch.optim.lr_scheduler.MultiStepLR(self.optimizer,
+                                                                      milestones)
+            elif schedule_mode == 'step':
+                step_size = self.lr_schedule_config.get('step_size')
+                self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer,
+                                                                 step_size)
         if self.initial_optim_state_dict is not None:
             self.optimizer.load_state_dict(self.initial_optim_state_dict)
         # if self.prioritized_replay:
@@ -147,6 +159,8 @@ class DSR(RlAlgorithm):
         if samples is not None:
             samples_to_buffer = self.samples_to_buffer(samples)
             self.replay_buffer.append_samples(samples_to_buffer)
+        if self.scheduler is not None:
+            self.scheduler.step()
         opt_info = OptInfo(*([] for _ in range(len(OptInfo._fields))))
         if itr < self.min_itr_learn:
             return opt_info
