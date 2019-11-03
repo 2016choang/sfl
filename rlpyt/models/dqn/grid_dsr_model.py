@@ -91,31 +91,31 @@ class GridDsrModel(torch.nn.Module):
         self.image_embedding_size = 256
 
         self.encoder = nn.Sequential(
-            nn.Conv2d(c, 4, (4, 4), stride=2), # 75 x 75 x 4
+            nn.Conv2d(c, 6, (4, 4), stride=2), # 75 x 75 x 6
             nn.LeakyReLU(),
-            nn.Conv2d(4, 8, (3, 3), stride=2), # 37 x 37 x 8
+            nn.Conv2d(6, 8, (3, 3), stride=2), # 37 x 37 x 8
             nn.LeakyReLU(),
-            nn.Conv2d(8, 8, (3, 3), stride=2), # 18 x 18 x 8
+            nn.Conv2d(8, 16, (3, 3), stride=2), # 18 x 18 x 16
             nn.LeakyReLU(),
-            nn.Conv2d(8, 8, (4, 4), stride=2), # 8 x 8 x 8
+            nn.Conv2d(16, 16, (4, 4), stride=2), # 8 x 8 x 16
             nn.LeakyReLU(),
-            nn.Flatten(),  # 512
-            nn.Linear(512, self.image_embedding_size)  # 256
+            nn.Flatten(),  # 1024
+            nn.Linear(1024, self.image_embedding_size)  # 256
         )
 
         self.fc_deconv = nn.Sequential(
-            nn.Linear(self.image_embedding_size, 512),
+            nn.Linear(self.image_embedding_size, 1024),
             nn.LeakyReLU()
         )
 
         self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(8, 8, kernel_size=4, stride=2), # 18 x 18 x 8
+            nn.ConvTranspose2d(16, 16, kernel_size=4, stride=2), # 18 x 18 x 16
             nn.LeakyReLU(),
-            nn.ConvTranspose2d(8, 8, kernel_size=3, stride=2), # 37 x 37 x 8
+            nn.ConvTranspose2d(16, 8, kernel_size=3, stride=2), # 37 x 37 x 8
             nn.LeakyReLU(),
-            nn.ConvTranspose2d(8, 4, kernel_size=3, stride=2), # 75 x 75 x 4
+            nn.ConvTranspose2d(8, 6, kernel_size=3, stride=2), # 75 x 75 x 6
             nn.LeakyReLU(),
-            nn.ConvTranspose2d(4, c, kernel_size=4, stride=2), # 152 x 152 x 3
+            nn.ConvTranspose2d(6, c, kernel_size=4, stride=2), # 152 x 152 x 3
         )
 
         self.dsr = MlpModel(self.image_embedding_size, fc_sizes,
@@ -133,7 +133,7 @@ class GridDsrModel(torch.nn.Module):
 
             if mode == 'reconstruct':
                 x = self.fc_deconv(features)
-                x = x.view(T * B, 8, 8, 8)
+                x = x.view(T * B, 16, 8, 8)
                 reconstructed = self.decoder(x).permute(0, 2, 3, 1)
                 reconstructed = restore_leading_dims(reconstructed, lead_dim, T, B)
                 return reconstructed
