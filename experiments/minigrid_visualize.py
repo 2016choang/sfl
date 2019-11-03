@@ -7,12 +7,15 @@ import torch
 
 from rlpyt.envs.gym import GymEnvWrapper, update_obs_minigrid
 from rlpyt.models.dqn.grid_dsr_model import GridDsrModel
+from rlpyt.utils.seed import set_seed
 
 
 ENV_ID = 'MiniGrid-FourRooms-v0'
 
 
-def visualize(checkpoint, output, cuda_idx=None):
+def visualize(checkpoint, output, cuda_idx=None, seed=333):
+    set_seed(seed)
+
     if cuda_idx is not None:
         device = torch.device('cuda', index=cuda_idx)
     else:
@@ -78,5 +81,9 @@ if __name__ == "__main__":
     parser.add_argument('--input', help='checkpoint file')
     parser.add_argument('--output', help='output location')
     parser.add_argument('--cuda_idx', help='gpu to use ', type=int, default=None)
+    parser.add_argument('--seed', help='seed', type=int, default=333)
     args = parser.parse_args()
-    visualize(checkpoint=args.input, output=args.output, cuda_idx=args.cuda_idx)
+    visualize(checkpoint=args.input,
+              output=args.output, 
+              cuda_idx=args.cuda_idx,
+              seed=args.seed)

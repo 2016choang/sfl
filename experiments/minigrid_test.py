@@ -18,7 +18,7 @@ from rlpyt.runners.minibatch_rl import MinibatchRlEval
 from rlpyt.utils.logging.context import logger_context
 
 
-def build_and_train(env_id="MiniGrid-FourRooms-v0", run_ID=0, cuda_idx=None, snapshot_gap=5000):
+def build_and_train(env_id="MiniGrid-FourRooms-v0", run_ID=0, cuda_idx=None, snapshot_gap=5000, seed=333):
     sampler = SerialSampler(
         EnvCls=gym_make,
         env_kwargs=dict(id=env_id, minigrid=True),
@@ -45,7 +45,7 @@ def build_and_train(env_id="MiniGrid-FourRooms-v0", run_ID=0, cuda_idx=None, sna
         n_steps=4e4,
         log_interval_steps=1e3,
         affinity=dict(cuda_idx=cuda_idx),
-        seed=333
+        seed=seed
     )
     config = dict(env_id=env_id)
     name = "dsr_" + env_id
@@ -61,10 +61,12 @@ if __name__ == "__main__":
     parser.add_argument('--run_ID', help='run identifier (logging)', type=int, default=0)
     parser.add_argument('--cuda_idx', help='gpu to use ', type=int, default=None)
     parser.add_argument('--snapshot_gap', help='iterations between snapshots ', type=int, default=20000)
+    parser.add_argument('--seed', help='seed', type=int, default=333)
     args = parser.parse_args()
     build_and_train(
         env_id=args.env_id,
         run_ID=args.run_ID,
         cuda_idx=args.cuda_idx,
-        snapshot_gap=args.snapshot_gap
+        snapshot_gap=args.snapshot_gap,
+        seed=args.seed
     )
