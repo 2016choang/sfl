@@ -107,23 +107,38 @@ class DSR(RlAlgorithm):
     def optim_initialize(self, rank=0):
         """Called by async runner."""
         self.rank = rank
-        self.optimizer = self.OptimCls(self.agent.parameters(),
+        self.re_optimizer = self.OptimCls(self.agent.re_parameters(),
+            lr=self.learning_rate, **self.optim_kwargs)
+        self.dsr_optimizer = self.OptimCls(self.agent.dsr_parameters(),
             lr=self.learning_rate, **self.optim_kwargs)
         self.scheduler = None
         if self.lr_schedule_config is not None:
             schedule_mode = self.lr_schedule_config.get('mode')
             if schedule_mode == 'milestone':
                 milestones = self.lr_schedule_config.get('milestones')
-                self.scheduler = torch.optim.lr_scheduler.MultiStepLR(self.optimizer,
+                self.scheduler = torch.optim.lr_scheduler.MultiStepLR(self.re_optimizer,
                                                                       milestones)
             elif schedule_mode == 'step':
                 step_size = self.lr_schedule_config.get('step_size')
-                self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer,
+                self.scheduler = torch.optim.lr_scheduler.StepLR(self.re_optimizer,
                                                                  step_size)
+            elif schedule_mode == 'plateau':
+                patience = self.lr_schedule_config.get('patience', 10)
+                threshold = self.lr_schedule_config.get('threshold', 1e-4)
+                self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.re_optimizer,
+                                                                            patience=patience,
+                                                                            threshold=threshold,
+                                                                            verbose=True)                       
         if self.initial_optim_state_dict is not None:
-            self.optimizer.load_state_dict(self.initial_optim_state_dict)
+            self.re_optimizer.load_state_dict(self.initial_optim_state_dict['re_optim'])
+            self.dsr_optimizer.load_state_dict(self.initial_optim_state_dict['dsr_optim'])
         # if self.prioritized_replay:
         #     self.pri_beta_itr = max(1, self.pri_beta_steps // self.sampler_bs)
+
+    def optim_state_dict(self):
+        """If carrying multiple optimizers, overwrite to return dict state_dicts."""
+        return {'re_optim': self.re_optimizer.state_dict(),
+                'dsr_optim': self.dsr_optimizer.state_dict()}
 
     def initialize_replay_buffer(self, examples, batch_spec, async_=False):
         example_to_buffer = SamplesToBuffer(
@@ -159,23 +174,25 @@ class DSR(RlAlgorithm):
         if samples is not None:
             samples_to_buffer = self.samples_to_buffer(samples)
             self.replay_buffer.append_samples(samples_to_buffer)
-        if self.scheduler is not None:
-            self.scheduler.step()
+        # if self.scheduler is not None:
+        #     self.scheduler.step()
         opt_info = OptInfo(*([] for _ in range(len(OptInfo._fields))))
         if itr < self.min_itr_learn:
             return opt_info
 
         for i in range(self.updates_per_optimize):
             samples_from_replay = self.replay_buffer.sample_batch(self.batch_size)
-            self.optimizer.zero_grad()
-            loss = self.reconstruct_loss(samples_from_replay)
-            loss.backward()
+            self.re_optimizer.zero_grad()
+            re_loss = self.reconstruct_loss(samples_from_replay)
+            re_loss.backward()
 
             grad_norm = torch.nn.utils.clip_grad_norm_(
                 self.agent.parameters(), self.clip_grad_norm)
             param_norm = param_norm_(self.agent.parameters())
-            self.optimizer.step()
-            opt_info.reLoss.append(loss.item())
+            self.re_optimizer.step()
+            self.scheduler.step(re_loss)
+
+            opt_info.reLoss.append(re_loss.item())
             opt_info.reGradNorm.append(grad_norm)
             opt_info.reParamNorm.append(param_norm)
             opt_info.reParamRatio.append(grad_norm / param_norm)
@@ -187,15 +204,15 @@ class DSR(RlAlgorithm):
             #         if param.requires_grad and param.grad is not None:
             #             summary_writer.add_histogram(name + 'Grad', param.grad.flatten(), itr)
 
-            self.optimizer.zero_grad()
-            loss, td_abs_errors = self.dsr_loss(samples_from_replay)
-            loss.backward()
+            self.dsr_optimizer.zero_grad()
+            dsr_loss, td_abs_errors = self.dsr_loss(samples_from_replay)
+            dsr_loss.backward()
             grad_norm = torch.nn.utils.clip_grad_norm_(
                 self.agent.parameters(), self.clip_grad_norm)
-            self.optimizer.step()
+            self.dsr_optimizer.step()
             # if self.prioritized_replay:
             #     self.replay_buffer.update_batch_priorities(td_abs_errors)
-            opt_info.dsrLoss.append(loss.item())
+            opt_info.dsrLoss.append(dsr_loss.item())
             opt_info.dsrGradNorm.append(grad_norm)
             opt_info.tdAbsErr.extend(td_abs_errors[::8].numpy())  # Downsample.
             self.update_counter += 1
