@@ -140,8 +140,7 @@ def update_obs_minigrid(obs):
 def make(*args, info_example=None, minigrid=False, **kwargs):
     if minigrid:
         # return GymEnvWrapper(FullyObsWrapper(gym.make(*args, **kwargs)))  # compact
-        return GymEnvWrapper(RGBImgObsWrapper(ReseedWrapper(gym.make(*args, **kwargs))),
-                             update_obs_func=update_obs_minigrid)  # full RGB
+        return GymEnvWrapper(RGBImgObsWrapper(ReseedWrapper(gym.make(*args, **kwargs))))  # full RGB
     elif info_example is None:
         return GymEnvWrapper(gym.make(*args, **kwargs))
     else:

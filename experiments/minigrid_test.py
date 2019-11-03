@@ -32,7 +32,7 @@ def build_and_train(env_id="MiniGrid-FourRooms-v0", run_ID=0, cuda_idx=None, sna
     )
     lr_schedule_config={'mode': 'step',
                         'step_size': 20000}
-    algo = DSR(batch_size=64,
+    algo = DSR(batch_size=32,
                min_steps_learn=int(1e3),
                learning_rate=2e-3,
                replay_size=int(1e5)
@@ -42,9 +42,10 @@ def build_and_train(env_id="MiniGrid-FourRooms-v0", run_ID=0, cuda_idx=None, sna
         algo=algo,
         agent=agent,
         sampler=sampler,
-        n_steps=1e6,
+        n_steps=4e4,
         log_interval_steps=1e3,
         affinity=dict(cuda_idx=cuda_idx),
+        seed=333
     )
     config = dict(env_id=env_id)
     name = "dsr_" + env_id
@@ -59,7 +60,7 @@ if __name__ == "__main__":
     parser.add_argument('--env_id', help='environment ID', default='MiniGrid-FourRooms-v0')
     parser.add_argument('--run_ID', help='run identifier (logging)', type=int, default=0)
     parser.add_argument('--cuda_idx', help='gpu to use ', type=int, default=None)
-    parser.add_argument('--snapshot_gap', help='iterations between snapshots ', type=int, default=5000)
+    parser.add_argument('--snapshot_gap', help='iterations between snapshots ', type=int, default=20000)
     args = parser.parse_args()
     build_and_train(
         env_id=args.env_id,
