@@ -53,12 +53,15 @@ class GymEnvWrapper(Wrapper):
             else:
                 info["timeout"] = False
         info = info_to_nt(info)
-        obs = self.update_obs_func(obs)
+        if self.update_obs_func is not None:
+            obs = self.update_obs_func(obs)
         return EnvStep(obs, r, d, info)
 
     def reset(self):
         obs = self.observation_space.convert(self.env.reset())
-        return self.update_obs_func(obs)
+        if self.update_obs_func is not None:
+            obs = self.update_obs_func(obs)
+        return obs
 
     @property
     def spaces(self):
