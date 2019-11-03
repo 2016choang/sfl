@@ -174,8 +174,8 @@ class DSR(RlAlgorithm):
         if samples is not None:
             samples_to_buffer = self.samples_to_buffer(samples)
             self.replay_buffer.append_samples(samples_to_buffer)
-        # if self.scheduler is not None:
-        #     self.scheduler.step()
+        if self.scheduler is not None:
+            self.scheduler.step()
         opt_info = OptInfo(*([] for _ in range(len(OptInfo._fields))))
         if itr < self.min_itr_learn:
             return opt_info
@@ -190,7 +190,6 @@ class DSR(RlAlgorithm):
                 self.agent.parameters(), self.clip_grad_norm)
             param_norm = param_norm_(self.agent.parameters())
             self.re_optimizer.step()
-            self.scheduler.step(re_loss)
 
             opt_info.reLoss.append(re_loss.item())
             opt_info.reGradNorm.append(grad_norm)

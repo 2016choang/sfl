@@ -30,7 +30,8 @@ def build_and_train(env_id="MiniGrid-FourRooms-v0", run_ID=0, cuda_idx=None, sna
         eval_max_steps=int(10e3),
         eval_max_trajectories=5,
     )
-    lr_schedule_config={'mode': 'plateau'}
+    lr_schedule_config={'mode': 'milestone',
+                        'milestones': [10000, 30000]}
     algo = DSR(batch_size=32,
                min_steps_learn=int(1e3),
                learning_rate=2e-3,
