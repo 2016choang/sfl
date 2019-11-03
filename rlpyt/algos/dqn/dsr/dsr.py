@@ -116,8 +116,10 @@ class DSR(RlAlgorithm):
             schedule_mode = self.lr_schedule_config.get('mode')
             if schedule_mode == 'milestone':
                 milestones = self.lr_schedule_config.get('milestones')
+                gamma = self.lr_schedule_config.get('gamma', 0.5)
                 self.scheduler = torch.optim.lr_scheduler.MultiStepLR(self.re_optimizer,
-                                                                      milestones)
+                                                                      milestones,
+                                                                      gamma=gamma)
             elif schedule_mode == 'step':
                 step_size = self.lr_schedule_config.get('step_size')
                 self.scheduler = torch.optim.lr_scheduler.StepLR(self.re_optimizer,
