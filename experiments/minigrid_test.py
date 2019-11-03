@@ -30,11 +30,12 @@ def build_and_train(env_id="MiniGrid-FourRooms-v0", run_ID=0, cuda_idx=None, sna
         eval_max_steps=int(10e3),
         eval_max_trajectories=5,
     )
+    lr_schedule_config={'mode': 'step',
+                        'step_size': 20000}
     algo = DSR(min_steps_learn=int(1e3),
               learning_rate=2e-3,
-              replay_size=int(1e5),
-              lr_schedule_config={'mode': 'step',
-                                  'step_size': 20000})
+              replay_size=int(1e5)
+              )
     agent = GridDsrAgent()
     runner = MinibatchRlEval(
         algo=algo,

@@ -24,22 +24,22 @@ class GridDsrModel(torch.nn.Module):
 
         self.encoder = nn.Sequential(
             nn.Conv2d(c, 4, (4, 4), stride=2), # 41 x 41 x 4
-            nn.LeakyReLU(),
+            nn.ReLU(),
             nn.Conv2d(4, 4, (3, 3), stride=2), # 20 x 20 x 4
-            nn.LeakyReLU(),
+            nn.ReLU(),
             nn.Conv2d(4, 8, (4, 4), stride=2), # 9 x 9 x 8
-            nn.LeakyReLU(),
+            nn.ReLU(),
             nn.Flatten(),  # 648
             nn.Linear(648, self.image_embedding_size)  # 256
         )
 
         self.decoder = nn.Sequential(
             nn.ConvTranspose2d(16, 8, kernel_size=3, stride=2), # 9 x 9 x 8
-            nn.LeakyReLU(),
+            nn.ReLU(),
             nn.ConvTranspose2d(8, 4, kernel_size=4, stride=2), # 20 x 20 x 4
-            nn.LeakyReLU(),
+            nn.ReLU(),
             nn.ConvTranspose2d(4, 4, kernel_size=3, stride=2), # 41 x 41 x 4
-            nn.LeakyReLU(),
+            nn.ReLU(),
             nn.ConvTranspose2d(4, c, kernel_size=4, stride=2), # 84 x 84 x 3
         )
 
