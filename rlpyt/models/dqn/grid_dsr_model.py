@@ -29,19 +29,19 @@ class GridDsrModel(torch.nn.Module):
             nn.LeakyReLU(),
             nn.Conv2d(8, 16, (3, 3), stride=2), # 18 x 18 x 16
             nn.LeakyReLU(),
-            nn.Conv2d(16, 32, (4, 4), stride=2), # 8 x 8 x 32
+            nn.Conv2d(16, 16, (4, 4), stride=2), # 8 x 8 x 16
             nn.LeakyReLU(),
-            nn.Flatten(),  # 2048
-            nn.Linear(2048, self.image_embedding_size)  # 512
+            nn.Flatten(),  # 1024
+            nn.Linear(1024, self.image_embedding_size)  # 256
         )
 
         self.fc_deconv = nn.Sequential(
-            nn.Linear(self.image_embedding_size, 2048),
+            nn.Linear(self.image_embedding_size, 1024),
             nn.LeakyReLU()
         )
 
         self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(32, 16, kernel_size=4, stride=2), # 18 x 18 x 16
+            nn.ConvTranspose2d(16, 16, kernel_size=4, stride=2), # 18 x 18 x 16
             nn.LeakyReLU(),
             nn.ConvTranspose2d(16, 8, kernel_size=3, stride=2), # 37 x 37 x 8
             nn.LeakyReLU(),
