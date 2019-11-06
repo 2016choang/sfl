@@ -6,14 +6,14 @@ import numpy as np
 import torch
 
 from rlpyt.envs.gym import GymEnvWrapper, update_obs_minigrid
-from rlpyt.models.dqn.grid_dsr_model import GridDsrModel
+from rlpyt.models.dqn.grid_dsr_model import GridDsrModel, GridDsrSmallModel, GridDsrCompactModel
 from rlpyt.utils.seed import set_seed
 
 
 ENV_ID = 'MiniGrid-FourRooms-v0'
 
 
-def visualize(checkpoint, output, cuda_idx=None, seed=333):
+def visualize(checkpoint, output, cuda_idx=None, mode='full', seed=333):
     set_seed(seed)
 
     if cuda_idx is not None:
@@ -33,8 +33,12 @@ def visualize(checkpoint, output, cuda_idx=None, seed=333):
     print(starting_pos)
 
     SR = {}
-
-    model = GridDsrModel(env.observation_space.shape, env.action_space.n)
+    if mode == 'full':
+        model = GridDsrModel(env.observation_space.shape, env.action_space.n)
+    elif mode == 'small':
+        model = GridDsrSmallModel(env.observation_space.shape, env.action_space.n)
+    elif mode == 'compact':
+        model = GridDsrCompactModel(env.observation_space.shape, env.action_space.n)
     model.load_state_dict(params['agent_state_dict']['model'])
     model.to(device)
 
@@ -81,9 +85,11 @@ if __name__ == "__main__":
     parser.add_argument('--input', help='checkpoint file')
     parser.add_argument('--output', help='output location')
     parser.add_argument('--cuda_idx', help='gpu to use ', type=int, default=None)
+    parser.add_argument('--mode', help='full, small, compact', choices=['full', 'small', 'compact'])
     parser.add_argument('--seed', help='seed', type=int, default=333)
     args = parser.parse_args()
     visualize(checkpoint=args.input,
               output=args.output, 
               cuda_idx=args.cuda_idx,
+              mode=args.mode,
               seed=args.seed)
