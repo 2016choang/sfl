@@ -241,10 +241,10 @@ class DSR(RlAlgorithm):
     def reconstruct_loss(self, samples):
         reconstructed = self.agent.reconstruct(samples.agent_inputs.observation)
         target = samples.agent_inputs.observation.type(torch.float)
-        # target = (target - target.mean(dim=[0, 1, 2])) / target.std(dim=[0, 1, 2])
+        target = (target - target.mean(dim=[0, 1, 2])) / target.std(dim=[0, 1, 2])
         # loss = torch.sum(torch.mean(((target - reconstructed) ** 2), dim=[0, 1, 2]))
-        batch_mean = torch.mean(((target - reconstructed) ** 2), dim=[0])
-        loss = torch.mean(batch_mean)
+        batch_mean = torch.mean(((target - reconstructed) ** 2), dim=[0])  # 32 x H x W x 3 --> H x W x 3
+        loss = torch.mean(torch.mean(batch_mean, dim=[0, 1]) # scalar 
         # loss = self.l2_loss(target, reconstructed)
         return loss
 
