@@ -16,9 +16,12 @@ from rlpyt.algos.dqn.dsr.dsr import DSR
 from rlpyt.agents.dqn.grid_dsr.grid_dsr_agent import GridDsrAgent
 from rlpyt.runners.minibatch_rl import MinibatchRlEval
 from rlpyt.utils.logging.context import logger_context
+from rlpyt.utils.seed import set_seed
 
 
 def build_and_train(env_id="MiniGrid-FourRooms-v0", run_ID=0, cuda_idx=None, snapshot_gap=5000, seed=333):
+    set_seed(seed)
+
     sampler = SerialSampler(
         EnvCls=gym_make,
         env_kwargs=dict(id=env_id, minigrid=True),
