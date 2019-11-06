@@ -19,8 +19,8 @@ class GridDsrModel(torch.nn.Module):
 
         h, w, c = image_shape  # 152 x 152 x 3
 
-        # Want feature encoding of 512 (4 * 4 * 32)
-        self.image_embedding_size = 512
+        # Want feature encoding of 256 (4 * 4 * 16)
+        self.image_embedding_size = 256
 
         self.encoder = nn.Sequential(
             nn.Conv2d(c, 6, (4, 4), stride=2), # 75 x 75 x 6
@@ -65,7 +65,7 @@ class GridDsrModel(torch.nn.Module):
 
             if mode == 'reconstruct':
                 x = self.fc_deconv(features)
-                x = x.view(T * B, 32, 8, 8)
+                x = x.view(T * B, 16, 8, 8)
                 reconstructed = self.decoder(x).permute(0, 2, 3, 1)
                 reconstructed = restore_leading_dims(reconstructed, lead_dim, T, B)
                 return reconstructed
