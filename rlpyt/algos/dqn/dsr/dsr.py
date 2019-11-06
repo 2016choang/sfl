@@ -127,9 +127,11 @@ class DSR(RlAlgorithm):
             elif schedule_mode == 'plateau':
                 patience = self.lr_schedule_config.get('patience', 10)
                 threshold = self.lr_schedule_config.get('threshold', 1e-4)
+                factor = self.lr_schedule_config.get('gamma', 0.1)
                 self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.re_optimizer,
                                                                             patience=patience,
                                                                             threshold=threshold,
+                                                                            factor=factor,
                                                                             verbose=True)                       
         if self.initial_optim_state_dict is not None:
             self.re_optimizer.load_state_dict(self.initial_optim_state_dict['re_optim'])
@@ -176,8 +178,6 @@ class DSR(RlAlgorithm):
         if samples is not None:
             samples_to_buffer = self.samples_to_buffer(samples)
             self.replay_buffer.append_samples(samples_to_buffer)
-        if self.scheduler is not None:
-            self.scheduler.step()
         opt_info = OptInfo(*([] for _ in range(len(OptInfo._fields))))
         if itr < self.min_itr_learn:
             return opt_info
@@ -221,6 +221,14 @@ class DSR(RlAlgorithm):
                 self.agent.update_target()
         self.update_itr_hyperparams(itr)
         return opt_info
+
+    def update_scheduler(self, opt_infos):
+        schedule_mode = self.lr_schedule_config.get('mode')
+        if schedule_mode == 'milestone' or schedule_mode == 'step':
+            self.scheduler.step()
+        elif schedule_mode == 'plateau':
+            if opt_infos.get('reLoss'):
+                self.scheduler.step(np.average(opt_infos['reLoss']))
 
     def samples_to_buffer(self, samples):
         return SamplesToBuffer(

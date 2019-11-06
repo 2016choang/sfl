@@ -35,13 +35,13 @@ def build_and_train(env_id="MiniGrid-FourRooms-v0", run_ID=0, cuda_idx=None, mod
         eval_max_steps=int(10e3),
         eval_max_trajectories=5,
     )
-    lr_schedule_config={'mode': 'milestone',
-                        'milestones': [10000, 30000],
-                        'gamma': 0.5}
+    lr_schedule_config={'mode': 'plateau',
+                        'patience': 0}
     algo = DSR(batch_size=32,
                min_steps_learn=int(1e3),
                learning_rate=2e-3,
-               replay_size=int(1e5)
+               replay_size=int(1e5),
+               lr_schedule_config=lr_schedule_config
                )
     if mode == 'full':
         agent = GridDsrAgent()

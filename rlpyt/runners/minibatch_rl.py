@@ -241,6 +241,7 @@ class MinibatchRlEval(MinibatchRlBase):
                 if (itr + 1) % self.log_interval_itrs == 0:
                     eval_traj_infos, eval_time = self.evaluate_agent(itr)
                     self.log_diagnostics(itr, eval_traj_infos, eval_time)
+                    self.algo.update_scheduler(self._opt_infos)
 
                     # summary_writer = logger.get_tf_summary_writer()
                     # # Debugging layer parameters

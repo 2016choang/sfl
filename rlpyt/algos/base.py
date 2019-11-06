@@ -23,6 +23,9 @@ class RlAlgorithm:
     def optimize_agent(self, itr, samples=None, sampler_itr=None):
         raise NotImplementedError
 
+    def update_scheduler(self, opt_infos):
+        pass
+
     def optim_state_dict(self):
         """If carrying multiple optimizers, overwrite to return dict state_dicts."""
         return self.optimizer.state_dict()
