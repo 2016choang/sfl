@@ -13,19 +13,21 @@ example.
 from rlpyt.samplers.serial.sampler import SerialSampler
 from rlpyt.envs.gym import make as gym_make
 from rlpyt.algos.dqn.dsr.dsr import DSR
-from rlpyt.agents.dqn.grid_dsr.grid_dsr_agent import GridDsrAgent
+from rlpyt.agents.dqn.grid_dsr.grid_dsr_agent import GridDsrSmallAgent, GridDsrAgent
 from rlpyt.runners.minibatch_rl import MinibatchRlEval
 from rlpyt.utils.logging.context import logger_context
 from rlpyt.utils.seed import set_seed
 
 
-def build_and_train(env_id="MiniGrid-FourRooms-v0", run_ID=0, cuda_idx=None, snapshot_gap=5000, seed=333):
+def build_and_train(env_id="MiniGrid-FourRooms-v0", run_ID=0, cuda_idx=None, mode='full', seed=333, snapshot_gap=5000):
     set_seed(seed)
+
+    minigrid_config = {'mode': mode}
 
     sampler = SerialSampler(
         EnvCls=gym_make,
-        env_kwargs=dict(id=env_id, minigrid=True),
-        eval_env_kwargs=dict(id=env_id, minigrid=True),
+        env_kwargs=dict(id=env_id, minigrid_config=minigrid_config),
+        eval_env_kwargs=dict(id=env_id, minigrid_config=minigrid_config),
         batch_T=1,  # One time-step per sampler iteration.
         batch_B=1,  # One environment (i.e. sampler Batch dimension).
         max_decorrelation_steps=0,
@@ -39,8 +41,7 @@ def build_and_train(env_id="MiniGrid-FourRooms-v0", run_ID=0, cuda_idx=None, sna
     algo = DSR(batch_size=32,
                min_steps_learn=int(1e3),
                learning_rate=2e-3,
-               replay_size=int(1e5),
-               lr_schedule_config=lr_schedule_config
+               replay_size=int(1e5)
                )
     agent = GridDsrAgent()
     runner = MinibatchRlEval(
@@ -65,13 +66,15 @@ if __name__ == "__main__":
     parser.add_argument('--env_id', help='environment ID', default='MiniGrid-FourRooms-v0')
     parser.add_argument('--run_ID', help='run identifier (logging)', type=int, default=0)
     parser.add_argument('--cuda_idx', help='gpu to use ', type=int, default=None)
-    parser.add_argument('--snapshot_gap', help='iterations between snapshots ', type=int, default=20000)
+    parser.add_argument('--mode', help='full, small, compact', choices=['full', 'small', 'compact'])
     parser.add_argument('--seed', help='seed', type=int, default=333)
+    parser.add_argument('--snapshot_gap', help='iterations between snapshots ', type=int, default=20000)
     args = parser.parse_args()
     build_and_train(
         env_id=args.env_id,
         run_ID=args.run_ID,
         cuda_idx=args.cuda_idx,
-        snapshot_gap=args.snapshot_gap,
-        seed=args.seed
+        mode=args.mode,
+        seed=args.seed,
+        snapshot_gap=args.snapshot_gap
     )

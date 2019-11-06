@@ -19,26 +19,26 @@ class GridDsrSmallModel(torch.nn.Module):
 
         h, w, c = image_shape  # 84 x 84 x 3
 
-        # Want feature encoding of 256 (4 * 4 * 16)
-        self.image_embedding_size = 256
+        # Want feature encoding of 512 (4 * 4 * 32)
+        self.image_embedding_size = 512
 
         self.encoder = nn.Sequential(
             nn.Conv2d(c, 4, (4, 4), stride=2), # 41 x 41 x 4
             nn.LeakyReLU(),
-            nn.Conv2d(4, 4, (3, 3), stride=2), # 20 x 20 x 4
+            nn.Conv2d(4, 8, (3, 3), stride=2), # 20 x 20 x 8
             nn.LeakyReLU(),
-            nn.Conv2d(4, 8, (4, 4), stride=2), # 9 x 9 x 8
+            nn.Conv2d(8, 16, (4, 4), stride=2), # 9 x 9 x 16
             nn.LeakyReLU(),
             nn.Flatten(),  # 648
-            nn.Linear(648, self.image_embedding_size)  # 256
+            nn.Linear(648, self.image_embedding_size)  # 512
         )
 
         self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(16, 8, kernel_size=3, stride=2), # 9 x 9 x 8
+            nn.ConvTranspose2d(32, 16, kernel_size=3, stride=2), # 9 x 9 x 16
             nn.LeakyReLU(),
-            nn.ConvTranspose2d(8, 4, kernel_size=4, stride=2), # 20 x 20 x 4
+            nn.ConvTranspose2d(16, 8, kernel_size=4, stride=2), # 20 x 20 x 8
             nn.LeakyReLU(),
-            nn.ConvTranspose2d(4, 4, kernel_size=3, stride=2), # 41 x 41 x 4
+            nn.ConvTranspose2d(8, 4, kernel_size=3, stride=2), # 41 x 41 x 4
             nn.LeakyReLU(),
             nn.ConvTranspose2d(4, c, kernel_size=4, stride=2), # 84 x 84 x 3
         )
@@ -57,7 +57,7 @@ class GridDsrSmallModel(torch.nn.Module):
             features = x.view(T * B, -1)
 
             if mode == 'reconstruct':
-                x = x.view(T * B, 16, 4, 4)
+                x = x.view(T * B, 32, 4, 4)
                 reconstructed = self.decoder(x).permute(0, 2, 3, 1)
                 reconstructed = restore_leading_dims(reconstructed, lead_dim, T, B)
                 return reconstructed
