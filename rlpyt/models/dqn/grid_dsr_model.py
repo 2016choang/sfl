@@ -29,8 +29,8 @@ class GridDsrSmallModel(torch.nn.Module):
             nn.LeakyReLU(),
             nn.Conv2d(8, 16, (4, 4), stride=2), # 9 x 9 x 16
             nn.LeakyReLU(),
-            nn.Flatten(),  # 648
-            nn.Linear(648, self.image_embedding_size)  # 512
+            nn.Flatten(),  # 1296
+            nn.Linear(1296, self.image_embedding_size)  # 512
         )
 
         self.decoder = nn.Sequential(
