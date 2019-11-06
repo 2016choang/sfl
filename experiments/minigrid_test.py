@@ -43,7 +43,10 @@ def build_and_train(env_id="MiniGrid-FourRooms-v0", run_ID=0, cuda_idx=None, mod
                learning_rate=2e-3,
                replay_size=int(1e5)
                )
-    agent = GridDsrAgent()
+    if mode == 'full':
+        agent = GridDsrAgent()
+    elif mode == 'small':
+        agent = GridDsrSmallAgent()
     runner = MinibatchRlEval(
         algo=algo,
         agent=agent,
