@@ -13,7 +13,7 @@ example.
 from rlpyt.samplers.serial.sampler import SerialSampler
 from rlpyt.envs.gym import make as gym_make
 from rlpyt.algos.dqn.dsr.dsr import DSR
-from rlpyt.agents.dqn.grid_dsr.grid_dsr_agent import GridDsrSmallAgent, GridDsrAgent
+from rlpyt.agents.dqn.grid_dsr.grid_dsr_agent import GridDsrAgent, GridDsrSmallAgent, GridDsrCompactAgent
 from rlpyt.runners.minibatch_rl import MinibatchRlEval
 from rlpyt.utils.logging.context import logger_context
 from rlpyt.utils.seed import set_seed
@@ -47,6 +47,8 @@ def build_and_train(env_id="MiniGrid-FourRooms-v0", run_ID=0, cuda_idx=None, mod
         agent = GridDsrAgent()
     elif mode == 'small':
         agent = GridDsrSmallAgent()
+    elif mode == 'compact':
+        agent = GridDsrCompactAgent()
     runner = MinibatchRlEval(
         algo=algo,
         agent=agent,
@@ -71,7 +73,7 @@ if __name__ == "__main__":
     parser.add_argument('--cuda_idx', help='gpu to use ', type=int, default=None)
     parser.add_argument('--mode', help='full, small, compact', choices=['full', 'small', 'compact'])
     parser.add_argument('--seed', help='seed', type=int, default=333)
-    parser.add_argument('--snapshot_gap', help='iterations between snapshots ', type=int, default=20000)
+    parser.add_argument('--snapshot_gap', help='iterations between snapshots', type=int, default=20000)
     args = parser.parse_args()
     build_and_train(
         env_id=args.env_id,
