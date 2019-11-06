@@ -5,7 +5,7 @@ from gym_minigrid.wrappers import ReseedWrapper, RGBImgObsWrapper
 import numpy as np
 import torch
 
-from rlpyt.envs.gym import GymEnvWrapper, update_obs_minigrid
+from rlpyt.envs.gym import make as gym_make
 from rlpyt.models.dqn.grid_dsr_model import GridDsrModel, GridDsrSmallModel, GridDsrCompactModel
 from rlpyt.utils.seed import set_seed
 
@@ -26,7 +26,8 @@ def visualize(checkpoint, output, cuda_idx=None, mode='full', seed=333):
 
     
     # sample all possible agent positions within environment
-    env = GymEnvWrapper(RGBImgObsWrapper(ReseedWrapper(gym.make(id=ENV_ID))), update_obs_func=update_obs_minigrid)
+    minigrid_config = {'mode': mode}
+    env = gym_make(id=ENV_ID, minigrid_config=minigrid_config)
     observation = env.reset()
 
     starting_pos = tuple(env.unwrapped.agent_pos)
