@@ -49,11 +49,6 @@ class MinibatchRlBase(BaseRunner):
         if self.seed is None:
             self.seed = make_seed()
         set_seed(self.seed)
-        import random
-        import numpy as np
-        logger.log('Random torch number {}'.format(torch.rand(1).item()))
-        logger.log('Random random number {}'.format(random.random()))
-        logger.log('Random numpy number {}'.format(np.random.rand(1)))
         self.rank = rank = getattr(self, "rank", 0)
         self.world_size = world_size = getattr(self, "world_size", 1)
         examples = self.sampler.initialize(
