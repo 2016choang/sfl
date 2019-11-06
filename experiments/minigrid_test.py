@@ -52,13 +52,6 @@ def build_and_train(env_id="MiniGrid-FourRooms-v0", run_ID=0, cuda_idx=None, sna
         affinity=dict(cuda_idx=cuda_idx),
         seed=seed
     )
-    import torch
-    import random
-    import numpy as np
-    print('Random torch number {}'.format(torch.rand(1).item()))
-    print('Random random number {}'.format(random.random()))
-    print('Random numpy number {}'.format(np.random.rand(1)))
-
     config = dict(env_id=env_id)
     name = "dsr_" + env_id
     log_dir = "minigrid_test"
