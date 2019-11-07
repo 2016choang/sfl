@@ -56,7 +56,6 @@ class GridDsrModel(torch.nn.Module):
     def forward(self, x, mode='features'):
         if mode == 'features' or mode =='reconstruct':
             x = x.type(torch.float)
-            x = (x - x.mean(dim=[0, 1, 2])) / x.std(dim=[0, 1, 2])
             x = x.permute(0, 3, 1, 2)
             lead_dim, T, B, img_shape = infer_leading_dims(x, 3)
 
@@ -125,7 +124,6 @@ class GridDsrSmallModel(torch.nn.Module):
     def forward(self, x, mode='features'):
         if mode == 'features' or mode =='reconstruct':
             x = x.type(torch.float)
-            x = (x - x.mean(dim=[0, 1, 2])) / x.std(dim=[0, 1, 2])
             x = x.permute(0, 3, 1, 2)
             lead_dim, T, B, img_shape = infer_leading_dims(x, 3)
 
@@ -188,7 +186,6 @@ class GridDsrCompactModel(torch.nn.Module):
     def forward(self, x, mode='features'):
         if mode == 'features' or mode =='reconstruct':
             x = x.type(torch.float)
-            # x = (x - x.mean(dim=[0, 1, 2])) / x.std(dim=[0, 1, 2])  # compact does not need to normalize
             x = x.permute(0, 3, 1, 2)
             lead_dim, T, B, img_shape = infer_leading_dims(x, 3)
 
@@ -199,6 +196,53 @@ class GridDsrCompactModel(torch.nn.Module):
                 x = self.fc_deconv(features)
                 x = x.view(T * B, 6, 9, 9)
                 reconstructed = self.decoder(x).permute(0, 2, 3, 1)
+                reconstructed = restore_leading_dims(reconstructed, lead_dim, T, B)
+                return reconstructed
+            else:
+                features = restore_leading_dims(features, lead_dim, T, B)
+                return features
+
+        elif mode == 'dsr':
+            lead_dim, T, B, img_shape = infer_leading_dims(x, 1)
+            dsr = self.dsr(x)
+            dsr = restore_leading_dims(dsr, lead_dim, T, B).view(-1, self.output_size, *img_shape)
+            return dsr
+        else:
+            raise ValueError('Invalid mode!')
+
+
+class GridDsrRandomModel(torch.nn.Module):
+
+    def __init__(
+            self,
+            image_shape,
+            output_size,
+            fc_sizes=32,
+            ):
+        super().__init__()
+        self.output_size = output_size
+
+        h, w, c = image_shape  # 3 x 3 x 1
+
+        self.image_embedding_size = h * w * c  # 9
+
+
+        self.encoder = nn.Sequential(
+            nn.Linear(self.image_embedding_size, self.image_embedding_size)
+        )
+
+        self.dsr = MlpModel(self.image_embedding_size, fc_sizes,
+            output_size=self.image_embedding_size * output_size)
+
+    def forward(self, x, mode='features'):
+        if mode == 'features' or mode =='reconstruct':
+            x = x.type(torch.float)
+            x = x.permute(0, 3, 1, 2)
+            lead_dim, T, B, img_shape = infer_leading_dims(x, 3)
+            features = x.view(T * B, -1)
+
+            if mode == 'reconstruct':
+                reconstructed = x.permute(0, 2, 3, 1)
                 reconstructed = restore_leading_dims(reconstructed, lead_dim, T, B)
                 return reconstructed
             else:

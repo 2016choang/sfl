@@ -239,9 +239,8 @@ class DSR(RlAlgorithm):
         )
     
     def reconstruct_loss(self, samples):
-        reconstructed = self.agent.reconstruct(samples.agent_inputs.observation)
-        target = samples.agent_inputs.observation.type(torch.float)
-        target = (target - target.mean(dim=[0, 1, 2])) / target.std(dim=[0, 1, 2])
+        obs = samples.agent_inputs.observation.type(torch.float) / 255
+        reconstructed = self.agent.reconstruct(obs)
         # loss = torch.sum(torch.mean(((target - reconstructed) ** 2), dim=[0, 1, 2]))
         batch_mean = torch.mean(((target - reconstructed) ** 2), dim=[1, 2, 3])  # 32 x H x W x 3 --> H x W x 3
         # loss = torch.mean(torch.mean(batch_mean, dim=[0, 1])) # scalar 
@@ -253,14 +252,16 @@ class DSR(RlAlgorithm):
         """Samples have leading batch dimension [B,..] (but not time)."""
         # 1. we want dsr of current state and action
         with torch.no_grad():
-            features = self.agent.encode(samples.agent_inputs.observation)
+            obs = samples.agent_inputs.observation.type(torch.float) / 255
+            features = self.agent.encode()
 
         dsr_s = self.agent(features)
         dsr = select_at_indexes(samples.action, dsr_s)
 
         with torch.no_grad():
             # 2. we want dsr of target state and action
-            target_features = self.agent.encode(samples.target_inputs.observation)
+            target_obs = samples.target_inputs.observation.type(torch.float) / 255
+            target_features = self.agent.encode(target_obs)
             target_dsr_s = self.agent.target(target_features)
 
             num_actions = target_dsr_s.shape[1]

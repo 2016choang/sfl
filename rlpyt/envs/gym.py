@@ -5,6 +5,7 @@ import numpy as np
 import gym
 from gym_minigrid.wrappers import FullyObsWrapper, RGBImgObsWrapper, ReseedWrapper
 from gym import Wrapper
+from gym.spaces import Box
 from gym.wrappers.time_limit import TimeLimit
 from collections import namedtuple
 
@@ -71,6 +72,9 @@ class GymEnvWrapper(Wrapper):
         )
 
 
+
+
+
 def build_info_tuples(info, name="info"):
     # Define namedtuples at module level for pickle.
     # Only place rlpyt uses pickle is in the sampler, when getting the
@@ -111,6 +115,35 @@ def info_to_nt(value, name="info"):
 #     # for this env.
 #     return {}
 
+class MinigridFeatureWrapper(Wrapper):
+    
+    def __init__(self, env, local_size=(3, 3, 1)):
+        super().__init__(env)
+        H, W, C = env.observation_space.shape
+        self.env = env
+        self.feature_arr = np.random.rand(H, W, 1)
+        self.local_size = local_size
+        self.observation_space = Box(0, 1, local_size)
+
+    def step(self, action):
+        _, reward, done, info = self.env.step(action)
+        pos = self.env.unwrapped.agent_pos
+        obs = self.get_obs(pos)
+        return obs, reward, done, info
+
+
+    def reset(self, **kwargs):
+        self.env.reset()
+        pos = self.env.unwrapped.agent_pos
+        return self.get_obs(pos)
+
+    def get_obs(self, pos):
+        h, w, _ = self.local_size
+        h_pos, w_pos = pos
+        h_start = (h_pos * 8) - (h // 2)
+        w_start = (w_pos * 8) - (w // 2)
+        return self.feature_arr[h_start:h_start + h, w_start:w_start + w]
+
 
 class EnvInfoWrapper(Wrapper):
 
@@ -149,6 +182,8 @@ def make(*args, info_example=None, minigrid_config=None, **kwargs):
             return GymEnvWrapper(RGBImgObsWrapper(ReseedWrapper(gym.make(*args, **kwargs))), update_obs_func=update_obs_minigrid)
         elif mode == 'compact':
             return GymEnvWrapper(FullyObsWrapper(ReseedWrapper(gym.make(*args, **kwargs))))
+        elif mode == 'random':
+            return GymEnvWrapper(MinigridFeatureWrapper(RGBImgObsWrapper(ReseedWrapper(gym.make(*args, **kwargs)))))
     elif info_example is None:
         return GymEnvWrapper(gym.make(*args, **kwargs))
     else:
