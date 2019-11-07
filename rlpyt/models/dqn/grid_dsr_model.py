@@ -222,7 +222,7 @@ class GridDsrRandomModel(torch.nn.Module):
             self,
             image_shape,
             output_size,
-            fc_sizes=32,
+            fc_sizes=[64, 64],
             ):
         super().__init__()
         self.output_size = output_size
@@ -237,7 +237,7 @@ class GridDsrRandomModel(torch.nn.Module):
         )
 
         self.dsr = MlpModel(self.image_embedding_size, fc_sizes,
-            output_size=self.image_embedding_size * output_size)
+            output_size=self.image_embedding_size * output_size, nonlinearity=torch.nn.LeakyReLU)
 
     def forward(self, x, mode='features'):
         if mode == 'features' or mode =='reconstruct':
