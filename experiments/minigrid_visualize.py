@@ -6,7 +6,7 @@ import numpy as np
 import torch
 
 from rlpyt.envs.gym import make as gym_make
-from rlpyt.models.dqn.grid_dsr_model import GridDsrModel, GridDsrSmallModel, GridDsrCompactModel
+from rlpyt.models.dqn.grid_dsr_model import GridDsrModel, GridDsrSmallModel, GridDsrCompactModel, GridDsrRandomModel
 from rlpyt.utils.seed import set_seed
 
 
@@ -40,6 +40,8 @@ def visualize(checkpoint, output, cuda_idx=None, mode='full', seed=333):
         model = GridDsrSmallModel(env.observation_space.shape, env.action_space.n)
     elif mode == 'compact':
         model = GridDsrCompactModel(env.observation_space.shape, env.action_space.n)
+    elif mode == 'random':
+        model = GridDsrRandomModel(env.observation_space.shape, env.action_space.n)
     model.load_state_dict(params['agent_state_dict']['model'])
     model.to(device)
 
@@ -86,7 +88,7 @@ if __name__ == "__main__":
     parser.add_argument('--input', help='checkpoint file')
     parser.add_argument('--output', help='output location')
     parser.add_argument('--cuda_idx', help='gpu to use ', type=int, default=None)
-    parser.add_argument('--mode', help='full, small, compact', choices=['full', 'small', 'compact'])
+    parser.add_argument('--mode', help='full, small, compact, random', choices=['full', 'small', 'compact', 'random'])
     parser.add_argument('--seed', help='seed', type=int, default=333)
     args = parser.parse_args()
     visualize(checkpoint=args.input,

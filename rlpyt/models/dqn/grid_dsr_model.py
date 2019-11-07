@@ -98,24 +98,28 @@ class GridDsrSmallModel(torch.nn.Module):
         self.image_embedding_size = 512
 
         self.encoder = nn.Sequential(
-            nn.Conv2d(c, 4, (4, 4), stride=2), # 41 x 41 x 4
+            nn.Conv2d(c, 64, (6, 6), stride=2), # 40 x 40 x 64
             nn.LeakyReLU(),
-            nn.Conv2d(4, 8, (3, 3), stride=2), # 20 x 20 x 8
+            nn.Conv2d(64, 64, (6, 6), padding=2, stride=2), # 20 x 20 x 64
             nn.LeakyReLU(),
-            nn.Conv2d(8, 16, (4, 4), stride=2), # 9 x 9 x 16
+            nn.Conv2d(64, 64, (6, 6), padding=2, stride=2), # 10 x 10 x 64
             nn.LeakyReLU(),
-            nn.Flatten(),  # 1296
-            nn.Linear(1296, self.image_embedding_size)  # 512
+            nn.Flatten(),  # 6400
+            nn.Linear(6400, self.image_embedding_size),  # 512
+            nn.LeakyReLU()
+        )
+
+        self.fc_deconv = nn.Sequential(
+            nn.Linear(self.image_embedding_size, 6400),
+            nn.LeakyReLU()
         )
 
         self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(32, 16, kernel_size=3, stride=2), # 9 x 9 x 16
+            nn.ConvTranspose2d(64, 64, kernel_size=6, padding=2, stride=2), # 20 x 20 x 64
             nn.LeakyReLU(),
-            nn.ConvTranspose2d(16, 8, kernel_size=4, stride=2), # 20 x 20 x 8
+            nn.ConvTranspose2d(64, 64, kernel_size=6, padding=2, stride=2), # 40 x 40 x 64
             nn.LeakyReLU(),
-            nn.ConvTranspose2d(8, 4, kernel_size=3, stride=2), # 41 x 41 x 4
-            nn.LeakyReLU(),
-            nn.ConvTranspose2d(4, c, kernel_size=4, stride=2), # 84 x 84 x 3
+            nn.ConvTranspose2d(64, c, kernel_size=6, stride=2), # 84 x 84 x 3
         )
 
         self.dsr = MlpModel(self.image_embedding_size, fc_sizes,
@@ -131,7 +135,8 @@ class GridDsrSmallModel(torch.nn.Module):
             features = x.view(T * B, -1)
 
             if mode == 'reconstruct':
-                x = x.view(T * B, 32, 4, 4)
+                x = self.fc_deconv(features)
+                x = x.view(T * B, 64, 10, 10)
                 reconstructed = self.decoder(x).permute(0, 2, 3, 1)
                 reconstructed = restore_leading_dims(reconstructed, lead_dim, T, B)
                 return reconstructed

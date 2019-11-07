@@ -58,6 +58,7 @@ class DSR(RlAlgorithm):
             default_priority=None,
             ReplayBufferCls=None,  # Leave None to select by above options.
             updates_per_sync=1,  # For async mode only.
+            learn_re=True
             ):
         if optim_kwargs is None:
             optim_kwargs = dict(eps=0.01 / batch_size)
@@ -68,7 +69,8 @@ class DSR(RlAlgorithm):
         save__init__args(locals())
         self.update_counter = 0
 
-        self.l2_loss = nn.MSELoss()
+        # self.l2_loss = nn.MSELoss()
+        self.learn_re = learn_re
 
     def initialize(self, agent, n_itr, batch_spec, mid_batch_reset, examples,
             world_size=1, rank=0):
@@ -184,19 +186,21 @@ class DSR(RlAlgorithm):
 
         for i in range(self.updates_per_optimize):
             samples_from_replay = self.replay_buffer.sample_batch(self.batch_size)
-            self.re_optimizer.zero_grad()
-            re_loss = self.reconstruct_loss(samples_from_replay)
-            re_loss.backward()
 
-            grad_norm = torch.nn.utils.clip_grad_norm_(
-                self.agent.parameters(), self.clip_grad_norm)
-            param_norm = param_norm_(self.agent.parameters())
-            self.re_optimizer.step()
+            if self.learn_re:
+                self.re_optimizer.zero_grad()
+                re_loss = self.reconstruct_loss(samples_from_replay)
+                re_loss.backward()
 
-            opt_info.reLoss.append(re_loss.item())
-            opt_info.reGradNorm.append(grad_norm)
-            opt_info.reParamNorm.append(param_norm)
-            opt_info.reParamRatio.append(grad_norm / param_norm)
+                grad_norm = torch.nn.utils.clip_grad_norm_(
+                    self.agent.parameters(), self.clip_grad_norm)
+                param_norm = param_norm_(self.agent.parameters())
+                self.re_optimizer.step()
+
+                opt_info.reLoss.append(re_loss.item())
+                opt_info.reGradNorm.append(grad_norm)
+                opt_info.reParamNorm.append(param_norm)
+                opt_info.reParamRatio.append(grad_norm / param_norm)
 
             # if i == 0:
             #     summary_writer = logger.get_tf_summary_writer()

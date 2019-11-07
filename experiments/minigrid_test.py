@@ -37,11 +37,14 @@ def build_and_train(env_id="MiniGrid-FourRooms-v0", run_ID=0, cuda_idx=None, mod
     )
     lr_schedule_config={'mode': 'plateau',
                         'patience': 0}
+    learn_re = mode != 'random'
+
     algo = DSR(batch_size=32,
                min_steps_learn=int(1e3),
-               learning_rate=1e-4,
+               learning_rate=1e-5,
                replay_size=int(1e5),
-               lr_schedule_config=lr_schedule_config
+               lr_schedule_config=lr_schedule_config,
+               learn_re=learn_re
                )
     if mode == 'full':
         agent = GridDsrAgent()
