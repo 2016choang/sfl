@@ -185,8 +185,6 @@ class DSR(RlAlgorithm):
         for i in range(self.updates_per_optimize):
             samples_from_replay = self.replay_buffer.sample_batch(self.batch_size)
             self.re_optimizer.zero_grad()
-            if itr > 3000:
-                import pdb; pdb.set_trace()
             re_loss = self.reconstruct_loss(samples_from_replay)
             re_loss.backward()
 
@@ -244,11 +242,10 @@ class DSR(RlAlgorithm):
         obs = samples.agent_inputs.observation.type(torch.float) / 255
         reconstructed = self.agent.reconstruct(obs)
         # loss = torch.sum(torch.mean(((target - reconstructed) ** 2), dim=[0, 1, 2]))
-        # batch_mean = torch.mean(((obs - reconstructed) ** 2), dim=[1, 2, 3])
-        batch_mean = torch.mean(((obs - reconstructed) ** 2), dim=[0])  # 32 x H x W x 3 --> H x W x 3
+        batch_mean = torch.mean(((obs - reconstructed) ** 2), dim=[1, 2, 3])
+        # batch_mean = torch.mean(((obs - reconstructed) ** 2), dim=[0])  # 32 x H x W x 3 --> H x W x 3
         # loss = torch.mean(torch.mean(batch_mean, dim=[0, 1])) # scalar 
-        # loss = torch.mean(batch_mean)
-        loss = torch.sum(batch_mean)
+        loss = torch.mean(batch_mean)
         # loss = self.l2_loss(target, reconstructed)
         return loss
 
