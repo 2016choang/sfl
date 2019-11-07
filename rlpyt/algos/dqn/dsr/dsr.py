@@ -242,7 +242,7 @@ class DSR(RlAlgorithm):
         obs = samples.agent_inputs.observation.type(torch.float) / 255
         reconstructed = self.agent.reconstruct(obs)
         # loss = torch.sum(torch.mean(((target - reconstructed) ** 2), dim=[0, 1, 2]))
-        batch_mean = torch.mean(((target - reconstructed) ** 2), dim=[1, 2, 3])  # 32 x H x W x 3 --> H x W x 3
+        batch_mean = torch.mean(((obs - reconstructed) ** 2), dim=[1, 2, 3])  # 32 x H x W x 3 --> H x W x 3
         # loss = torch.mean(torch.mean(batch_mean, dim=[0, 1])) # scalar 
         loss = torch.mean(batch_mean)
         # loss = self.l2_loss(target, reconstructed)
@@ -253,7 +253,7 @@ class DSR(RlAlgorithm):
         # 1. we want dsr of current state and action
         with torch.no_grad():
             obs = samples.agent_inputs.observation.type(torch.float) / 255
-            features = self.agent.encode()
+            features = self.agent.encode(obs)
 
         dsr_s = self.agent(features)
         dsr = select_at_indexes(samples.action, dsr_s)
