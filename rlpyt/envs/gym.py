@@ -140,8 +140,8 @@ class MinigridFeatureWrapper(Wrapper):
     def get_obs(self, pos):
         h, w, _ = self.local_size
         h_pos, w_pos = pos
-        h_start = (h_pos * 8 - 4) - (h // 2)
-        w_start = (w_pos * 8 - 4) - (w // 2)
+        h_start = (h_pos * 8 + 4) - (h // 2)
+        w_start = (w_pos * 8 + 4) - (w // 2)
         return self.feature_arr[h_start:h_start + h, w_start:w_start + w]
 
 
