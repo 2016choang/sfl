@@ -222,22 +222,12 @@ class GridDsrRandomModel(torch.nn.Module):
             self,
             image_shape,
             output_size,
-            fc_sizes=[1024, 1024],
+            fc_sizes=[2048, 1024],
             ):
         super().__init__()
         self.output_size = output_size
 
-        h, w, c = image_shape  # 24 x 24 x 1
-
-        self.image_embedding_size = (h // 2) * (w // 2) * c  # 9
-
-        self.downsampler = nn.Sequential(
-            nn.AvgPool2d(kernel_size=2, stride=2)
-        )
-
-        self.encoder = nn.Sequential(
-            nn.Linear(self.image_embedding_size, self.image_embedding_size)
-        )
+        self.image_embedding_size = 1024
 
         self.dsr = MlpModel(self.image_embedding_size, fc_sizes,
             output_size=self.image_embedding_size * output_size, nonlinearity=nn.LeakyReLU)
@@ -247,8 +237,7 @@ class GridDsrRandomModel(torch.nn.Module):
             x = x.type(torch.float)
             x = x.permute(0, 3, 1, 2)
             lead_dim, T, B, img_shape = infer_leading_dims(x, 3)
-            features = self.downsampler(x)
-            features = features.view(T * B, -1)
+            features = x.mean(dim=[2, 3])
 
             if mode == 'reconstruct':
                 reconstructed = x.permute(0, 2, 3, 1)

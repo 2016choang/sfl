@@ -5,7 +5,7 @@ import numpy as np
 import gym
 from gym_minigrid.wrappers import FullyObsWrapper, RGBImgObsWrapper, ReseedWrapper
 from gym import Wrapper
-from gym.spaces import Box
+from gym.spaces import Box, Discrete
 from gym.wrappers.time_limit import TimeLimit
 from collections import namedtuple
 
@@ -117,20 +117,21 @@ def info_to_nt(value, name="info"):
 
 class MinigridFeatureWrapper(Wrapper):
     
-    def __init__(self, env, local_size=(24, 24, 1)):
+    def __init__(self, env, num_features=1024):
         super().__init__(env)
-        H, W, C = env.observation_space.shape
         self.env = env
-        self.feature_arr = np.random.rand(H, W, 1)
-        self.local_size = local_size
-        self.observation_space = Box(0, 1, local_size)
+        self.feature_map = np.random.rand(19, 19, num_features)
+        self.local_size = (3, 3, num_features)
+        self.observation_space = Box(0, 1, self.local_size)
+        self.action_space = Discrete(4)
 
     def step(self, action):
-        _, reward, done, info = self.env.step(action)
+        # 0 -- right, 1 -- down, 2 -- left, 3 -- up
+        self.env.unwrapped.agent_dir = action
+        _, reward, done, info = self.env.step(2)
         pos = self.env.unwrapped.agent_pos
         obs = self.get_obs(pos)
         return obs, reward, done, info
-
 
     def reset(self, **kwargs):
         self.env.reset()
@@ -138,11 +139,8 @@ class MinigridFeatureWrapper(Wrapper):
         return self.get_obs(pos)
 
     def get_obs(self, pos):
-        h, w, _ = self.local_size
         h_pos, w_pos = pos
-        h_start = (h_pos * 8 + 4) - (h // 2)
-        w_start = (w_pos * 8 + 4) - (w // 2)
-        return self.feature_arr[h_start:h_start + h, w_start:w_start + w]
+        return self.feature_map[h_pos - 1: h_pos + 2, w_pos - 1:w_pos + 2]
 
 
 class EnvInfoWrapper(Wrapper):

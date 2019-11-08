@@ -109,8 +109,9 @@ class DSR(RlAlgorithm):
     def optim_initialize(self, rank=0):
         """Called by async runner."""
         self.rank = rank
-        self.re_optimizer = self.OptimCls(self.agent.re_parameters(),
-            lr=self.learning_rate, **self.optim_kwargs)
+        if self.learn_re:
+            self.re_optimizer = self.OptimCls(self.agent.re_parameters(),
+                lr=self.learning_rate, **self.optim_kwargs)
         self.dsr_optimizer = self.OptimCls(self.agent.dsr_parameters(),
             lr=self.learning_rate, **self.optim_kwargs)
         self.scheduler = None
@@ -143,8 +144,11 @@ class DSR(RlAlgorithm):
 
     def optim_state_dict(self):
         """If carrying multiple optimizers, overwrite to return dict state_dicts."""
-        return {'re_optim': self.re_optimizer.state_dict(),
-                'dsr_optim': self.dsr_optimizer.state_dict()}
+        if self.learn_re:
+            return {'re_optim': self.re_optimizer.state_dict(),
+                    'dsr_optim': self.dsr_optimizer.state_dict()}
+        else:
+            return {'dsr_optim': self.dsr_optimizer.state_dict()} 
 
     def initialize_replay_buffer(self, examples, batch_spec, async_=False):
         example_to_buffer = SamplesToBuffer(
@@ -296,6 +300,8 @@ class DSR(RlAlgorithm):
             td_abs_errors *= valid
         else:
             loss = torch.mean(losses)
+
+        import pdb; pdb.set_trace()
 
         return loss, td_abs_errors
 
