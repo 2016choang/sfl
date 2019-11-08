@@ -58,7 +58,7 @@ def build_and_train(env_id="MiniGrid-FourRooms-v0", run_ID=0, cuda_idx=None, mod
         algo=algo,
         agent=agent,
         sampler=sampler,
-        n_steps=1e5,
+        n_steps=4e4,
         log_interval_steps=1e3,
         affinity=dict(cuda_idx=cuda_idx),
         seed=seed
