@@ -227,12 +227,13 @@ class DSR(RlAlgorithm):
         return opt_info
 
     def update_scheduler(self, opt_infos):
-        schedule_mode = self.lr_schedule_config.get('mode')
-        if schedule_mode == 'milestone' or schedule_mode == 'step':
-            self.scheduler.step()
-        elif schedule_mode == 'plateau':
-            if opt_infos.get('reLoss'):
-                self.scheduler.step(np.average(opt_infos['reLoss']))
+        if self.lr_schedule_config is not None:
+            schedule_mode = self.lr_schedule_config.get('mode')
+            if schedule_mode == 'milestone' or schedule_mode == 'step':
+                self.scheduler.step()
+            elif schedule_mode == 'plateau':
+                if opt_infos.get('reLoss'):
+                    self.scheduler.step(np.average(opt_infos['reLoss']))
 
     def samples_to_buffer(self, samples):
         return SamplesToBuffer(
@@ -276,7 +277,6 @@ class DSR(RlAlgorithm):
         # 3. combine current observation + discounted target dsr
         disc_target_dsr = (self.discount ** self.n_step_return) * target_dsr
 
-        # 3a. encode observation into feature space
         y = features + (1 - samples.done_n.float()).view(-1, 1) * disc_target_dsr
 
         delta = y - dsr
