@@ -117,7 +117,7 @@ def info_to_nt(value, name="info"):
 
 class MinigridFeatureWrapper(Wrapper):
     
-    def __init__(self, env, local_size=(3, 3, 1)):
+    def __init__(self, env, local_size=(24, 24, 1)):
         super().__init__(env)
         H, W, C = env.observation_space.shape
         self.env = env
@@ -140,8 +140,8 @@ class MinigridFeatureWrapper(Wrapper):
     def get_obs(self, pos):
         h, w, _ = self.local_size
         h_pos, w_pos = pos
-        h_start = (h_pos * 8) - (h // 2)
-        w_start = (w_pos * 8) - (w // 2)
+        h_start = (h_pos * 8 - 4) - (h // 2)
+        w_start = (w_pos * 8 - 4) - (w // 2)
         return self.feature_arr[h_start:h_start + h, w_start:w_start + w]
 
 
