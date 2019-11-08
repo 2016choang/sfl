@@ -301,8 +301,6 @@ class DSR(RlAlgorithm):
         else:
             loss = torch.mean(losses)
 
-        import pdb; pdb.set_trace()
-
         return loss, td_abs_errors
 
     def update_itr_hyperparams(self, itr):
