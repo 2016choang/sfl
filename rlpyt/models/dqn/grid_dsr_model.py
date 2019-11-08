@@ -247,7 +247,8 @@ class GridDsrRandomModel(torch.nn.Module):
             x = x.type(torch.float)
             x = x.permute(0, 3, 1, 2)
             lead_dim, T, B, img_shape = infer_leading_dims(x, 3)
-            features = x.view(T * B, -1)
+            features = self.downsampler(x)
+            features = features.view(T * B, -1)
 
             if mode == 'reconstruct':
                 reconstructed = x.permute(0, 2, 3, 1)
@@ -259,7 +260,6 @@ class GridDsrRandomModel(torch.nn.Module):
 
         elif mode == 'dsr':
             lead_dim, T, B, img_shape = infer_leading_dims(x, 1)
-            x = self.downsampler(x)
             dsr = self.dsr(x)
             dsr = restore_leading_dims(dsr, lead_dim, T, B).view(-1, self.output_size, *img_shape)
             return dsr
