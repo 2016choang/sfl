@@ -64,7 +64,7 @@ def visualize(checkpoint, output, cuda_idx=None, mode='full', seed=333):
             if unique_states % 10 == 0:
                 print('Reached {} unique states'.format(unique_states))
 
-            if unique_states == 210:
+            if unique_states == 250:
                 break
         
         step += 1
