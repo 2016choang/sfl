@@ -284,7 +284,6 @@ class DSR(RlAlgorithm):
         y = features + (1 - samples.done_n.float()).view(-1, 1) * disc_target_dsr
 
         delta = y - dsr
-        delta = abs(delta).sum(dim=1)
         losses = 0.5 * delta ** 2
         abs_delta = abs(delta)
         if self.delta_clip is not None:  # Huber loss.
@@ -292,6 +291,7 @@ class DSR(RlAlgorithm):
             losses = torch.where(abs_delta <= self.delta_clip, losses, b)
         # if self.prioritized_replay:
         #     losses *= samples.is_weights
+        losses = losses.sum(dim=1)
         td_abs_errors = abs_delta.detach()
         if self.delta_clip is not None:
             td_abs_errors = torch.clamp(td_abs_errors, 0, self.delta_clip)
