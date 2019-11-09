@@ -284,6 +284,7 @@ class DSR(RlAlgorithm):
         y = features + (1 - samples.done_n.float()).view(-1, 1) * disc_target_dsr
 
         delta = y - dsr
+        delta = abs(delta).sum(dim=1)
         losses = 0.5 * delta ** 2
         abs_delta = abs(delta)
         if self.delta_clip is not None:  # Huber loss.
@@ -300,7 +301,6 @@ class DSR(RlAlgorithm):
             td_abs_errors *= valid
         else:
             loss = torch.mean(losses)
-
         return loss, td_abs_errors
 
     def update_itr_hyperparams(self, itr):
