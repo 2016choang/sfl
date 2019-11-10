@@ -39,7 +39,7 @@ def build_and_train(env_id="MiniGrid-FourRooms-v0", run_ID=0, cuda_idx=None, mod
     #                     'patience': 0}
     learn_re = mode != 'random'
 
-    algo = DSR(batch_size=32,
+    algo = DSR(batch_size=64,
                min_steps_learn=int(1e3),
                learning_rate=1e-5,
                replay_size=int(1e5),
@@ -57,7 +57,7 @@ def build_and_train(env_id="MiniGrid-FourRooms-v0", run_ID=0, cuda_idx=None, mod
         algo=algo,
         agent=agent,
         sampler=sampler,
-        n_steps=2e4,
+        n_steps=1e4,
         log_interval_steps=1e3,
         affinity=dict(cuda_idx=cuda_idx),
         seed=seed
