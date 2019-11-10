@@ -116,26 +116,48 @@ class DSR(RlAlgorithm):
             lr=self.learning_rate, **self.optim_kwargs)
         self.scheduler = None
         if self.lr_schedule_config is not None:
-            schedule_mode = self.lr_schedule_config.get('mode')
-            if schedule_mode == 'milestone':
-                milestones = self.lr_schedule_config.get('milestones')
-                gamma = self.lr_schedule_config.get('gamma', 0.5)
-                self.scheduler = torch.optim.lr_scheduler.MultiStepLR(self.re_optimizer,
-                                                                      milestones,
-                                                                      gamma=gamma)
-            elif schedule_mode == 'step':
-                step_size = self.lr_schedule_config.get('step_size')
-                self.scheduler = torch.optim.lr_scheduler.StepLR(self.re_optimizer,
-                                                                 step_size)
-            elif schedule_mode == 'plateau':
-                patience = self.lr_schedule_config.get('patience', 10)
-                threshold = self.lr_schedule_config.get('threshold', 1e-4)
-                factor = self.lr_schedule_config.get('gamma', 0.1)
-                self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.re_optimizer,
-                                                                            patience=patience,
-                                                                            threshold=threshold,
-                                                                            factor=factor,
-                                                                            verbose=True)                       
+            if 're' in self.lr_schedule_config:
+                schedule_mode = self.lr_schedule_config['re'].get('mode')
+                if schedule_mode == 'milestone':
+                    milestones = self.lr_schedule_config['re'].get('milestones')
+                    gamma = self.lr_schedule_config['re'].get('gamma', 0.5)
+                    self.re_scheduler = torch.optim.lr_scheduler.MultiStepLR(self.re_optimizer,
+                                                                          milestones,
+                                                                          gamma=gamma)
+                elif schedule_mode == 'step':
+                    step_size = self.lr_schedule_config['re'].get('step_size')
+                    self.re_scheduler = torch.optim.lr_scheduler.StepLR(self.re_optimizer,
+                                                                     step_size)
+                elif schedule_mode == 'plateau':
+                    patience = self.lr_schedule_config['re'].get('patience', 10)
+                    threshold = self.lr_schedule_config['re'].get('threshold', 1e-4)
+                    factor = self.lr_schedule_config['re'].get('gamma', 0.1)
+                    self.re_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.re_optimizer,
+                                                                                patience=patience,
+                                                                                threshold=threshold,
+                                                                                factor=factor,
+                                                                                verbose=True)
+            elif 'dsr' in self.lr_schedule_config:
+                schedule_mode = self.lr_schedule_config['dsr'].get('mode')
+                if schedule_mode == 'milestone':
+                    milestones = self.lr_schedule_config['dsr'].get('milestones')
+                    gamma = self.lr_schedule_config['dsr'].get('gamma', 0.5)
+                    self.dsr_scheduler = torch.optim.lr_scheduler.MultiStepLR(self.dsr_optimizer,
+                                                                          milestones,
+                                                                          gamma=gamma)
+                elif schedule_mode == 'step':
+                    step_size = self.lr_schedule_config['dsr'].get('step_size')
+                    self.dsr_scheduler = torch.optim.lr_scheduler.StepLR(self.re_optimizer,
+                                                                     step_size)
+                elif schedule_mode == 'plateau':
+                    patience = self.lr_schedule_config['dsr'].get('patience', 10)
+                    threshold = self.lr_schedule_config['dsr'].get('threshold', 1e-4)
+                    factor = self.lr_schedule_config['dsr'].get('gamma', 0.1)
+                    self.dsr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.dsr_optimizer,
+                                                                                patience=patience,
+                                                                                threshold=threshold,
+                                                                                factor=factor,
+                                                                                verbose=True)                         
         if self.initial_optim_state_dict is not None:
             self.re_optimizer.load_state_dict(self.initial_optim_state_dict['re_optim'])
             self.dsr_optimizer.load_state_dict(self.initial_optim_state_dict['dsr_optim'])
@@ -232,12 +254,20 @@ class DSR(RlAlgorithm):
 
     def update_scheduler(self, opt_infos):
         if self.lr_schedule_config is not None:
-            schedule_mode = self.lr_schedule_config.get('mode')
-            if schedule_mode == 'milestone' or schedule_mode == 'step':
-                self.scheduler.step()
-            elif schedule_mode == 'plateau':
-                if opt_infos.get('reLoss'):
-                    self.scheduler.step(np.average(opt_infos['reLoss']))
+            if 're' in self.lr_schedule_config:
+                schedule_mode = self.lr_schedule_config['re'].get('mode')
+                if schedule_mode == 'milestone' or schedule_mode == 'step':
+                    self.re_scheduler.step()
+                elif schedule_mode == 'plateau':
+                    if opt_infos.get('reLoss'):
+                        self.re_scheduler.step(np.average(opt_infos['reLoss']))
+            elif 'dsr' in self.lr_schedule_config:
+                schedule_mode = self.lr_schedule_config['dsr'].get('mode')
+                if schedule_mode == 'milestone' or schedule_mode == 'step':
+                    self.re_scheduler.step()
+                elif schedule_mode == 'plateau':
+                    if opt_infos.get('dsrLoss'):
+                        self.re_scheduler.step(np.average(opt_infos['dsrLoss']))
 
     def samples_to_buffer(self, samples):
         return SamplesToBuffer(
