@@ -41,7 +41,7 @@ def build_and_train(env_id="MiniGrid-FourRooms-v0", run_ID=0, cuda_idx=None, mod
 
     algo = DSR(batch_size=32,
                min_steps_learn=int(1e3),
-               learning_rate=1e-7,
+               learning_rate=1e-6,
                replay_size=int(1e5),
                learn_re=learn_re,
                lr_schedule_config=lr_schedule_config
