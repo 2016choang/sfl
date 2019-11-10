@@ -36,7 +36,8 @@ def build_and_train(env_id="MiniGrid-FourRooms-v0", run_ID=0, cuda_idx=None, mod
         eval_max_trajectories=5,
     )
     lr_schedule_config={'dsr': {'mode': 'plateau',
-                                'patience': 0}}
+                                'patience': 0,
+                                'gamma': 0.5}}
     learn_re = mode != 'random'
 
     algo = DSR(batch_size=32,
