@@ -264,10 +264,10 @@ class DSR(RlAlgorithm):
             elif 'dsr' in self.lr_schedule_config:
                 schedule_mode = self.lr_schedule_config['dsr'].get('mode')
                 if schedule_mode == 'milestone' or schedule_mode == 'step':
-                    self.re_scheduler.step()
+                    self.dsr_scheduler.step()
                 elif schedule_mode == 'plateau':
                     if opt_infos.get('dsrLoss'):
-                        self.re_scheduler.step(np.average(opt_infos['dsrLoss']))
+                        self.dsr_scheduler.step(np.average(opt_infos['dsrLoss']))
 
     def samples_to_buffer(self, samples):
         return SamplesToBuffer(
