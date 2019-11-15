@@ -9,6 +9,7 @@ Requires OpenAI gym (and maybe mujoco).  If not installed, move on to next
 example.
 
 """
+import json
 
 from rlpyt.samplers.serial.sampler import SerialSampler
 from rlpyt.envs.gym import make as gym_make
@@ -19,7 +20,13 @@ from rlpyt.utils.logging.context import logger_context
 from rlpyt.utils.seed import set_seed
 
 
-def build_and_train(env_id="MiniGrid-FourRooms-v0", run_ID=0, cuda_idx=None, mode='full', seed=333, snapshot_gap=5000):
+def build_and_train(env_id="MiniGrid-FourRooms-v0",
+                    run_ID=0,
+                    cuda_idx=None,
+                    mode='full',
+                    seed=333,
+                    snapshot_gap=5000,
+                    config_file=None):
     set_seed(seed)
 
     minigrid_config = {'mode': mode}
@@ -38,15 +45,15 @@ def build_and_train(env_id="MiniGrid-FourRooms-v0", run_ID=0, cuda_idx=None, mod
     lr_schedule_config={'dsr': {'mode': 'plateau',
                                 'patience': 0,
                                 'gamma': 0.5}}
-    learn_re = mode != 'random'
+    
+    try:
+        with open(config_file, 'r') as f:
+            config = json.load(f)
+    except ValueError:
+        print('Unable to read config file {}'.format(config_file))
+        config = {}
 
-    algo = DSR(discount=0.9,
-               batch_size=32,
-               min_steps_learn=int(1e3),
-               learning_rate=1e-6,
-               replay_size=int(1e5),
-               learn_re=learn_re
-               )
+    algo = DSR(**config.get('algo', {}))
     if mode == 'full':
         agent = GridDsrAgent()
     elif mode == 'small':
@@ -80,6 +87,7 @@ if __name__ == "__main__":
     parser.add_argument('--mode', help='full, small, compact, random', choices=['full', 'small', 'compact', 'random'])
     parser.add_argument('--seed', help='seed', type=int, default=333)
     parser.add_argument('--snapshot_gap', help='iterations between snapshots', type=int, default=5000)
+    parser.add_argument('--config', help='config file', default=None)
     args = parser.parse_args()
     build_and_train(
         env_id=args.env_id,
@@ -87,5 +95,6 @@ if __name__ == "__main__":
         cuda_idx=args.cuda_idx,
         mode=args.mode,
         seed=args.seed,
-        snapshot_gap=args.snapshot_gap
+        snapshot_gap=args.snapshot_gap,
+        config_file=args.config
     )

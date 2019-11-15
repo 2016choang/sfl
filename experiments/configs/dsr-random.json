@@ -1,0 +1,10 @@
+{
+    "algo": {
+        "discount": 0.999,
+        "batch_size": 32,
+        "min_steps_learn": 1000,
+        "learning_rate": 1e-6,
+        "replay_size": 100000,
+        "learn_re": false
+    }
+}
