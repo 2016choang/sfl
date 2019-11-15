@@ -60,7 +60,6 @@ class DSR(RlAlgorithm):
             updates_per_sync=1,  # For async mode only.
             learn_re=True
             ):
-        import pdb; pdb.set_trace()
         if optim_kwargs is None:
             optim_kwargs = dict(eps=0.01 / batch_size)
         if default_priority is None:
