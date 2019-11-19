@@ -29,7 +29,8 @@ def build_and_train(env_id="MiniGrid-FourRooms-v0",
                     config_file=None):
     set_seed(seed)
 
-    minigrid_config = {'mode': mode}
+    minigrid_config = {'mode': mode,
+                       'move': mode == 'small'}
 
     sampler = SerialSampler(
         EnvCls=gym_make,
@@ -66,7 +67,7 @@ def build_and_train(env_id="MiniGrid-FourRooms-v0",
         algo=algo,
         agent=agent,
         sampler=sampler,
-        n_steps=3e4,
+        n_steps=4e4,
         log_interval_steps=1e3,
         affinity=dict(cuda_idx=cuda_idx),
         seed=seed

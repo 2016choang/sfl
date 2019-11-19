@@ -3,7 +3,7 @@
         "discount": 0.99,
         "batch_size": 32,
         "min_steps_learn": 1000,
-        "learning_rate": 1e6,
+        "learning_rate": 2.5e-4,
         "replay_size": 100000,
         "learn_re": true
     }
