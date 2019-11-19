@@ -281,9 +281,9 @@ class DSR(RlAlgorithm):
         obs = samples.agent_inputs.observation.type(torch.float) / 255
         reconstructed = self.agent.reconstruct(obs)
         # loss = torch.sum(torch.mean(((target - reconstructed) ** 2), dim=[0, 1, 2]))
-        # batch_mean = torch.mean(((obs - reconstructed) ** 2), dim=[1, 2, 3])
-        # loss = torch.mean(batch_mean)
-        loss = self.l2_loss(obs, reconstructed)
+        batch_mean = torch.mean(((obs - reconstructed) ** 2), dim=[1, 2, 3])
+        loss = torch.mean(batch_mean)
+        # loss = self.l2_loss(obs, reconstructed)
         return loss
 
     def dsr_loss(self, samples):
