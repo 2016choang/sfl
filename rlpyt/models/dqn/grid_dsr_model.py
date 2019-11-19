@@ -95,7 +95,7 @@ class GridDsrSmallModel(torch.nn.Module):
         h, w, c = image_shape  # 84 x 84 x 3
 
         # Want feature encoding of 512
-        self.image_embedding_size = 1024
+        self.image_embedding_size = 2048
 
         self.encoder = nn.Sequential(
             nn.Conv2d(c, 64, (6, 6), stride=2), # 40 x 40 x 64

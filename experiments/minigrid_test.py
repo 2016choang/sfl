@@ -42,11 +42,7 @@ def build_and_train(env_id="MiniGrid-FourRooms-v0",
         eval_n_envs=1,
         eval_max_steps=int(10e3),
         eval_max_trajectories=5,
-    )
-    lr_schedule_config={'dsr': {'mode': 'plateau',
-                                'patience': 0,
-                                'gamma': 0.5}}
-    
+    )    
     try:
         with open(config_file, 'r') as f:
             config = json.load(f)
@@ -60,7 +56,7 @@ def build_and_train(env_id="MiniGrid-FourRooms-v0",
         algo=algo,
         agent=agent,
         sampler=sampler,
-        n_steps=2e4,
+        n_steps=1e5,
         log_interval_steps=1e3,
         affinity=dict(cuda_idx=cuda_idx),
         seed=seed
