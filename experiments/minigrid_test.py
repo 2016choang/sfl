@@ -14,7 +14,7 @@ import json
 from rlpyt.samplers.serial.sampler import SerialSampler
 from rlpyt.envs.gym import make as gym_make
 from rlpyt.algos.dqn.dsr.dsr import DSR
-from rlpyt.agents.dqn.grid_dsr.grid_dsr_agent import GridDsrAgent, GridDsrSmallAgent, GridDsrCompactAgent, GridDsrRandomAgent
+from rlpyt.agents.dqn.grid_dsr.grid_dsr_agent import GridDsrAgent
 from rlpyt.runners.minibatch_rl import MinibatchRlEval
 from rlpyt.utils.logging.context import logger_context
 from rlpyt.utils.seed import set_seed
@@ -55,14 +55,7 @@ def build_and_train(env_id="MiniGrid-FourRooms-v0",
         config = {}
 
     algo = DSR(**config.get('algo', {}))
-    if mode == 'full':
-        agent = GridDsrAgent()
-    elif mode == 'small':
-        agent = GridDsrSmallAgent()
-    elif mode == 'compact':
-        agent = GridDsrCompactAgent()
-    elif mode == 'random':
-        agent = GridDsrRandomAgent()
+    agent = GridDsrAgent(mode=mode)
     runner = MinibatchRlEval(
         algo=algo,
         agent=agent,
