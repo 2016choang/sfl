@@ -283,7 +283,7 @@ class DSR(RlAlgorithm):
         # loss = torch.sum(torch.mean(((target - reconstructed) ** 2), dim=[0, 1, 2]))
         # batch_mean = torch.mean(((obs - reconstructed) ** 2), dim=[1, 2, 3])
         # loss = torch.mean(batch_mean)
-        loss = self.l2_loss(target, reconstructed)
+        loss = self.l2_loss(obs, reconstructed)
         return loss
 
     def dsr_loss(self, samples):
