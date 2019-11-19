@@ -154,9 +154,7 @@ class MoveWrapper(Wrapper):
     def step(self, action):
         # 0 -- right, 1 -- down, 2 -- left, 3 -- up
         self.env.unwrapped.agent_dir = action
-        _, reward, done, info = self.env.step(2)
-        pos = self.env.unwrapped.agent_pos
-        obs = self.get_obs(pos)
+        obs, reward, done, info = self.env.step(2)
         return obs, reward, done, info
 
 
