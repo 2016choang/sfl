@@ -69,7 +69,7 @@ class DSR(RlAlgorithm):
         save__init__args(locals())
         self.update_counter = 0
 
-        # self.l2_loss = nn.MSELoss()
+        self.l2_loss = nn.MSELoss()
         self.learn_re = learn_re
 
     def initialize(self, agent, n_itr, batch_spec, mid_batch_reset, examples,
