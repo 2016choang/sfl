@@ -189,17 +189,20 @@ def update_obs_minigrid(obs):
 def make(*args, info_example=None, minigrid_config=None, **kwargs):
     if minigrid_config is not None:
         mode = minigrid_config.get('mode')
+        env = gym.make(*args, **kwargs)
+        if minigrid_config.get('reseed', True):
+            env = ReseedWrapper(env)
         if mode == 'full':
-            return GymEnvWrapper(RGBImgObsWrapper(ReseedWrapper(gym.make(*args, **kwargs))))
+            return GymEnvWrapper(RGBImgObsWrapper(env))
         elif mode == 'small':
-            env = RGBImgObsWrapper(ReseedWrapper(gym.make(*args, **kwargs)))
+            env = RGBImgObsWrapper(env)
             if minigrid_config.get('move', False):
                 env = MoveWrapper(env)
             return GymEnvWrapper(env, update_obs_func=update_obs_minigrid)
         elif mode == 'compact':
-            return GymEnvWrapper(FullyObsWrapper(ReseedWrapper(gym.make(*args, **kwargs))))
+            return GymEnvWrapper(FullyObsWrapper(env))
         elif mode == 'random':
-            return GymEnvWrapper(MinigridFeatureWrapper(RGBImgObsWrapper(ReseedWrapper(gym.make(*args, **kwargs)))))
+            return GymEnvWrapper(MinigridFeatureWrapper(RGBImgObsWrapper(env)))
     elif info_example is None:
         return GymEnvWrapper(gym.make(*args, **kwargs))
     else:
