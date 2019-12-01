@@ -120,7 +120,7 @@ class MinigridFeatureWrapper(Wrapper):
     def __init__(self, env, num_features=1024):
         super().__init__(env)
         self.env = env
-        self.local_size = (1, 1, num_features)
+        self.local_size = (3, 3, num_features)
         self.pad = (max(self.local_size[0] // 2 - 1, 0), max(self.local_size[1] // 2 - 1, 0))
         self.feature_map = np.pad(np.random.rand(19, 19, num_features), ((self.pad[0], self.pad[0]), (self.pad[1], self.pad[1]), (0, 0)), mode='constant')
 
@@ -236,7 +236,8 @@ def make(*args, info_example=None, minigrid_config=None, **kwargs):
         elif mode == 'compact':
             return GymEnvWrapper(FullyObsWrapper(env))
         elif mode == 'random':
-            return GymEnvWrapper(MinigridFeatureWrapper(RGBImgObsWrapper(env)))
+            # return GymEnvWrapper(MinigridFeatureWrapper(RGBImgObsWrapper(env)))
+            return GymEnvWrapper(MinigridPositionWrapper(RGBImgObsWrapper(env)))
     elif info_example is None:
         return GymEnvWrapper(gym.make(*args, **kwargs))
     else:
