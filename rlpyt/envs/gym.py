@@ -151,7 +151,8 @@ class MinigridFeatureWrapper(Wrapper):
 
 
 class MinigridPositionWrapper(Wrapper):
-        def __init__(self, env):
+
+    def __init__(self, env):
         super().__init__(env)
         self.env = env
         self.observation_space = Box(0, 1, (19, 19, 1))
