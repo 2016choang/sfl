@@ -121,7 +121,7 @@ class MinigridFeatureWrapper(Wrapper):
         super().__init__(env)
         self.env = env
         self.feature_map = np.random.rand(19, 19, num_features)
-        self.local_size = (3, 3, num_features)
+        self.local_size = (5, 5, num_features)
         self.observation_space = Box(0, 1, self.local_size)
         self.action_space = Discrete(4)
 

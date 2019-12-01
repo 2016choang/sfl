@@ -319,6 +319,8 @@ class DSR(RlAlgorithm):
             losses = torch.where(abs_delta <= self.delta_clip, losses, b)
         # if self.prioritized_replay:
         #     losses *= samples.is_weights
+
+        # sum losses over feature vector such that each sample has a scalar loss (result: B x 1)
         losses = losses.sum(dim=1)
         td_abs_errors = abs_delta.detach()
         if self.delta_clip is not None:
