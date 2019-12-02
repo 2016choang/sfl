@@ -155,7 +155,8 @@ class MinigridPositionWrapper(Wrapper):
     def __init__(self, env):
         super().__init__(env)
         self.env = env
-        self.observation_space = Box(0, 1, (19, 19, 1))
+        # self.observation_space = Box(0, 1, (19, 19, 1))
+        self.observation_space = Box(0, 18, (2, ))
         self.action_space = Discrete(4)
 
     def step(self, action):
@@ -172,9 +173,9 @@ class MinigridPositionWrapper(Wrapper):
         return self.get_obs(pos)
 
     def get_obs(self, pos):
-        obs = np.zeros((19, 19, 1))
-        obs[pos] = 1
-        return obs
+        # obs = np.zeros((19, 19, 1))
+        # obs[pos] = 1
+        return np.array(pos)
 
 
 class MoveWrapper(Wrapper):
