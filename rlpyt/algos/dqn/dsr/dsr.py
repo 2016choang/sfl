@@ -288,27 +288,28 @@ class DSR(RlAlgorithm):
 
     def dsr_loss(self, samples):
         """Samples have leading batch dimension [B,..] (but not time)."""
-        # 1. we want dsr of current state and action
+        # 1a. scale current observation and encode into feature space
         with torch.no_grad():
             obs = samples.agent_inputs.observation.type(torch.float) / 255
             features = self.agent.encode(obs)
 
+        # 1b. output current successor features, selected by observed action
         dsr_s = self.agent(features)
         dsr = select_at_indexes(samples.action, dsr_s)
 
         with torch.no_grad():
-            # 2. we want dsr of target state and action
+            # 2a. scale target observation and encode into feature space
             target_obs = samples.target_inputs.observation.type(torch.float) / 255
             target_features = self.agent.encode(target_obs)
-            target_dsr_s = self.agent.target(target_features)
 
+            # 2b. output target successor features, selected by random action
+            target_dsr_s = self.agent.target(target_features)
             num_actions = target_dsr_s.shape[1]
             random_actions = torch.randint_like(samples.action, high=num_actions)
             target_dsr = select_at_indexes(random_actions, target_dsr_s)
 
         # 3. combine current observation + discounted target dsr
         disc_target_dsr = (self.discount ** self.n_step_return) * target_dsr
-
         y = features + (1 - samples.done_n.float()).view(-1, 1) * disc_target_dsr
 
         delta = y - dsr
