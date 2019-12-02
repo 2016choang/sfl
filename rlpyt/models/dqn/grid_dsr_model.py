@@ -290,7 +290,7 @@ class GridDsrRandomModel(torch.nn.Module):
         elif mode == 'dsr':
             lead_dim, T, B, img_shape = infer_leading_dims(x, 1)
             dsr = self.dsr(x)
-            dsr = restore_leading_dims(dsr, lead_dim, T, B).view(-1, self.output_size, *img_shape)
+            dsr = restore_leading_dims(dsr, lead_dim, T, B).view(-1, self.output_size, self.image_embedding_size)
             return dsr
         else:
             raise ValueError('Invalid mode!')
