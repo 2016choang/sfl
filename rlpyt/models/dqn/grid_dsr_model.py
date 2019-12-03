@@ -262,7 +262,7 @@ class GridDsrRandomModel(torch.nn.Module):
             self,
             image_shape,
             output_size,
-            fc_sizes=[32, 32],
+            fc_sizes=[32],
             ):
         super().__init__()
         self.output_size = output_size
