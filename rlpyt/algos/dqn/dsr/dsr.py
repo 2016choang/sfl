@@ -7,10 +7,13 @@ from collections import namedtuple
 from rlpyt.algos.base import RlAlgorithm
 from rlpyt.utils.quick_args import save__init__args
 from rlpyt.utils.logging import logger
-from rlpyt.replays.non_sequence.frame import (UniformReplayFrameBuffer,
-    PrioritizedReplayFrameBuffer, AsyncUniformReplayFrameBuffer,
-    AsyncPrioritizedReplayFrameBuffer)
+# from rlpyt.replays.non_sequence.frame import (UniformReplayFrameBuffer,
+#     PrioritizedReplayFrameBuffer, AsyncUniformReplayFrameBuffer,
+#     AsyncPrioritizedReplayFrameBuffer)
+from rlpyt.replays.non_sequence.uniform import (UniformReplayBuffer,
+    AsyncUniformReplayBuffer)
 from rlpyt.utils.collections import namedarraytuple
+from rlpyt.utils.logging import logger
 from rlpyt.utils.misc import param_norm_
 from rlpyt.utils.tensor import select_at_indexes, valid_mean
 from rlpyt.algos.utils import valid_from_done
@@ -38,6 +41,7 @@ class DSR(RlAlgorithm):
             learning_rate=2.5e-4,
             OptimCls=torch.optim.Adam,
             optim_kwargs=None,
+            lr_schedule_config=None,
             initial_optim_state_dict=None,
             clip_grad_norm=10.,
             # eps_init=1,  # NOW IN AGENT.
@@ -54,6 +58,7 @@ class DSR(RlAlgorithm):
             default_priority=None,
             ReplayBufferCls=None,  # Leave None to select by above options.
             updates_per_sync=1,  # For async mode only.
+            learn_re=True
             ):
         if optim_kwargs is None:
             optim_kwargs = dict(eps=0.01 / batch_size)
@@ -63,6 +68,9 @@ class DSR(RlAlgorithm):
         del batch_size  # Property.
         save__init__args(locals())
         self.update_counter = 0
+
+        self.l2_loss = nn.MSELoss()
+        self.learn_re = learn_re
 
     def initialize(self, agent, n_itr, batch_spec, mid_batch_reset, examples,
             world_size=1, rank=0):
@@ -101,12 +109,68 @@ class DSR(RlAlgorithm):
     def optim_initialize(self, rank=0):
         """Called by async runner."""
         self.rank = rank
-        self.optimizer = self.OptimCls(self.agent.parameters(),
+        if self.learn_re:
+            self.re_optimizer = self.OptimCls(self.agent.re_parameters(),
+                lr=self.learning_rate, **self.optim_kwargs)
+        self.dsr_optimizer = self.OptimCls(self.agent.dsr_parameters(),
             lr=self.learning_rate, **self.optim_kwargs)
+        self.scheduler = None
+        if self.lr_schedule_config is not None:
+            if 're' in self.lr_schedule_config:
+                schedule_mode = self.lr_schedule_config['re'].get('mode')
+                if schedule_mode == 'milestone':
+                    milestones = self.lr_schedule_config['re'].get('milestones')
+                    gamma = self.lr_schedule_config['re'].get('gamma', 0.5)
+                    self.re_scheduler = torch.optim.lr_scheduler.MultiStepLR(self.re_optimizer,
+                                                                          milestones,
+                                                                          gamma=gamma)
+                elif schedule_mode == 'step':
+                    step_size = self.lr_schedule_config['re'].get('step_size')
+                    self.re_scheduler = torch.optim.lr_scheduler.StepLR(self.re_optimizer,
+                                                                     step_size)
+                elif schedule_mode == 'plateau':
+                    patience = self.lr_schedule_config['re'].get('patience', 10)
+                    threshold = self.lr_schedule_config['re'].get('threshold', 1e-4)
+                    factor = self.lr_schedule_config['re'].get('gamma', 0.1)
+                    self.re_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.re_optimizer,
+                                                                                patience=patience,
+                                                                                threshold=threshold,
+                                                                                factor=factor,
+                                                                                verbose=True)
+            elif 'dsr' in self.lr_schedule_config:
+                schedule_mode = self.lr_schedule_config['dsr'].get('mode')
+                if schedule_mode == 'milestone':
+                    milestones = self.lr_schedule_config['dsr'].get('milestones')
+                    gamma = self.lr_schedule_config['dsr'].get('gamma', 0.5)
+                    self.dsr_scheduler = torch.optim.lr_scheduler.MultiStepLR(self.dsr_optimizer,
+                                                                          milestones,
+                                                                          gamma=gamma)
+                elif schedule_mode == 'step':
+                    step_size = self.lr_schedule_config['dsr'].get('step_size')
+                    self.dsr_scheduler = torch.optim.lr_scheduler.StepLR(self.re_optimizer,
+                                                                     step_size)
+                elif schedule_mode == 'plateau':
+                    patience = self.lr_schedule_config['dsr'].get('patience', 10)
+                    threshold = self.lr_schedule_config['dsr'].get('threshold', 1e-4)
+                    factor = self.lr_schedule_config['dsr'].get('gamma', 0.1)
+                    self.dsr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.dsr_optimizer,
+                                                                                patience=patience,
+                                                                                threshold=threshold,
+                                                                                factor=factor,
+                                                                                verbose=True)                         
         if self.initial_optim_state_dict is not None:
-            self.optimizer.load_state_dict(self.initial_optim_state_dict)
+            self.re_optimizer.load_state_dict(self.initial_optim_state_dict['re_optim'])
+            self.dsr_optimizer.load_state_dict(self.initial_optim_state_dict['dsr_optim'])
         # if self.prioritized_replay:
         #     self.pri_beta_itr = max(1, self.pri_beta_steps // self.sampler_bs)
+
+    def optim_state_dict(self):
+        """If carrying multiple optimizers, overwrite to return dict state_dicts."""
+        if self.learn_re:
+            return {'re_optim': self.re_optimizer.state_dict(),
+                    'dsr_optim': self.dsr_optimizer.state_dict()}
+        else:
+            return {'dsr_optim': self.dsr_optimizer.state_dict()} 
 
     def initialize_replay_buffer(self, examples, batch_spec, async_=False):
         example_to_buffer = SamplesToBuffer(
@@ -131,11 +195,11 @@ class DSR(RlAlgorithm):
         #     ReplayCls = (AsyncPrioritizedReplayFrameBuffer if async_ else
         #         PrioritizedReplayFrameBuffer)
         # else:
-        ReplayCls = (AsyncUniformReplayFrameBuffer if async_ else
-            UniformReplayFrameBuffer)
+        # ReplayCls = (AsyncUniformReplayFrameBuffer if async_ else
+        #     UniformReplayFrameBuffer)
+        ReplayCls = (AsyncUniformReplayBuffer if async_ else
+            UniformReplayBuffer)
         self.replay_buffer = ReplayCls(**replay_kwargs)
-
-        self.l2_loss = nn.MSELoss()
 
     def optimize_agent(self, itr, samples=None, sampler_itr=None):
         itr = itr if sampler_itr is None else sampler_itr  # Async uses sampler_itr.
@@ -146,30 +210,40 @@ class DSR(RlAlgorithm):
         if itr < self.min_itr_learn:
             return opt_info
 
-        for _ in range(self.updates_per_optimize):
+        for i in range(self.updates_per_optimize):
             samples_from_replay = self.replay_buffer.sample_batch(self.batch_size)
-            self.optimizer.zero_grad()
-            loss = self.reconstruct_loss(samples_from_replay)
-            loss.backward()
 
+            if self.learn_re:
+                self.re_optimizer.zero_grad()
+                re_loss = self.reconstruct_loss(samples_from_replay)
+                re_loss.backward()
+
+                grad_norm = torch.nn.utils.clip_grad_norm_(
+                    self.agent.parameters(), self.clip_grad_norm)
+                param_norm = param_norm_(self.agent.parameters())
+                self.re_optimizer.step()
+
+                opt_info.reLoss.append(re_loss.item())
+                opt_info.reGradNorm.append(grad_norm)
+                opt_info.reParamNorm.append(param_norm)
+                opt_info.reParamRatio.append(grad_norm / param_norm)
+
+            # if i == 0:
+            #     summary_writer = logger.get_tf_summary_writer()
+            #     # Debugging layer parameter gradients
+            #     for name, param in self.agent.model.named_parameters():
+            #         if param.requires_grad and param.grad is not None:
+            #             summary_writer.add_histogram(name + 'Grad', param.grad.flatten(), itr)
+
+            self.dsr_optimizer.zero_grad()
+            dsr_loss, td_abs_errors = self.dsr_loss(samples_from_replay)
+            dsr_loss.backward()
             grad_norm = torch.nn.utils.clip_grad_norm_(
                 self.agent.parameters(), self.clip_grad_norm)
-            param_norm = param_norm_(self.agent.parameters())
-            self.optimizer.step()
-            opt_info.reLoss.append(loss.item())
-            opt_info.reGradNorm.append(grad_norm)
-            opt_info.reParamNorm.append(param_norm)
-            opt_info.reParamRatio.append(grad_norm / param_norm)
-
-            self.optimizer.zero_grad()
-            loss, td_abs_errors = self.dsr_loss(samples_from_replay)
-            loss.backward()
-            grad_norm = torch.nn.utils.clip_grad_norm_(
-                self.agent.parameters(), self.clip_grad_norm)
-            self.optimizer.step()
+            self.dsr_optimizer.step()
             # if self.prioritized_replay:
             #     self.replay_buffer.update_batch_priorities(td_abs_errors)
-            opt_info.dsrLoss.append(loss.item())
+            opt_info.dsrLoss.append(dsr_loss.item())
             opt_info.dsrGradNorm.append(grad_norm)
             opt_info.tdAbsErr.extend(td_abs_errors[::8].numpy())  # Downsample.
             self.update_counter += 1
@@ -177,6 +251,23 @@ class DSR(RlAlgorithm):
                 self.agent.update_target()
         self.update_itr_hyperparams(itr)
         return opt_info
+
+    def update_scheduler(self, opt_infos):
+        if self.lr_schedule_config is not None:
+            if 're' in self.lr_schedule_config:
+                schedule_mode = self.lr_schedule_config['re'].get('mode')
+                if schedule_mode == 'milestone' or schedule_mode == 'step':
+                    self.re_scheduler.step()
+                elif schedule_mode == 'plateau':
+                    if opt_infos.get('reLoss'):
+                        self.re_scheduler.step(np.average(opt_infos['reLoss']))
+            elif 'dsr' in self.lr_schedule_config:
+                schedule_mode = self.lr_schedule_config['dsr'].get('mode')
+                if schedule_mode == 'milestone' or schedule_mode == 'step':
+                    self.dsr_scheduler.step()
+                elif schedule_mode == 'plateau':
+                    if opt_infos.get('dsrLoss'):
+                        self.dsr_scheduler.step(np.average(opt_infos['dsrLoss']))
 
     def samples_to_buffer(self, samples):
         return SamplesToBuffer(
@@ -187,34 +278,38 @@ class DSR(RlAlgorithm):
         )
     
     def reconstruct_loss(self, samples):
-        reconstructed = self.agent.reconstruct(samples.agent_inputs.observation)
-        target = samples.agent_inputs.observation.type(torch.float)
-        target = (target - target.mean(dim=[0, 1, 2])) / target.std(dim=[0, 1, 2])
-        loss = self.l2_loss(target, reconstructed)
+        obs = samples.agent_inputs.observation.type(torch.float) / 255
+        reconstructed = self.agent.reconstruct(obs)
+        # loss = torch.sum(torch.mean(((target - reconstructed) ** 2), dim=[0, 1, 2]))
+        batch_mean = torch.mean(((obs - reconstructed) ** 2), dim=[1, 2, 3])
+        loss = torch.mean(batch_mean)
+        # loss = self.l2_loss(obs, reconstructed)
         return loss
 
     def dsr_loss(self, samples):
         """Samples have leading batch dimension [B,..] (but not time)."""
-        # 1. we want dsr of current state and action
+        # 1a. scale current observation and encode into feature space
         with torch.no_grad():
-            features = self.agent.encode(samples.agent_inputs.observation)
+            obs = samples.agent_inputs.observation.type(torch.float) / 255
+            features = self.agent.encode(obs)
 
+        # 1b. output current successor features, selected by observed action
         dsr_s = self.agent(features)
         dsr = select_at_indexes(samples.action, dsr_s)
 
         with torch.no_grad():
-            # 2. we want dsr of target state and action
-            target_features = self.agent.encode(samples.target_inputs.observation)
-            target_dsr_s = self.agent.target(target_features)
+            # 2a. scale target observation and encode into feature space
+            target_obs = samples.target_inputs.observation.type(torch.float) / 255
+            target_features = self.agent.encode(target_obs)
 
+            # 2b. output target successor features, selected by random action
+            target_dsr_s = self.agent.target(target_features)
             num_actions = target_dsr_s.shape[1]
             random_actions = torch.randint_like(samples.action, high=num_actions)
             target_dsr = select_at_indexes(random_actions, target_dsr_s)
 
         # 3. combine current observation + discounted target dsr
         disc_target_dsr = (self.discount ** self.n_step_return) * target_dsr
-
-        # 3a. encode observation into feature space
         y = features + (1 - samples.done_n.float()).view(-1, 1) * disc_target_dsr
 
         delta = y - dsr
@@ -225,6 +320,9 @@ class DSR(RlAlgorithm):
             losses = torch.where(abs_delta <= self.delta_clip, losses, b)
         # if self.prioritized_replay:
         #     losses *= samples.is_weights
+
+        # sum losses over feature vector such that each sample has a scalar loss (result: B x 1)
+        losses = losses.sum(dim=1)
         td_abs_errors = abs_delta.detach()
         if self.delta_clip is not None:
             td_abs_errors = torch.clamp(td_abs_errors, 0, self.delta_clip)
@@ -234,7 +332,6 @@ class DSR(RlAlgorithm):
             td_abs_errors *= valid
         else:
             loss = torch.mean(losses)
-
         return loss, td_abs_errors
 
     def update_itr_hyperparams(self, itr):

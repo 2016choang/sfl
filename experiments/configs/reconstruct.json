@@ -1,0 +1,15 @@
+{
+    "algo": {
+        "discount": 0.99,
+        "batch_size": 32,
+        "min_steps_learn": 1000,
+        "learning_rate": 2.5e-4,
+        "replay_size": 100000,
+        "learn_re": true,
+        "lr_schedule_config": {
+            "re": {"mode": "plateau",
+                   "patience": 0,
+                   "gamma": 0.5}
+        }
+    }
+}

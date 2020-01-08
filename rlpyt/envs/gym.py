@@ -1,8 +1,11 @@
 
+from skimage.transform import resize
+from skimage.util import img_as_ubyte
 import numpy as np
 import gym
 from gym_minigrid.wrappers import FullyObsWrapper, RGBImgObsWrapper, ReseedWrapper
 from gym import Wrapper
+from gym.spaces import Box, Discrete
 from gym.wrappers.time_limit import TimeLimit
 from collections import namedtuple
 
@@ -14,7 +17,7 @@ from rlpyt.utils.collections import is_namedtuple_class
 class GymEnvWrapper(Wrapper):
 
     def __init__(self, env,
-            act_null_value=0, obs_null_value=0, force_float32=True):
+            act_null_value=0, obs_null_value=0, force_float32=True, update_obs_func=None):
         super().__init__(env)
         o = self.env.reset()
         o, r, d, info = self.env.step(self.env.action_space.sample())
@@ -39,6 +42,7 @@ class GymEnvWrapper(Wrapper):
             force_float32=force_float32,
         )
         build_info_tuples(info)
+        self.update_obs_func = update_obs_func
 
     def step(self, action):
         a = self.action_space.revert(action)
@@ -50,10 +54,15 @@ class GymEnvWrapper(Wrapper):
             else:
                 info["timeout"] = False
         info = info_to_nt(info)
+        if self.update_obs_func is not None:
+            obs = self.update_obs_func(obs)
         return EnvStep(obs, r, d, info)
 
     def reset(self):
-        return self.observation_space.convert(self.env.reset())
+        obs = self.observation_space.convert(self.env.reset())
+        if self.update_obs_func is not None:
+            obs = self.update_obs_func(obs)
+        return obs
 
     @property
     def spaces(self):
@@ -103,6 +112,83 @@ def info_to_nt(value, name="info"):
 #     # for this env.
 #     return {}
 
+class MinigridFeatureWrapper(Wrapper):
+    
+    def __init__(self, env, num_features=1024):
+        super().__init__(env)
+        self.env = env
+        self.local_size = (3, 3, num_features)
+        self.pad = (max(self.local_size[0] // 2 - 1, 0), max(self.local_size[1] // 2 - 1, 0))
+        self.feature_map = np.pad(np.random.rand(19, 19, num_features), ((self.pad[0], self.pad[0]), (self.pad[1], self.pad[1]), (0, 0)), mode='constant')
+
+        self.observation_space = Box(0, 1, self.local_size)
+        self.action_space = Discrete(4)
+
+    def step(self, action):
+        # 0 -- right, 1 -- down, 2 -- left, 3 -- up
+        self.env.unwrapped.agent_dir = action
+        _, reward, done, info = self.env.step(2)
+        pos = self.env.unwrapped.agent_pos
+        obs = self.get_obs(pos)
+        return obs, reward, done, info
+
+    def reset(self, **kwargs):
+        self.env.reset()
+        pos = self.env.unwrapped.agent_pos
+        return self.get_obs(pos)
+
+    def get_obs(self, pos):
+        h_pos, w_pos = pos
+        h_pos += self.pad[0]
+        w_pos += self.pad[1]
+        h_len, w_len = self.local_size[:2]
+        h_len = h_len // 2
+        w_len = w_len // 2
+        return self.feature_map[h_pos - h_len: h_pos + h_len + 1, w_pos - w_len:w_pos + w_len + 1]
+
+
+class MinigridPositionWrapper(Wrapper):
+
+    def __init__(self, env):
+        super().__init__(env)
+        self.env = env
+        # self.observation_space = Box(0, 1, (19, 19, 1))
+        self.observation_space = Box(0, 18, (2, ))
+        self.action_space = Discrete(4)
+
+    def step(self, action):
+        # 0 -- right, 1 -- down, 2 -- left, 3 -- up
+        self.env.unwrapped.agent_dir = action
+        _, reward, done, info = self.env.step(2)
+        pos = tuple(self.env.unwrapped.agent_pos)
+        obs = self.get_obs(pos)
+        return obs, reward, done, info
+
+    def reset(self, **kwargs):
+        self.env.reset()
+        pos = tuple(self.env.unwrapped.agent_pos)
+        return self.get_obs(pos)
+
+    def get_obs(self, pos):
+        # obs = np.zeros((19, 19, 1))
+        # obs[pos] = 1
+        return np.array(pos)
+
+
+class MoveWrapper(Wrapper):
+
+    def __init__(self, env):
+        super().__init__(env)
+        self.env = env
+        self.observation_space = self.env.observation_space
+        self.action_space = Discrete(4)
+
+    def step(self, action):
+        # 0 -- right, 1 -- down, 2 -- left, 3 -- up
+        self.env.unwrapped.agent_dir = action
+        obs, reward, done, info = self.env.step(2)
+        return obs, reward, done, info
+
 
 class EnvInfoWrapper(Wrapper):
 
@@ -126,10 +212,30 @@ def infill_info(info, sometimes_info):
     return info
 
 
-def make(*args, info_example=None, minigrid=False, **kwargs):
-    if minigrid:
-        # return GymEnvWrapper(FullyObsWrapper(gym.make(*args, **kwargs)))  # compact
-        return GymEnvWrapper(RGBImgObsWrapper(ReseedWrapper(gym.make(*args, **kwargs))))  # full RGB
+def update_obs_minigrid(obs):
+    H, W = 84, 84
+    resized_obs = resize(obs, (H, W), anti_aliasing=True)
+    return img_as_ubyte(resized_obs)
+
+
+def make(*args, info_example=None, minigrid_config=None, **kwargs):
+    if minigrid_config is not None:
+        mode = minigrid_config.get('mode')
+        env = gym.make(*args, **kwargs)
+        if minigrid_config.get('reseed', True):
+            env = ReseedWrapper(env)
+        if mode == 'full':
+            return GymEnvWrapper(RGBImgObsWrapper(env))
+        elif mode == 'small':
+            env = RGBImgObsWrapper(env)
+            if minigrid_config.get('move', False):
+                env = MoveWrapper(env)
+            return GymEnvWrapper(env, update_obs_func=update_obs_minigrid)
+        elif mode == 'compact':
+            return GymEnvWrapper(FullyObsWrapper(env))
+        elif mode == 'random':
+            # return GymEnvWrapper(MinigridFeatureWrapper(RGBImgObsWrapper(env)))
+            return GymEnvWrapper(MinigridPositionWrapper(RGBImgObsWrapper(env)))
     elif info_example is None:
         return GymEnvWrapper(gym.make(*args, **kwargs))
     else:

@@ -236,16 +236,18 @@ class MinibatchRlEval(MinibatchRlBase):
                 samples, traj_infos = self.sampler.obtain_samples(itr)
                 self.agent.train_mode(itr)
                 opt_info = self.algo.optimize_agent(itr, samples)
+                logger.log_itr_info(itr, opt_info)
                 self.store_diagnostics(itr, traj_infos, opt_info)
                 if (itr + 1) % self.log_interval_itrs == 0:
                     eval_traj_infos, eval_time = self.evaluate_agent(itr)
                     self.log_diagnostics(itr, eval_traj_infos, eval_time)
+                    self.algo.update_scheduler(self._opt_infos)
 
-                    summary_writer = logger.get_tf_summary_writer()
-                    # Debugging layer parameters
-                    for name, param in self.agent.model.named_parameters():
-                        if param.requires_grad:
-                            summary_writer.add_histogram(name, param.flatten(), itr)
+                    # summary_writer = logger.get_tf_summary_writer()
+                    # # Debugging layer parameters
+                    # for name, param in self.agent.model.named_parameters():
+                    #     if param.requires_grad:
+                    #         summary_writer.add_histogram(name, param.flatten(), itr)
 
 
         self.shutdown()
