@@ -262,12 +262,13 @@ class GridDsrRandomModel(torch.nn.Module):
             self,
             image_shape,
             output_size,
-            fc_sizes=[32],
+            fc_sizes=[2048],
             ):
         super().__init__()
         self.output_size = output_size
 
-        self.image_embedding_size = 2
+        # self.image_embedding_size = 2
+        self.image_embedding_size = 361
 
         self.dsr = MlpModel(self.image_embedding_size, fc_sizes,
             output_size=self.image_embedding_size * output_size, nonlinearity=nn.LeakyReLU)
@@ -276,14 +277,14 @@ class GridDsrRandomModel(torch.nn.Module):
         if mode == 'features' or mode =='reconstruct':
             x = x.type(torch.float)
             # x = x.permute(0, 3, 1, 2)
-            # lead_dim, T, B, img_shape = infer_leading_dims(x, 3)
-            lead_dim, T, B, img_shape = infer_leading_dims(x, 1)
+            lead_dim, T, B, _ = infer_leading_dims(x, 3)
+            # lead_dim, T, B, img_shape = infer_leading_dims(x, 1)
             features = x.view(B, -1)
 
             if mode == 'reconstruct':
                 # reconstructed = x.permute(0, 2, 3, 1)
-                reconstructed = restore_leading_dims(x, lead_dim, T, B)
-                return reconstructed
+                # reconstructed = restore_leading_dims(x, lead_dim, T, B)
+                return x
             else:
                 # features = restore_leading_dims(features, lead_dim, T, B)
                 return features
@@ -291,7 +292,7 @@ class GridDsrRandomModel(torch.nn.Module):
         elif mode == 'dsr':
             lead_dim, T, B, img_shape = infer_leading_dims(x, 1)
             dsr = self.dsr(x)
-            dsr = restore_leading_dims(dsr, lead_dim, T, B).view(-1, self.output_size, self.image_embedding_size)
+            dsr = restore_leading_dims(dsr, lead_dim, T, B).view(B, self.output_size, self.image_embedding_size)
             return dsr
         else:
             raise ValueError('Invalid mode!')

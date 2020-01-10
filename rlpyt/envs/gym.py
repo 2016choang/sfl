@@ -152,14 +152,11 @@ class MinigridPositionWrapper(Wrapper):
     def __init__(self, env):
         super().__init__(env)
         self.env = env
-        # self.observation_space = Box(0, 1, (19, 19, 1))
-        self.observation_space = Box(0, 18, (2, ))
-        self.action_space = Discrete(4)
+        self.observation_space = Box(0, 1, (19, 19, 1))
+        self.action_space = env.action_space
 
     def step(self, action):
-        # 0 -- right, 1 -- down, 2 -- left, 3 -- up
-        self.env.unwrapped.agent_dir = action
-        _, reward, done, info = self.env.step(2)
+        _, reward, done, info = self.env.step(action)
         pos = tuple(self.env.unwrapped.agent_pos)
         obs = self.get_obs(pos)
         return obs, reward, done, info
@@ -170,9 +167,9 @@ class MinigridPositionWrapper(Wrapper):
         return self.get_obs(pos)
 
     def get_obs(self, pos):
-        # obs = np.zeros((19, 19, 1))
-        # obs[pos] = 1
-        return np.array(pos)
+        obs = np.zeros((19, 19, 1))
+        obs[pos] = 1
+        return obs
 
 
 class MoveWrapper(Wrapper):
@@ -224,12 +221,13 @@ def make(*args, info_example=None, minigrid_config=None, **kwargs):
         env = gym.make(*args, **kwargs)
         if minigrid_config.get('reseed', True):
             env = ReseedWrapper(env)
+        env = MoveWrapper(env)
         if mode == 'full':
             return GymEnvWrapper(RGBImgObsWrapper(env))
         elif mode == 'small':
             env = RGBImgObsWrapper(env)
-            if minigrid_config.get('move', False):
-                env = MoveWrapper(env)
+            # if minigrid_config.get('move', False):
+            #     env = MoveWrapper(env)
             return GymEnvWrapper(env, update_obs_func=update_obs_minigrid)
         elif mode == 'compact':
             return GymEnvWrapper(FullyObsWrapper(env))
