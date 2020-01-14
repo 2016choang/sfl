@@ -290,7 +290,7 @@ class DSR(RlAlgorithm):
         """Samples have leading batch dimension [B,..] (but not time)."""
         # 1a. scale current observation and encode into feature space
         with torch.no_grad():
-            obs = samples.agent_inputs.observation.type(torch.float) / 255
+            obs = samples.agent_inputs.observation.type(torch.float)
             features = self.agent.encode(obs)
 
         # 1b. output current successor features, selected by observed action
@@ -299,7 +299,7 @@ class DSR(RlAlgorithm):
 
         with torch.no_grad():
             # 2a. scale target observation and encode into feature space
-            target_obs = samples.target_inputs.observation.type(torch.float) / 255
+            target_obs = samples.target_inputs.observation.type(torch.float)
             target_features = self.agent.encode(target_obs)
 
             # 2b. output target successor features, selected by random action
@@ -315,6 +315,7 @@ class DSR(RlAlgorithm):
         delta = y - dsr
         losses = 0.5 * delta ** 2
         abs_delta = abs(delta)
+
         if self.delta_clip is not None:  # Huber loss.
             b = self.delta_clip * (abs_delta - self.delta_clip / 2)
             losses = torch.where(abs_delta <= self.delta_clip, losses, b)

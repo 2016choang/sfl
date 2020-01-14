@@ -52,6 +52,8 @@ def build_and_train(env_id="MiniGrid-FourRooms-v0",
         print('Unable to read config file {}'.format(config_file))
         config = {}
 
+    config['algo']['delta_clip'] = None
+
     algo = DSR(**config.get('algo', {}))
     agent = GridDsrAgent(mode=mode)
     runner = MinibatchRlEval(
