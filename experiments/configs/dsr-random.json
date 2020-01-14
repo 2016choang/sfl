@@ -1,6 +1,6 @@
 {
     "algo": {
-        "discount": 0.99,
+        "discount": 0.99999,
         "batch_size": 32,
         "min_steps_learn": 1000,
         "learning_rate": 5e-6,
