@@ -119,3 +119,5 @@ venv.bak/
 # Pickle
 *.pkl
 
+# Visualizations
+*.png
