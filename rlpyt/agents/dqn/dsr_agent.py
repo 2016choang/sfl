@@ -17,9 +17,10 @@ AgentInfo = namedarraytuple("AgentInfo", "a")
 
 class DsrAgent(EpsilonGreedyAgentMixin, BaseAgent):
 
-    def __call__(self, features):
-        model_inputs = buffer_to(features, device=self.device)
-        dsr = self.model(model_inputs, mode='dsr')
+    def __call__(self, observation, prev_action):
+        prev_action = self.distribution.to_onehot(prev_action)
+        model_inputs = buffer_to((observation, prev_action), device=self.device)
+        dsr = self.model(*model_inputs, mode='dsr')
         return dsr.cpu()
 
     def encode(self, observation):
@@ -32,6 +33,11 @@ class DsrAgent(EpsilonGreedyAgentMixin, BaseAgent):
         reconstructed = self.model(model_inputs, mode='reconstruct')
         return reconstructed.cpu()
 
+    def q_estimate(self, observation):
+        model_inputs = buffer_to(observation, device=self.device)
+        q = self.model(model_inputs, mode='q')
+        return q.cpu()
+
     def initialize(self, env_spaces, share_memory=False,
             global_B=1, env_ranks=None):
         super().initialize(env_spaces, share_memory,
@@ -39,8 +45,7 @@ class DsrAgent(EpsilonGreedyAgentMixin, BaseAgent):
         self.target_model = self.ModelCls(**self.env_model_kwargs,
             **self.model_kwargs)
         self.target_model.load_state_dict(self.model.state_dict())
-        self.num_actions = env_spaces.action.n
-        self.distribution = EpsilonGreedy(dim=env_spaces.action.n)  # unused
+        self.distribution = EpsilonGreedy(dim=env_spaces.action.n)
         if env_ranks is not None:
             self.make_vec_eps(global_B, env_ranks)
 
@@ -54,14 +59,20 @@ class DsrAgent(EpsilonGreedyAgentMixin, BaseAgent):
 
     @torch.no_grad()
     def step(self, observation, prev_action, prev_reward):
-        action = torch.randint_like(prev_action, high=self.num_actions)
+        prev_action = self.distribution.to_onehot(prev_action)
+        model_inputs = buffer_to((observation, prev_action, prev_reward),
+            device=self.device)
+        q = self.model(*model_inputs, mode='q')
+        q = q.cpu()
+        action = self.distribution.sample(q)
         agent_info = AgentInfo(a=action)
         # action, agent_info = buffer_to((action, agent_info), device="cpu")
         return AgentStep(action=action, agent_info=agent_info)
 
-    def target(self, features):
-        model_inputs = buffer_to(features, device=self.device)
-        target_dsr = self.model(model_inputs, mode='dsr')
+    def target(self, observation, prev_action):
+        prev_action = self.distribution.to_onehot(prev_action)
+        model_inputs = buffer_to((observation, prev_action), device=self.device)
+        target_dsr = self.model(*model_inputs, mode='dsr')
         return target_dsr.cpu()
 
     def update_target(self):

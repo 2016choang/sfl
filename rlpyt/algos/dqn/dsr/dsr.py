@@ -215,7 +215,7 @@ class DSR(RlAlgorithm):
 
             if self.learn_re:
                 self.re_optimizer.zero_grad()
-                re_loss = self.reconstruct_loss(samples_from_replay)
+                re_loss = self.representation_loss(samples_from_replay)
                 re_loss.backward()
 
                 grad_norm = torch.nn.utils.clip_grad_norm_(
@@ -277,38 +277,47 @@ class DSR(RlAlgorithm):
             done=samples.env.done,
         )
     
-    def reconstruct_loss(self, samples):
-        obs = samples.agent_inputs.observation.type(torch.float) / 255
-        reconstructed = self.agent.reconstruct(obs)
-        # loss = torch.sum(torch.mean(((target - reconstructed) ** 2), dim=[0, 1, 2]))
-        batch_mean = torch.mean(((obs - reconstructed) ** 2), dim=[1, 2, 3])
-        loss = torch.mean(batch_mean)
+    def representation_loss(self, samples):
+        # obs = samples.agent_inputs.observation.type(torch.float) / 255
+        # reconstructed = self.agent.reconstruct(obs)
+        # # loss = torch.sum(torch.mean(((target - reconstructed) ** 2), dim=[0, 1, 2]))
+        # batch_mean = torch.mean(((obs - reconstructed) ** 2), dim=[1, 2, 3])
+        # loss = torch.mean(batch_mean)
         # loss = self.l2_loss(obs, reconstructed)
-        return loss
-
-    def dsr_loss(self, samples):
-        """Samples have leading batch dimension [B,..] (but not time)."""
-        # 1a. scale current observation and encode into feature space
         with torch.no_grad():
             obs = samples.agent_inputs.observation.type(torch.float)
             features = self.agent.encode(obs)
 
-        # 1b. output current successor features, selected by observed action
-        dsr_s = self.agent(features)
-        dsr = select_at_indexes(samples.action, dsr_s)
+            actions = samples.agent_inputs.prev_action.type(torch.float)
+            s_features = self.agent(features, actions)
+
+        rewards = samples.return_.type(torch.float)
+        qs = self.agent.q_estimate(s_features)
+        q = select_at_indexes(samples.action, qs)
+        loss = self.l2_loss(q, rewards)
+        return loss
+
+    def dsr_loss(self, samples):
+        """Samples have leading batch dimension [B,..] (but not time)."""
+        # 1a. encode observations in feature space
+        with torch.no_grad():
+            obs = samples.agent_inputs.observation.type(torch.float)
+            actions = samples.agent_inputs.prev_action.type(torch.float)
+            features = self.agent.encode(obs)
+
+        # 1b. estimate successor features given features and actions
+        dsr = self.agent(features, actions)
 
         with torch.no_grad():
-            # 2a. scale target observation and encode into feature space
+            # 2a. encode target observations in feature space
             target_obs = samples.target_inputs.observation.type(torch.float)
+            target_actions = samples.agent_inputs.prev_action.type(torch.float)
             target_features = self.agent.encode(target_obs)
 
-            # 2b. output target successor features, selected by random action
-            target_dsr_s = self.agent.target(target_features)
-            num_actions = target_dsr_s.shape[1]
-            random_actions = torch.randint_like(samples.action, high=num_actions)
-            target_dsr = select_at_indexes(random_actions, target_dsr_s)
+            # 2b. estimate target successor features given features and target actions
+            target_dsr = self.agent.target(target_features, target_actions)
 
-        # 3. combine current observation + discounted target dsr
+        # 3. combine current features + discounted target successor features
         disc_target_dsr = (self.discount ** self.n_step_return) * target_dsr
         y = features + (1 - samples.done_n.float()).view(-1, 1) * disc_target_dsr
 

@@ -114,12 +114,12 @@ def info_to_nt(value, name="info"):
 
 class MinigridFeatureWrapper(Wrapper):
     
-    def __init__(self, env, num_features=1024):
+    def __init__(self, env, num_features=64, a=-1, b=1):
         super().__init__(env)
         self.env = env
-        self.local_size = (3, 3, num_features)
+        self.local_size = (1, 1, num_features)
         self.pad = (max(self.local_size[0] // 2 - 1, 0), max(self.local_size[1] // 2 - 1, 0))
-        self.feature_map = np.pad(np.random.rand(19, 19, num_features), ((self.pad[0], self.pad[0]), (self.pad[1], self.pad[1]), (0, 0)), mode='constant')
+        self.feature_map = np.pad((b - a) * np.random.rand(19, 19, num_features) - ((b - a) / 2), ((self.pad[0], self.pad[0]), (self.pad[1], self.pad[1]), (0, 0)), mode='constant')
 
         self.observation_space = Box(0, 1, self.local_size)
         self.action_space = Discrete(4)
@@ -129,7 +129,7 @@ class MinigridFeatureWrapper(Wrapper):
         self.env.unwrapped.agent_dir = action
         _, reward, done, info = self.env.step(2)
         pos = self.env.unwrapped.agent_pos
-        obs = self.get_obs(pos)
+        obs = self.get_obs(pos) 
         return obs, reward, done, info
 
     def reset(self, **kwargs):
@@ -143,8 +143,8 @@ class MinigridFeatureWrapper(Wrapper):
         w_pos += self.pad[1]
         h_len, w_len = self.local_size[:2]
         h_len = h_len // 2
-        w_len = w_len // 2
-        return self.feature_map[h_pos - h_len: h_pos + h_len + 1, w_pos - w_len:w_pos + w_len + 1]
+        w_len = w_len // 2 
+        return self.feature_map[h_pos - h_len: h_pos + h_len + 1, w_pos - w_len:w_pos + w_len + 1].squeeze()
 
 
 class MinigridPositionWrapper(Wrapper):
@@ -227,13 +227,13 @@ def make(*args, info_example=None, minigrid_config=None, **kwargs):
         elif mode == 'small':
             env = RGBImgObsWrapper(env)
             # if minigrid_config.get('move', False):
-            #     env = MoveWrapper(env)
+            #     env = MoveWrapper(env) 
             return GymEnvWrapper(env, update_obs_func=update_obs_minigrid)
         elif mode == 'compact':
             return GymEnvWrapper(FullyObsWrapper(env))
         elif mode == 'random':
-            # return GymEnvWrapper(MinigridFeatureWrapper(RGBImgObsWrapper(env)))
-            return GymEnvWrapper(MinigridPositionWrapper(RGBImgObsWrapper(env)))
+            return GymEnvWrapper(MinigridFeatureWrapper(RGBImgObsWrapper(env)))
+            # return GymEnvWrapper(MinigridPositionWrapper(RGBImgObsWrapper(env)))
     elif info_example is None:
         return GymEnvWrapper(gym.make(*args, **kwargs))
     else:
