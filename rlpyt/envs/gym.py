@@ -156,7 +156,7 @@ class MinigridGaussianWrapper(Wrapper):
             if random.random() < 0.5:
                 x = random.randint(1, 8)
             else:
-                x = randoem.randint(10, 17)
+                x = random.randint(10, 17)
             if random.random() < 0.5:
                 y = random.randint(1, 8) 
             else:
