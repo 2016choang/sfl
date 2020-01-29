@@ -1,4 +1,7 @@
 
+from collections import namedtuple
+import random
+
 from skimage.transform import resize
 from skimage.util import img_as_ubyte
 import numpy as np
@@ -7,7 +10,6 @@ from gym_minigrid.wrappers import FullyObsWrapper, ImgObsWrapper, RGBImgObsWrapp
 from gym import Wrapper
 from gym.spaces import Box, Discrete
 from gym.wrappers.time_limit import TimeLimit
-from collections import namedtuple
 
 from rlpyt.envs.base import EnvSpaces, EnvStep
 from rlpyt.spaces.gym_wrapper import GymSpaceWrapper
@@ -115,12 +117,26 @@ def info_to_nt(value, name="info"):
 
 class MinigridGaussianWrapper(Wrapper):
     
-    def __init__(self, env, num_features=64, sigma=0.01):
+    def __init__(self, env, num_features=64, sigma=0.01, seed=None):
         super().__init__(env)
         self.env = env
         cov = [[sigma, 0], [0, sigma]]
         centers = np.linspace(0, 1, 19)
         self.feature_map = np.array([[np.random.multivariate_normal([centers[x], centers[y]], cov, num_features // 2).flatten() for x in range(19)] for y in range(19)])
+
+        if seed is not None:
+            random.seed(seed)
+            if random.random() < 0.5:
+                x = random.randint(1, 8)
+            else:
+                x = random.randint(10, 17)
+            if random.random() < 0.5:
+                y = random.randint(1, 8) 
+            else:
+                y = random.randint(10, 17)
+            self.start_pos = np.array([x, y])
+        else:
+            self.start_pos = None
 
         self.observation_space = Box(0, 1, (num_features, ))
         self.action_space = env.action_space
@@ -134,6 +150,19 @@ class MinigridGaussianWrapper(Wrapper):
 
     def reset(self, **kwargs):
         self.env.reset()
+        if self.start_pos is not None:
+            self.env.unwrapped.agent_pos = self.start_pos
+        else:
+            if random.random() < 0.5:
+                x = random.randint(1, 8)
+            else:
+                x = random.randint(10, 17)
+            if random.random() < 0.5:
+                y = random.randint(1, 8) 
+            else:
+                y = random.randint(10, 17)
+            self.env.unwrapped.agent_pos = np.array([x, y])
+        
         pos = self.env.unwrapped.agent_pos
         return self.get_obs(pos)
 
@@ -248,7 +277,7 @@ def make(*args, info_example=None, minigrid_config=None, **kwargs):
     if minigrid_config is not None:
         mode = minigrid_config.get('mode')
         env = gym.make(*args, **kwargs)
-        if minigrid_config.get('reseed', True):
+        if minigrid_config.get('seed', None) is not None:
             env = ReseedWrapper(env)
         if mode == 'full':
             return GymEnvWrapper(RGBImgObsWrapper(env))
