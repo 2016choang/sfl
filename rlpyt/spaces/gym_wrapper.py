@@ -63,6 +63,8 @@ class GymSpaceWrapper:
 
     def revert(self, value):
         # Revert namedtuple action into wrapped env's dict.
+        if isinstance(value, np.ndarray):
+            return value.item()
         return nt_to_dict(value)
 
     @property

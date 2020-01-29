@@ -18,7 +18,7 @@ from rlpyt.utils.misc import param_norm_
 from rlpyt.utils.tensor import select_at_indexes, valid_mean
 from rlpyt.algos.utils import valid_from_done
 
-OptInfo = namedtuple("OptInfo", ["reLoss", "reGradNorm", "reParamNorm", "reParamRatio", "dsrLoss", "dsrGradNorm", "tdAbsErr"])
+OptInfo = namedtuple("OptInfo", ["repLoss", "repGradNorm", "repParamNorm", "repParamRatio", "dsrLoss", "dsrGradNorm", "tdAbsErr"])
 SamplesToBuffer = namedarraytuple("SamplesToBuffer",
     ["observation", "action", "reward", "done"])
 
@@ -57,8 +57,7 @@ class DSR(RlAlgorithm):
             pri_beta_steps=int(50e6),
             default_priority=None,
             ReplayBufferCls=None,  # Leave None to select by above options.
-            updates_per_sync=1,  # For async mode only.
-            learn_re=True
+            updates_per_sync=1  # For async mode only.
             ):
         if optim_kwargs is None:
             optim_kwargs = dict(eps=0.01 / batch_size)
@@ -70,7 +69,6 @@ class DSR(RlAlgorithm):
         self.update_counter = 0
 
         self.l2_loss = nn.MSELoss()
-        self.learn_re = learn_re
 
     def initialize(self, agent, n_itr, batch_spec, mid_batch_reset, examples,
             world_size=1, rank=0):
@@ -109,30 +107,29 @@ class DSR(RlAlgorithm):
     def optim_initialize(self, rank=0):
         """Called by async runner."""
         self.rank = rank
-        if self.learn_re:
-            self.re_optimizer = self.OptimCls(self.agent.re_parameters(),
-                lr=self.learning_rate, **self.optim_kwargs)
+        self.rep_optimizer = self.OptimCls(self.agent.rep_parameters(),
+            lr=self.learning_rate, **self.optim_kwargs)
         self.dsr_optimizer = self.OptimCls(self.agent.dsr_parameters(),
             lr=self.learning_rate, **self.optim_kwargs)
         self.scheduler = None
         if self.lr_schedule_config is not None:
-            if 're' in self.lr_schedule_config:
-                schedule_mode = self.lr_schedule_config['re'].get('mode')
+            if 'rep' in self.lr_schedule_config:
+                schedule_mode = self.lr_schedule_config['rep'].get('mode')
                 if schedule_mode == 'milestone':
-                    milestones = self.lr_schedule_config['re'].get('milestones')
-                    gamma = self.lr_schedule_config['re'].get('gamma', 0.5)
-                    self.re_scheduler = torch.optim.lr_scheduler.MultiStepLR(self.re_optimizer,
+                    milestones = self.lr_schedule_config['rep'].get('milestones')
+                    gamma = self.lr_schedule_config['rep'].get('gamma', 0.5)
+                    self.rep_scheduler = torch.optim.lr_scheduler.MultiStepLR(self.rep_optimizer,
                                                                           milestones,
                                                                           gamma=gamma)
                 elif schedule_mode == 'step':
-                    step_size = self.lr_schedule_config['re'].get('step_size')
-                    self.re_scheduler = torch.optim.lr_scheduler.StepLR(self.re_optimizer,
+                    step_size = self.lr_schedule_config['rep'].get('step_size')
+                    self.rep_scheduler = torch.optim.lr_scheduler.StepLR(self.rep_optimizer,
                                                                      step_size)
                 elif schedule_mode == 'plateau':
-                    patience = self.lr_schedule_config['re'].get('patience', 10)
-                    threshold = self.lr_schedule_config['re'].get('threshold', 1e-4)
-                    factor = self.lr_schedule_config['re'].get('gamma', 0.1)
-                    self.re_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.re_optimizer,
+                    patience = self.lr_schedule_config['rep'].get('patience', 10)
+                    threshold = self.lr_schedule_config['rep'].get('threshold', 1e-4)
+                    factor = self.lr_schedule_config['rep'].get('gamma', 0.1)
+                    self.rep_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.rep_optimizer,
                                                                                 patience=patience,
                                                                                 threshold=threshold,
                                                                                 factor=factor,
@@ -147,7 +144,7 @@ class DSR(RlAlgorithm):
                                                                           gamma=gamma)
                 elif schedule_mode == 'step':
                     step_size = self.lr_schedule_config['dsr'].get('step_size')
-                    self.dsr_scheduler = torch.optim.lr_scheduler.StepLR(self.re_optimizer,
+                    self.dsr_scheduler = torch.optim.lr_scheduler.StepLR(self.dsr_optimizer,
                                                                      step_size)
                 elif schedule_mode == 'plateau':
                     patience = self.lr_schedule_config['dsr'].get('patience', 10)
@@ -159,18 +156,15 @@ class DSR(RlAlgorithm):
                                                                                 factor=factor,
                                                                                 verbose=True)                         
         if self.initial_optim_state_dict is not None:
-            self.re_optimizer.load_state_dict(self.initial_optim_state_dict['re_optim'])
+            self.rep_optimizer.load_state_dict(self.initial_optim_state_dict['rep_optim'])
             self.dsr_optimizer.load_state_dict(self.initial_optim_state_dict['dsr_optim'])
         # if self.prioritized_replay:
         #     self.pri_beta_itr = max(1, self.pri_beta_steps // self.sampler_bs)
 
     def optim_state_dict(self):
         """If carrying multiple optimizers, overwrite to return dict state_dicts."""
-        if self.learn_re:
-            return {'re_optim': self.re_optimizer.state_dict(),
-                    'dsr_optim': self.dsr_optimizer.state_dict()}
-        else:
-            return {'dsr_optim': self.dsr_optimizer.state_dict()} 
+        return {'rep_optim': self.rep_optimizer.state_dict(),
+                'dsr_optim': self.dsr_optimizer.state_dict()}
 
     def initialize_replay_buffer(self, examples, batch_spec, async_=False):
         example_to_buffer = SamplesToBuffer(
@@ -213,20 +207,19 @@ class DSR(RlAlgorithm):
         for i in range(self.updates_per_optimize):
             samples_from_replay = self.replay_buffer.sample_batch(self.batch_size)
 
-            if self.learn_re:
-                self.re_optimizer.zero_grad()
-                re_loss = self.representation_loss(samples_from_replay)
-                re_loss.backward()
+            self.rep_optimizer.zero_grad()
+            rep_loss = self.representation_loss(samples_from_replay)
+            rep_loss.backward()
 
-                grad_norm = torch.nn.utils.clip_grad_norm_(
-                    self.agent.parameters(), self.clip_grad_norm)
-                param_norm = param_norm_(self.agent.parameters())
-                self.re_optimizer.step()
+            grad_norm = torch.nn.utils.clip_grad_norm_(
+                self.agent.parameters(), self.clip_grad_norm)
+            param_norm = param_norm_(self.agent.parameters())
+            self.rep_optimizer.step()
 
-                opt_info.reLoss.append(re_loss.item())
-                opt_info.reGradNorm.append(grad_norm)
-                opt_info.reParamNorm.append(param_norm)
-                opt_info.reParamRatio.append(grad_norm / param_norm)
+            opt_info.repLoss.append(rep_loss.item())
+            opt_info.repGradNorm.append(grad_norm)
+            opt_info.repParamNorm.append(param_norm)
+            opt_info.repParamRatio.append(grad_norm / param_norm)
 
             # if i == 0:
             #     summary_writer = logger.get_tf_summary_writer()
@@ -254,13 +247,13 @@ class DSR(RlAlgorithm):
 
     def update_scheduler(self, opt_infos):
         if self.lr_schedule_config is not None:
-            if 're' in self.lr_schedule_config:
-                schedule_mode = self.lr_schedule_config['re'].get('mode')
+            if 'rep' in self.lr_schedule_config:
+                schedule_mode = self.lr_schedule_config['rep'].get('mode')
                 if schedule_mode == 'milestone' or schedule_mode == 'step':
-                    self.re_scheduler.step()
+                    self.rep_scheduler.step()
                 elif schedule_mode == 'plateau':
-                    if opt_infos.get('reLoss'):
-                        self.re_scheduler.step(np.average(opt_infos['reLoss']))
+                    if opt_infos.get('repLoss'):
+                        self.rep_scheduler.step(np.average(opt_infos['repLoss']))
             elif 'dsr' in self.lr_schedule_config:
                 schedule_mode = self.lr_schedule_config['dsr'].get('mode')
                 if schedule_mode == 'milestone' or schedule_mode == 'step':

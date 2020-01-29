@@ -79,7 +79,7 @@ class DsrAgent(EpsilonGreedyAgentMixin, BaseAgent):
         self.target_model.load_state_dict(
             strip_ddp_state_dict(self.model.state_dict()))
 
-    def re_parameters(self):
+    def rep_parameters(self):
         return [param for name, param in self.model.named_parameters() if 'dsr' not in name]
 
     def dsr_parameters(self):

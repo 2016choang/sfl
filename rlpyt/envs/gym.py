@@ -3,7 +3,7 @@ from skimage.transform import resize
 from skimage.util import img_as_ubyte
 import numpy as np
 import gym
-from gym_minigrid.wrappers import FullyObsWrapper, RGBImgObsWrapper, ReseedWrapper
+from gym_minigrid.wrappers import FullyObsWrapper, ImgObsWrapper, RGBImgObsWrapper, ReseedWrapper
 from gym import Wrapper
 from gym.spaces import Box, Discrete
 from gym.wrappers.time_limit import TimeLimit
@@ -45,6 +45,7 @@ class GymEnvWrapper(Wrapper):
         self.update_obs_func = update_obs_func
 
     def step(self, action):
+        
         a = self.action_space.revert(action)
         o, r, d, info = self.env.step(a)
         obs = self.observation_space.convert(o)
@@ -112,9 +113,37 @@ def info_to_nt(value, name="info"):
 #     # for this env.
 #     return {}
 
+class MinigridGaussianWrapper(Wrapper):
+    
+    def __init__(self, env, num_features=64, sigma=0.01):
+        super().__init__(env)
+        self.env = env
+        cov = [[sigma, 0], [0, sigma]]
+        centers = np.linspace(0, 1, 19)
+        self.feature_map = np.array([[np.random.multivariate_normal([centers[x], centers[y]], cov, num_features // 2).flatten() for x in range(19)] for y in range(19)])
+
+        self.observation_space = Box(0, 1, (num_features, ))
+        self.action_space = env.action_space
+
+    def step(self, action):
+        # 0 -- right, 1 -- down, 2 -- left, 3 -- up
+        _, reward, done, info = self.env.step(action)
+        pos = tuple(self.env.unwrapped.agent_pos)
+        obs = self.get_obs(pos)
+        return obs, reward, done, info
+
+    def reset(self, **kwargs):
+        self.env.reset()
+        pos = self.env.unwrapped.agent_pos
+        return self.get_obs(pos)
+
+    def get_obs(self, pos):
+        return self.feature_map[tuple(pos)]
+
+
 class MinigridFeatureWrapper(Wrapper):
     
-    def __init__(self, env, num_features=64, a=-1, b=1):
+    def __init__(self, env, num_features=8, a=-1, b=1):
         super().__init__(env)
         self.env = env
         self.local_size = (1, 1, num_features)
@@ -128,8 +157,8 @@ class MinigridFeatureWrapper(Wrapper):
         # 0 -- right, 1 -- down, 2 -- left, 3 -- up
         self.env.unwrapped.agent_dir = action
         _, reward, done, info = self.env.step(2)
-        pos = self.env.unwrapped.agent_pos
-        obs = self.get_obs(pos) 
+        pos = tuple(self.env.unwrapped.agent_pos)
+        obs = self.get_obs(pos)
         return obs, reward, done, info
 
     def reset(self, **kwargs):
@@ -221,7 +250,6 @@ def make(*args, info_example=None, minigrid_config=None, **kwargs):
         env = gym.make(*args, **kwargs)
         if minigrid_config.get('reseed', True):
             env = ReseedWrapper(env)
-        env = MoveWrapper(env)
         if mode == 'full':
             return GymEnvWrapper(RGBImgObsWrapper(env))
         elif mode == 'small':
@@ -230,10 +258,11 @@ def make(*args, info_example=None, minigrid_config=None, **kwargs):
             #     env = MoveWrapper(env) 
             return GymEnvWrapper(env, update_obs_func=update_obs_minigrid)
         elif mode == 'compact':
-            return GymEnvWrapper(FullyObsWrapper(env))
+            return GymEnvWrapper(MoveWrapper(FullyObsWrapper(env)))
         elif mode == 'random':
-            return GymEnvWrapper(MinigridFeatureWrapper(RGBImgObsWrapper(env)))
+            # return GymEnvWrapper(MinigridFeatureWrapper(RGBImgObsWrapper(env)))
             # return GymEnvWrapper(MinigridPositionWrapper(RGBImgObsWrapper(env)))
+            return GymEnvWrapper(MinigridGaussianWrapper(RGBImgObsWrapper(env)))
     elif info_example is None:
         return GymEnvWrapper(gym.make(*args, **kwargs))
     else:

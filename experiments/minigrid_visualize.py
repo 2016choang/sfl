@@ -57,7 +57,12 @@ def visualize(checkpoint, output, cuda_idx=None, mode='full', seed=333):
             with torch.no_grad():
                 features = model(observation.to(device))
 
-            dsr = model(features, mode='dsr').mean(dim=1).squeeze(0)
+            dsr = 0
+            for a in range(env.action_space.n):
+                act = torch.zeros(env.action_space.n, dtype=torch.float).unsqueeze(0).to(device)
+                act[0, a] = 1
+                dsr += model(features, act, mode='dsr')
+            
             SR[pos] = dsr.to(torch.device('cpu'))
             unique_states += 1
 
