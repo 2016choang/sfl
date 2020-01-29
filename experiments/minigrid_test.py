@@ -31,8 +31,7 @@ def build_and_train(env_id="MiniGrid-FourRooms-v0",
 
     # minigrid_config = {'mode': mode,
     #                    'reseed': mode != 'random'}
-    minigrid_config = {'mode': mode,
-                       'seed': seed}
+    minigrid_config = {'mode': mode}
 
     sampler = SerialSampler(
         EnvCls=gym_make,

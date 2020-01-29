@@ -156,7 +156,7 @@ class MinigridGaussianWrapper(Wrapper):
             if random.random() < 0.5:
                 x = random.randint(1, 8)
             else:
-                x = random.randint(10, 17)
+                x = randoem.randint(10, 17)
             if random.random() < 0.5:
                 y = random.randint(1, 8) 
             else:
@@ -277,8 +277,7 @@ def make(*args, info_example=None, minigrid_config=None, **kwargs):
     if minigrid_config is not None:
         mode = minigrid_config.get('mode')
         env = gym.make(*args, **kwargs)
-        if minigrid_config.get('seed', None) is not None:
-            env = ReseedWrapper(env)
+        env = ReseedWrapper(env)
         if mode == 'full':
             return GymEnvWrapper(RGBImgObsWrapper(env))
         elif mode == 'small':
@@ -291,7 +290,8 @@ def make(*args, info_example=None, minigrid_config=None, **kwargs):
         elif mode == 'random':
             # return GymEnvWrapper(MinigridFeatureWrapper(RGBImgObsWrapper(env)))
             # return GymEnvWrapper(MinigridPositionWrapper(RGBImgObsWrapper(env)))
-            return GymEnvWrapper(MinigridGaussianWrapper(RGBImgObsWrapper(env)))
+            seed = minigrid_config.get('seed', None)
+            return GymEnvWrapper(MinigridGaussianWrapper(RGBImgObsWrapper(env), seed=seed))
     elif info_example is None:
         return GymEnvWrapper(gym.make(*args, **kwargs))
     else:
