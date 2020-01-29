@@ -117,7 +117,7 @@ def info_to_nt(value, name="info"):
 
 class MinigridGaussianWrapper(Wrapper):
     
-    def __init__(self, env, num_features=64, sigma=0.01, seed=None):
+    def __init__(self, env, num_features=8, sigma=0.01, seed=None):
         super().__init__(env)
         self.env = env
         cov = [[sigma, 0], [0, sigma]]
