@@ -268,7 +268,7 @@ class GridDsrRandomModel(torch.nn.Module):
 
         self.output_size = output_size
  
-        fc_sizes = [self.image_embedding_size * 2]
+        fc_sizes = [64]
 
         self.dsr = MlpModel(self.image_embedding_size + output_size, fc_sizes,
             output_size=self.image_embedding_size, nonlinearity=nn.LeakyReLU)
