@@ -236,7 +236,7 @@ class MinigridGaussianWrapper(Wrapper):
 
 class MinigridFeatureWrapper(Wrapper):
     
-    def __init__(self, env, num_features=8, sigma=1, seed=seed):
+    def __init__(self, env, num_features=8, sigma=1, seed=None):
         super().__init__(env)
         self.env = env
         # self.local_size = (1, 1, num_features)
@@ -244,6 +244,20 @@ class MinigridFeatureWrapper(Wrapper):
         # self.feature_map = np.pad(2 * sigma * np.random.rand(19, 19, num_features) - sigma, ((self.pad[0], self.pad[0]), (self.pad[1], self.pad[1]), (0, 0)), mode='constant')
         self.feature_map = 2 * sigma * np.random.rand(19, 19, num_features) - sigma
 
+        if seed is not None:
+            random.seed(seed)
+            if random.random() < 0.5:
+                x = random.randint(1, 8)
+            else:
+                x = random.randint(10, 17)
+            if random.random() < 0.5:
+                y = random.randint(1, 8) 
+            else:
+                y = random.randint(10, 17)
+            self.start_pos = np.array([x, y])
+        else:
+            self.start_pos = None
+        
         self.observation_space = Box(0, 1, (num_features, ))
         self.action_space = Discrete(4)
 
@@ -257,6 +271,19 @@ class MinigridFeatureWrapper(Wrapper):
 
     def reset(self, **kwargs):
         self.env.reset()
+        if self.start_pos is not None:
+            self.env.unwrapped.agent_pos = self.start_pos
+        else:
+            if random.random() < 0.5:
+                x = random.randint(1, 8)
+            else:
+                x = random.randint(10, 17)
+            if random.random() < 0.5:
+                y = random.randint(1, 8) 
+            else:
+                y = random.randint(10, 17)
+            self.env.unwrapped.agent_pos = np.array([x, y])
+        
         pos = self.env.unwrapped.agent_pos
         return self.get_obs(pos)
 
