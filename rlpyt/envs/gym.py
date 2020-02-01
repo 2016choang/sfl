@@ -121,7 +121,7 @@ class MinigridGaussianGridWrapper(Wrapper):
         super().__init__(env)
         self.env = env
 
-        centers = np.linspace(0, 1, num_features + 1, False)[1:]
+        centers = np.linspace(0, 1, num_features)
         points = np.linspace(0, 1, 19)
         self.feature_map = np.zeros((19, 19, num_features ** 2))
         for i in range(19):
@@ -130,8 +130,7 @@ class MinigridGaussianGridWrapper(Wrapper):
                     for c_j in range(num_features):
                         x, y = points[i], points[j]
                         c_x, c_y = centers[c_i], centers[c_j]
-                        self.feature_map[i, j, c_i * num_features + c_j] = np.exp(-1 * ((x - c_x)**2 + (y - c_y)**2) / sigma)
-
+                        self.feature_map[i, j, c_i * num_features + c_j] = np.exp(-1.0 * ((x - c_x)**2 + (y - c_y)**2) / sigma)
         if seed is not None:
             random.seed(seed)
             if random.random() < 0.5:
@@ -147,11 +146,12 @@ class MinigridGaussianGridWrapper(Wrapper):
             self.start_pos = None
 
         self.observation_space = Box(0, 1, (num_features ** 2, ))
-        self.action_space = env.action_space
+        self.action_space = Discrete(4)
 
     def step(self, action):
         # 0 -- right, 1 -- down, 2 -- left, 3 -- up
-        _, reward, done, info = self.env.step(action)
+        self.env.unwrapped.agent_dir = action
+        _, reward, done, info = self.env.step(2)
         pos = tuple(self.env.unwrapped.agent_pos)
         obs = self.get_obs(pos)
         return obs, reward, done, info
@@ -202,11 +202,12 @@ class MinigridGaussianWrapper(Wrapper):
             self.start_pos = None
 
         self.observation_space = Box(0, 1, (num_features, ))
-        self.action_space = env.action_space
+        self.action_space = Discrete(4)
 
     def step(self, action):
         # 0 -- right, 1 -- down, 2 -- left, 3 -- up
-        _, reward, done, info = self.env.step(action)
+        self.env.unwrapped.agent_dir = action
+        _, reward, done, info = self.env.step(2)
         pos = tuple(self.env.unwrapped.agent_pos)
         obs = self.get_obs(pos)
         return obs, reward, done, info
@@ -235,14 +236,15 @@ class MinigridGaussianWrapper(Wrapper):
 
 class MinigridFeatureWrapper(Wrapper):
     
-    def __init__(self, env, num_features=8, a=-1, b=1):
+    def __init__(self, env, num_features=8, sigma=1, seed=seed):
         super().__init__(env)
         self.env = env
-        self.local_size = (1, 1, num_features)
-        self.pad = (max(self.local_size[0] // 2 - 1, 0), max(self.local_size[1] // 2 - 1, 0))
-        self.feature_map = np.pad((b - a) * np.random.rand(19, 19, num_features) - ((b - a) / 2), ((self.pad[0], self.pad[0]), (self.pad[1], self.pad[1]), (0, 0)), mode='constant')
+        # self.local_size = (1, 1, num_features)
+        # self.pad = (max(self.local_size[0] // 2 - 1, 0), max(self.local_size[1] // 2 - 1, 0))
+        # self.feature_map = np.pad(2 * sigma * np.random.rand(19, 19, num_features) - sigma, ((self.pad[0], self.pad[0]), (self.pad[1], self.pad[1]), (0, 0)), mode='constant')
+        self.feature_map = 2 * sigma * np.random.rand(19, 19, num_features) - sigma
 
-        self.observation_space = Box(0, 1, self.local_size)
+        self.observation_space = Box(0, 1, (num_features, ))
         self.action_space = Discrete(4)
 
     def step(self, action):
@@ -259,13 +261,14 @@ class MinigridFeatureWrapper(Wrapper):
         return self.get_obs(pos)
 
     def get_obs(self, pos):
-        h_pos, w_pos = pos
-        h_pos += self.pad[0]
-        w_pos += self.pad[1]
-        h_len, w_len = self.local_size[:2]
-        h_len = h_len // 2
-        w_len = w_len // 2 
-        return self.feature_map[h_pos - h_len: h_pos + h_len + 1, w_pos - w_len:w_pos + w_len + 1].squeeze()
+        # h_pos, w_pos = pos
+        # h_pos += self.pad[0]
+        # w_pos += self.pad[1]
+        # h_len, w_len = self.local_size[:2]
+        # h_len = h_len // 2
+        # w_len = w_len // 2 
+        # return self.feature_map[h_pos - h_len: h_pos + h_len + 1, w_pos - w_len:w_pos + w_len + 1].squeeze()
+        
 
 
 class MinigridPositionWrapper(Wrapper):
@@ -351,10 +354,11 @@ def make(*args, info_example=None, minigrid_config=None, **kwargs):
         elif mode == 'compact':
             return GymEnvWrapper(MoveWrapper(FullyObsWrapper(env)))
         elif mode == 'random':
-            # return GymEnvWrapper(MinigridFeatureWrapper(RGBImgObsWrapper(env)))
-            # return GymEnvWrapper(MinigridPositionWrapper(RGBImgObsWrapper(env)))
+            num_features = minigrid_config.get('num_features', 8)
+            sigma = minigrid_config.get('sigma', 0.5)
             seed = minigrid_config.get('seed', None)
-            return GymEnvWrapper(MinigridGaussianGridWrapper(RGBImgObsWrapper(env), seed=seed))
+            # return GymEnvWrapper(MinigridGaussianGridWrapper(RGBImgObsWrapper(env), num_features=num_features, sigma=sigma, seed=seed))
+            return GymEnvWrapper(MinigridFeatureWrapper(RGBImgObsWrapper(env), num_features=num_features, sigma=sigma, seed=seed))
     elif info_example is None:
         return GymEnvWrapper(gym.make(*args, **kwargs))
     else:
