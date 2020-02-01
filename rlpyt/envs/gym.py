@@ -268,6 +268,7 @@ class MinigridFeatureWrapper(Wrapper):
         # h_len = h_len // 2
         # w_len = w_len // 2 
         # return self.feature_map[h_pos - h_len: h_pos + h_len + 1, w_pos - w_len:w_pos + w_len + 1].squeeze()
+        return self.feature_map[tuple(pos)]
         
 
 
