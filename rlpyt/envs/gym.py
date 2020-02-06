@@ -179,7 +179,7 @@ class MinigridColorWrapper(Wrapper):
 
     def get_obs(self, pos):
         x, y = tuple(pos)
-        return self.feature_map[x - 1: x+1, y - 1: y + 1].flatten()
+        return self.feature_map[x - 1: x + 2, y - 1: y + 2].flatten()
 
 class MinigridGaussianGridWrapper(Wrapper):
     
@@ -451,6 +451,7 @@ def make(*args, info_example=None, minigrid_config=None, **kwargs):
             num_features = minigrid_config.get('num_features', 8)
             sigma = minigrid_config.get('sigma', 0.5)
             seed = minigrid_config.get('seed', None)
+            # return GymEnvWrapper(MinigridColorWrapper(RGBImgObsWrapper(env), seed=seed))
             return GymEnvWrapper(MinigridGaussianGridWrapper(RGBImgObsWrapper(env), num_features=num_features, sigma=sigma, seed=seed))
             # return GymEnvWrapper(MinigridFeatureWrapper(RGBImgObsWrapper(env), num_features=num_features, sigma=sigma, seed=seed))
     elif info_example is None:
