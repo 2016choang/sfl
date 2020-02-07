@@ -117,7 +117,7 @@ def info_to_nt(value, name="info"):
 
 class MinigridGaussianGridWrapper(Wrapper):
     
-    def __init__(self, env, num_features=4, sigma=0.1, seed=None):
+    def __init__(self, env, num_features=4, sigma=0.1, seed=None, reset_episodes=1):
         super().__init__(env)
         self.env = env
 
@@ -144,6 +144,9 @@ class MinigridGaussianGridWrapper(Wrapper):
             self.start_pos = np.array([x, y])
         else:
             self.start_pos = None
+        
+        self.reset_episodes = reset_episodes
+        self.episodes = 0
 
         self.observation_space = Box(0, 1, (num_features ** 2, ))
         self.action_space = Discrete(4)
@@ -158,7 +161,9 @@ class MinigridGaussianGridWrapper(Wrapper):
 
     def reset(self, **kwargs):
         self.env.reset()
-        if self.start_pos is not None:
+        self.episodes += 1
+
+        if self.start_pos is not None and self.episodes != self.reset_episodes:
             self.env.unwrapped.agent_pos = self.start_pos
         else:
             if random.random() < 0.5:
@@ -169,7 +174,10 @@ class MinigridGaussianGridWrapper(Wrapper):
                 y = random.randint(1, 8) 
             else:
                 y = random.randint(10, 17)
-            self.env.unwrapped.agent_pos = np.array([x, y])
+            self.start_pos = np.array([x, y])
+            self.env.unwrapped.agent_pos = self.start_pos
+
+            self.episodes = 0
         
         pos = self.env.unwrapped.agent_pos
         return self.get_obs(pos)
@@ -370,7 +378,9 @@ def update_obs_minigrid(obs):
 def make(*args, info_example=None, minigrid_config=None, **kwargs):
     if minigrid_config is not None:
         mode = minigrid_config.get('mode')
+        max_steps = minigrid_config.get('max_steps', 500)
         env = gym.make(*args, **kwargs)
+        env.max_steps = max_steps
         env = ReseedWrapper(env)
         if mode == 'full':
             return GymEnvWrapper(RGBImgObsWrapper(env))
@@ -385,8 +395,9 @@ def make(*args, info_example=None, minigrid_config=None, **kwargs):
             num_features = minigrid_config.get('num_features', 8)
             sigma = minigrid_config.get('sigma', 0.5)
             seed = minigrid_config.get('seed', None)
+            reset_episodes = minigrid_config.get('reset_episodes', 1)
             # return GymEnvWrapper(MinigridGaussianGridWrapper(RGBImgObsWrapper(env), num_features=num_features, sigma=sigma, seed=seed))
-            return GymEnvWrapper(MinigridFeatureWrapper(RGBImgObsWrapper(env), num_features=num_features, sigma=sigma, seed=seed))
+            return GymEnvWrapper(MinigridFeatureWrapper(RGBImgObsWrapper(env), num_features=num_features, sigma=sigma, seed=seed, reset_episodes=reset_episodes))
     elif info_example is None:
         return GymEnvWrapper(gym.make(*args, **kwargs))
     else:
