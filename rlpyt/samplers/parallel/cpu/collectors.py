@@ -23,6 +23,7 @@ class CpuResetCollector(DecorrelatingStartCollector):
         env_buf.prev_reward[0] = reward
         self.agent.sample_mode(itr)
         for t in range(self.batch_T):
+            import pdb; pdb.set_trace()
             env_buf.observation[t] = observation
             # Agent inputs and outputs are torch tensors.
             act_pyt, agent_info = self.agent.step(obs_pyt, act_pyt, rew_pyt)
