@@ -183,7 +183,7 @@ class MinigridColorWrapper(Wrapper):
 
 class MinigridGaussianGridWrapper(Wrapper):
     
-    def __init__(self, env, num_features=4, sigma=0.1, seed=None, reset_episodes=1):
+    def __init__(self, env, num_features=4, sigma=0.1, reset_same=False, reset_episodes=1):
         super().__init__(env)
         self.env = env
 
@@ -197,19 +197,20 @@ class MinigridGaussianGridWrapper(Wrapper):
                         x, y = points[i], points[j]
                         c_x, c_y = centers[c_i], centers[c_j]
                         self.feature_map[i, j, c_i * num_features + c_j] = np.exp(-1.0 * ((x - c_x)**2 + (y - c_y)**2) / sigma)
-        if seed is not None:
-            random.seed(seed)
-            if random.random() < 0.5:
-                x = random.randint(1, 8)
-            else:
-                x = random.randint(10, 17)
-            if random.random() < 0.5:
-                y = random.randint(1, 8) 
-            else:
-                y = random.randint(10, 17)
-            self.start_pos = np.array([x, y])
+        
+        self.feature_map = self.feature_map / np.linalg.norm(self.feature_map, axis=2).reshape(19, 19, 1)
+
+        self.reset_same = reset_same
+
+        if random.random() < 0.5:
+            x = random.randint(1, 8)
         else:
-            self.start_pos = None
+            x = random.randint(10, 17)
+        if random.random() < 0.5:
+            y = random.randint(1, 8) 
+        else:
+            y = random.randint(10, 17)
+        self.start_pos = np.array([x, y])
         
         self.reset_episodes = reset_episodes
         self.episodes = 0
@@ -227,9 +228,8 @@ class MinigridGaussianGridWrapper(Wrapper):
 
     def reset(self, **kwargs):
         self.env.reset()
-        self.episodes += 1
 
-        if self.start_pos is not None and self.episodes != self.reset_episodes:
+        if self.reset_same or self.episodes != self.reset_episodes:
             self.env.unwrapped.agent_pos = self.start_pos
         else:
             if random.random() < 0.5:
@@ -240,11 +240,12 @@ class MinigridGaussianGridWrapper(Wrapper):
                 y = random.randint(1, 8) 
             else:
                 y = random.randint(10, 17)
+
             self.start_pos = np.array([x, y])
             self.env.unwrapped.agent_pos = self.start_pos
-
             self.episodes = 0
         
+        self.episodes += 1
         pos = self.env.unwrapped.agent_pos
         return self.get_obs(pos)
 
@@ -444,9 +445,9 @@ def update_obs_minigrid(obs):
 def make(*args, info_example=None, minigrid_config=None, **kwargs):
     if minigrid_config is not None:
         mode = minigrid_config.get('mode')
-        max_steps = minigrid_config.get('max_steps', 500)
+        # max_steps = minigrid_config.get('max_steps', 500)
         env = gym.make(*args, **kwargs)
-        env.max_steps = max_steps
+        # env.max_steps = max_steps
         env = ReseedWrapper(env)
         if mode == 'full':
             return GymEnvWrapper(RGBImgObsWrapper(env))
@@ -458,11 +459,11 @@ def make(*args, info_example=None, minigrid_config=None, **kwargs):
         elif mode == 'compact':
             return GymEnvWrapper(MoveWrapper(FullyObsWrapper(env)))
         elif mode == 'random':
-            num_features = minigrid_config.get('num_features', 8)
+            num_features = minigrid_config.get('num_features', 4)
             sigma = minigrid_config.get('sigma', 0.5)
-            seed = minigrid_config.get('seed', None)
+            reset_same = minigrid_config.get('reset_same', False)
             reset_episodes = minigrid_config.get('reset_episodes', 1)
-            return GymEnvWrapper(MinigridGaussianGridWrapper(RGBImgObsWrapper(env), num_features=num_features, sigma=sigma, seed=seed, reset_episodes=reset_episodes))
+            return GymEnvWrapper(MinigridGaussianGridWrapper(RGBImgObsWrapper(env), num_features=num_features, sigma=sigma, reset_same=reset_same, reset_episodes=reset_episodes))
             # return GymEnvWrapper(MinigridFeatureWrapper(RGBImgObsWrapper(env), num_features=num_features, sigma=sigma, seed=seed))
     elif info_example is None:
         return GymEnvWrapper(gym.make(*args, **kwargs))
