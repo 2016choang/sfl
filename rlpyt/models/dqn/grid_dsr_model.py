@@ -273,7 +273,7 @@ class GridDsrRandomModel(torch.nn.Module):
         self.dsr = MlpModel(self.image_embedding_size + output_size, fc_sizes,
             output_size=self.image_embedding_size, nonlinearity=nn.LeakyReLU)
 
-        self.q_estimate = nn.Linear(self.image_embedding_size, output_size)
+        self.q_estimate = nn.Linear(self.image_embedding_size, 1)
 
     def forward(self, x, action=None, reward=None, mode='encode'):
         x = x.type(torch.float)

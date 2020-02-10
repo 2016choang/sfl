@@ -281,12 +281,11 @@ class DSR(RlAlgorithm):
             obs = samples.agent_inputs.observation.type(torch.float)
             features = self.agent.encode(obs)
 
-            actions = samples.agent_inputs.prev_action.type(torch.float)
+            actions = samples.action.type(torch.float)
             s_features = self.agent(features, actions)
 
         rewards = samples.return_.type(torch.float)
-        qs = self.agent.q_estimate(s_features)
-        q = select_at_indexes(samples.action, qs)
+        q = self.agent.q_estimate(s_features)
         loss = self.l2_loss(q, rewards)
         return loss
 
@@ -295,7 +294,7 @@ class DSR(RlAlgorithm):
         # 1a. encode observations in feature space
         with torch.no_grad():
             obs = samples.agent_inputs.observation.type(torch.float)
-            actions = samples.agent_inputs.prev_action.type(torch.float)
+            actions = samples.action.type(torch.float)
             features = self.agent.encode(obs)
 
         # 1b. estimate successor features given features and actions
@@ -304,11 +303,13 @@ class DSR(RlAlgorithm):
         with torch.no_grad():
             # 2a. encode target observations in feature space
             target_obs = samples.target_inputs.observation.type(torch.float)
-            target_actions = samples.agent_inputs.prev_action.type(torch.float)
+            target_actions = samples.target_inputs.prev_action.type(torch.float)
             target_features = self.agent.encode(target_obs)
 
             # 2b. estimate target successor features given features and target actions
             target_dsr = self.agent.target(target_features, target_actions)
+
+        import pdb; pdb.set_trace()
 
         # 3. combine current features + discounted target successor features
         disc_target_dsr = (self.discount ** self.n_step_return) * target_dsr
