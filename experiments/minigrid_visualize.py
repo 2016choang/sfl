@@ -28,12 +28,14 @@ def visualize(checkpoint, output, cuda_idx=None, mode='full', seed=333):
     # sample all possible agent positions within environment
     minigrid_config = {'mode': mode}
     env = gym_make(id=ENV_ID, minigrid_config=minigrid_config)
-    observation = env.reset()
+    env.reset()
 
-    starting_pos = tuple(env.unwrapped.agent_pos)
-    print(starting_pos)
+    # starting_pos = tuple(env.unwrapped.agent_pos)
+    # print(starting_pos)
 
-    SR = {}
+    SR = torch.zeros((19, 19, env.action_space.n, env.observation_space.shape), dtype=torch.float)
+    seen = set()
+
     if mode == 'full':
         model = GridDsrModel(env.observation_space.shape, env.action_space.n)
     elif mode == 'small':
@@ -45,46 +47,25 @@ def visualize(checkpoint, output, cuda_idx=None, mode='full', seed=333):
     model.load_state_dict(params['agent_state_dict']['model'])
     model.to(device)
 
-    unique_states = 0
-    step = 0
+    for y in range(19):
+        for x in range(19):
+            if x not in [0, 9, 18] and y not in [0, 9, 18]:
+                env.env.env.unwrapped.agent_pos = np.array([y, x])
+                for a in range(env.action_space.n):
+                    obs, _, _, _ = env.step(a)
+                    seen.add(tuple(env.agent_pos))
+                    env.step((a + 2) % env.action_space.n)
 
-    while True:
-        pos = tuple(env.unwrapped.agent_pos)
-        observation = torch.Tensor(observation).unsqueeze(0)
+                    with torch.no_grad():
+                        features = model(obs.to(device))
+                    act = torch.zeros(env.action_space.n, dtype=torch.float).unsqueeze(0).to(device)
+                    act[0, a] = 1
+                    SR[y, x, a] = model(features, act, mode='dsr')
 
-        # calculate successor reprsentation for each position
-        if pos not in SR:
-            with torch.no_grad():
-                features = model(observation.to(device))
-
-            dsr = 0
-            for a in range(env.action_space.n):
-                act = torch.zeros(env.action_space.n, dtype=torch.float).unsqueeze(0).to(device)
-                act[0, a] = 1
-                dsr += model(features, act, mode='dsr')
-            
-            SR[pos] = dsr.to(torch.device('cpu'))
-            unique_states += 1
-
-            if unique_states % 10 == 0:
-                print('Reached {} unique states'.format(unique_states))
-
-            if unique_states == 260:
-                break
-        
-        step += 1
-        if (step + 1) % 1000 == 0:
-            print('Completed {} steps'.format(step + 1))
-
-        observation, _, _, _ = env.step(env.action_space.sample())
-
+    print(len(seen))
     env.close()
 
-    with open(output, 'wb') as handle:
-        pickle.dump(SR, handle)
-
-    # calculate L2 norm between SR of beginning state and other position
-
+    torch.save(SR, output)
 
 
 if __name__ == "__main__":
@@ -95,6 +76,7 @@ if __name__ == "__main__":
     parser.add_argument('--cuda_idx', help='gpu to use ', type=int, default=None)
     parser.add_argument('--mode', help='full, small, compact, random', choices=['full', 'small', 'compact', 'random'])
     parser.add_argument('--seed', help='seed', type=int, default=333)
+    parser.add_argument('--')
     args = parser.parse_args()
     visualize(checkpoint=args.input,
               output=args.output, 
