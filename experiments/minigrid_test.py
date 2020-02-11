@@ -31,7 +31,9 @@ def build_and_train(env_id="MiniGrid-FourRooms-v0",
 
     # minigrid_config = {'mode': mode,
     #                    'reseed': mode != 'random'}
-    minigrid_config = {'mode': mode}
+    minigrid_config = {'mode': mode,
+                       'reset_episodes': 1,
+                       'num_features': 8}
 
     sampler = SerialSampler(
         EnvCls=gym_make,
@@ -59,7 +61,7 @@ def build_and_train(env_id="MiniGrid-FourRooms-v0",
         algo=algo,
         agent=agent,
         sampler=sampler,
-        n_steps=2e4,
+        n_steps=1e5,
         log_interval_steps=1e3,
         affinity=dict(cuda_idx=cuda_idx),
         seed=seed
@@ -76,8 +78,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--env_id', help='environment ID', default='MiniGrid-FourRooms-v0')
     parser.add_argument('--run_ID', help='run identifier (logging)', type=int, default=0)
-    parser.add_argument('--cuda_idx', help='gpu to use ', type=int, default=None)
-    parser.add_argument('--mode', help='full, small, compact, random', choices=['full', 'small', 'compact', 'random'])
+    parser.add_argument('--cuda_idx', help='gpu to use ', type=int, default=0)
+    parser.add_argument('--mode', help='full, small, compact, random', choices=['full', 'small', 'compact', 'random'], default='random')
     parser.add_argument('--seed', help='seed', type=int, default=333)
     parser.add_argument('--snapshot_gap', help='iterations between snapshots', type=int, default=5000)
     parser.add_argument('--config', help='config file', default=None)
