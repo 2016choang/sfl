@@ -187,27 +187,33 @@ class MinigridRoomsWrapper(Wrapper):
         super().__init__(env)
         self.env = env
 
-        self.feature_map = np.zeros((19, 19, 4))
+        self.feature_map = np.zeros((19, 19, 8))
         # self.feature_map[1:9, 1:9] = np.array([1, 0, 0, 0])
         # self.feature_map[1:9, 10:18] = np.array([0, 1, 0, 0])
         # self.feature_map[10:18, 1:9] = np.array([0, 0, 1, 0])
         # self.feature_map[10:18, 10:18] = np.array([0, 0, 0, 1])
 
-        x = np.ones((19, 19))
-        x = np.random.uniform(0, 1, 1)
+        # x = np.ones((19, 19))
+        # x = np.random.uniform(0, 1, 1)
 
-        y = np.ones((19, 19))
-        y = np.random.uniform(0, 1, 1)
+        # y = np.ones((19, 19))
+        # y = np.random.uniform(0, 1, 1)
 
-        a = np.array([[(x, y) for x in range(19)] for y in range(19)])
-        c = np.linalg.norm(a - np.array([0, 0]), axis=2)
-        c = normalize(c)
-        color_map = x + (y - x) * c
+        # a = np.array([[(x, y) for x in range(19)] for y in range(19)])
+        # c = np.linalg.norm(a - np.array([0, 0]), axis=2)
+        # c = normalize(c)
+        # color_map = x + (y - x) * c
 
-        self.feature_map[1:9, 1:9, 0] = color_map[1:9, 1:9]
-        self.feature_map[1:9, 10:18, 1] = color_map[1:9, 10:18]
-        self.feature_map[10:18, 1:9, 2] = color_map[10:18, 1:9]
-        self.feature_map[10:18, 10:18, 3] = color_map[10:18, 10:18]
+        # self.feature_map[1:9, 1:9, 0] = color_map[1:9, 1:9]
+        # self.feature_map[1:9, 10:18, 1] = color_map[1:9, 10:18]
+        # self.feature_map[10:18, 1:9, 2] = color_map[10:18, 1:9]
+        # self.feature_map[10:18, 10:18, 3] = color_map[10:18, 10:18]
+
+        yx_map = np.array([[(y, x) for x in range(19)] for y in range(19)]) / 18
+        self.feature_map[1:9, 1:9, 0:2] = yx_map[1:9, 1:9]
+        self.feature_map[1:9, 10:18, 2:4] = yx_map[1:9, 10:18]
+        self.feature_map[10:18, 1:9, 4:6] = yx_map[10:18, 1:9]
+        self.feature_map[10:18, 10:18, 6:8] = yx_map[10:18, 10:18]
 
         self.reset_same = reset_same
 
@@ -224,7 +230,7 @@ class MinigridRoomsWrapper(Wrapper):
         self.reset_episodes = reset_episodes
         self.episodes = 0
 
-        self.observation_space = Box(0, 1, (4, ))
+        self.observation_space = Box(0, 1, (8, ))
         self.action_space = Discrete(4)
 
     def step(self, action):
