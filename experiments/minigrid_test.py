@@ -26,11 +26,10 @@ def build_and_train(env_id="MiniGrid-FourRooms-v0",
                     mode='full',
                     seed=333,
                     snapshot_gap=5000,
-                    config_file=None):
+                    config_file=None,
+                    steps=2e4):
     set_seed(seed)
 
-    # minigrid_config = {'mode': mode,
-    #                    'reseed': mode != 'random'}
     minigrid_config = {'mode': mode,
                        'reset_episodes': 1,
                        'num_features': 4}
@@ -61,7 +60,7 @@ def build_and_train(env_id="MiniGrid-FourRooms-v0",
         algo=algo,
         agent=agent,
         sampler=sampler,
-        n_steps=4e4,
+        n_steps=steps,
         log_interval_steps=1e3,
         affinity=dict(cuda_idx=cuda_idx),
         seed=seed
@@ -79,10 +78,11 @@ if __name__ == "__main__":
     parser.add_argument('--env_id', help='environment ID', default='MiniGrid-FourRooms-v0')
     parser.add_argument('--run_ID', help='run identifier (logging)', type=int, default=0)
     parser.add_argument('--cuda_idx', help='gpu to use ', type=int, default=0)
-    parser.add_argument('--mode', help='full, small, compact, random', choices=['full', 'small', 'compact', 'random'], default='random')
+    parser.add_argument('--mode', help='full, small, compact, random', choices=['full', 'small', 'compact', 'rooms', 'gaussian'], default='rooms')
     parser.add_argument('--seed', help='seed', type=int, default=333)
     parser.add_argument('--snapshot_gap', help='iterations between snapshots', type=int, default=5000)
     parser.add_argument('--config', help='config file', default=None)
+    parser.add_argument('--steps', help='iterations', type=float, default=2e4)
     args = parser.parse_args()
     build_and_train(
         env_id=args.env_id,
@@ -91,5 +91,6 @@ if __name__ == "__main__":
         mode=args.mode,
         seed=args.seed,
         snapshot_gap=args.snapshot_gap,
-        config_file=args.config
+        config_file=args.config,
+        steps=args.steps
     )

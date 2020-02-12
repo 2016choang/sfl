@@ -532,6 +532,10 @@ def make(*args, info_example=None, minigrid_config=None, **kwargs):
     if minigrid_config is not None:
         mode = minigrid_config.get('mode')
         max_steps = minigrid_config.get('max_steps', 500)
+        num_features = minigrid_config.get('num_features', 4)
+        sigma = minigrid_config.get('sigma', 0.5)
+        reset_same = minigrid_config.get('reset_same', False)
+        reset_episodes = minigrid_config.get('reset_episodes', 1)
         env = gym.make(*args, **kwargs)
         env.max_steps = max_steps
         env = ReseedWrapper(env)
@@ -544,13 +548,10 @@ def make(*args, info_example=None, minigrid_config=None, **kwargs):
             return GymEnvWrapper(env, update_obs_func=update_obs_minigrid)
         elif mode == 'compact':
             return GymEnvWrapper(MoveWrapper(FullyObsWrapper(env)))
-        elif mode == 'random':
-            num_features = minigrid_config.get('num_features', 4)
-            sigma = minigrid_config.get('sigma', 0.5)
-            reset_same = minigrid_config.get('reset_same', False)
-            reset_episodes = minigrid_config.get('reset_episodes', 1)
+        elif mode == 'rooms':
             return GymEnvWrapper(MinigridRoomsWrapper(RGBImgObsWrapper(env), reset_same=reset_same, reset_episodes=reset_episodes))
-            # return GymEnvWrapper(MinigridGaussianGridWrapper(RGBImgObsWrapper(env), num_features=num_features, sigma=sigma, reset_same=reset_same, reset_episodes=reset_episodes))
+        elif mode == 'gaussian':
+            return GymEnvWrapper(MinigridGaussianGridWrapper(RGBImgObsWrapper(env), num_features=num_features, sigma=sigma, reset_same=reset_same, reset_episodes=reset_episodes))
             # return GymEnvWrapper(MinigridFeatureWrapper(RGBImgObsWrapper(env), num_features=num_features, sigma=sigma, seed=seed))
     elif info_example is None:
         return GymEnvWrapper(gym.make(*args, **kwargs))
