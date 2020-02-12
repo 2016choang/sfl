@@ -207,19 +207,19 @@ class DSR(RlAlgorithm):
         for i in range(self.updates_per_optimize):
             samples_from_replay = self.replay_buffer.sample_batch(self.batch_size)
 
-            self.rep_optimizer.zero_grad()
-            rep_loss = self.representation_loss(samples_from_replay)
-            rep_loss.backward()
+            # self.rep_optimizer.zero_grad()
+            # rep_loss = self.representation_loss(samples_from_replay)
+            # rep_loss.backward()
 
-            grad_norm = torch.nn.utils.clip_grad_norm_(
-                self.agent.parameters(), self.clip_grad_norm)
-            param_norm = param_norm_(self.agent.parameters())
-            self.rep_optimizer.step()
+            # grad_norm = torch.nn.utils.clip_grad_norm_(
+            #     self.agent.parameters(), self.clip_grad_norm)
+            # param_norm = param_norm_(self.agent.parameters())
+            # self.rep_optimizer.step()
 
-            opt_info.repLoss.append(rep_loss.item())
-            opt_info.repGradNorm.append(grad_norm)
-            opt_info.repParamNorm.append(param_norm)
-            opt_info.repParamRatio.append(grad_norm / param_norm)
+            # opt_info.repLoss.append(rep_loss.item())
+            # opt_info.repGradNorm.append(grad_norm)
+            # opt_info.repParamNorm.append(param_norm)
+            # opt_info.repParamRatio.append(grad_norm / param_norm)
 
             # if i == 0:
             #     summary_writer = logger.get_tf_summary_writer()
@@ -278,44 +278,45 @@ class DSR(RlAlgorithm):
         # loss = torch.mean(batch_mean)
         # loss = self.l2_loss(obs, reconstructed)
         with torch.no_grad():
-            obs = samples.agent_inputs.observation.type(torch.float)
-            features = self.agent.encode(obs)
+            features = self.agent.encode(samples.agent_inputs.observation)
+            dsr = self.agent(features)
 
-            actions = samples.action.type(torch.float)
-            s_features = self.agent(features, actions)
-
-        rewards = samples.return_.type(torch.float)
-        q = self.agent.q_estimate(s_features)
-        loss = self.l2_loss(q, rewards)
+        qs = self.agent.q_estimate(dsr)
+        q = select_at_indexes(samples.action, qs)
+        loss = self.l2_loss(q, samples.return_)
         return loss
 
     def dsr_loss(self, samples):
         """Samples have leading batch dimension [B,..] (but not time)."""
         # 1a. encode observations in feature space
         with torch.no_grad():
-            obs = samples.agent_inputs.observation.type(torch.float)
-            actions = samples.action.type(torch.float)
-            features = self.agent.encode(obs)
+            features = self.agent.encode(samples.agent_inputs.observation)
 
-        # 1b. estimate successor features given features and actions
-        dsr = self.agent(features, actions)
+        # 1b. estimate successor features given features
+        dsr = self.agent(features)
+        s_features = select_at_indexes(samples.action.squeeze(1), dsr)
 
         with torch.no_grad():
             # 2a. encode target observations in feature space
-            target_obs = samples.target_inputs.observation.type(torch.float)
-            target_actions = samples.target_inputs.prev_action.type(torch.float)
-            target_features = self.agent.encode(target_obs)
+            target_features = self.agent.encode(samples.target_inputs.observation)
 
-            # 2b. estimate target successor features given features and target actions
-            target_dsr = self.agent.target(target_features, target_actions)
+            # 2b. estimate target successor features given features
+            target_dsr = self.agent.target(target_features)
 
-        import pdb; pdb.set_trace()
+            # next_qs = self.agent.q_estimate(target_dsr)
+            # next_a = torch.argmax(next_qs, dim=-1)
+            # random actions
+            next_a = torch.randint(high=target_dsr.shape[1], size=samples.action.squeeze(1).shape)
+
+            target_s_features = select_at_indexes(next_a, target_dsr)
+
+        
 
         # 3. combine current features + discounted target successor features
-        disc_target_dsr = (self.discount ** self.n_step_return) * target_dsr
-        y = features + (1 - samples.done_n.float()).view(-1, 1) * disc_target_dsr
+        disc_target_s_features = (self.discount ** self.n_step_return) * target_s_features
+        y = features + (1 - samples.done_n.float()).view(-1, 1) * disc_target_s_features
 
-        delta = y - dsr
+        delta = y - s_features
         losses = 0.5 * delta ** 2
         abs_delta = abs(delta)
 
@@ -326,7 +327,8 @@ class DSR(RlAlgorithm):
         #     losses *= samples.is_weights
 
         # sum losses over feature vector such that each sample has a scalar loss (result: B x 1)
-        losses = losses.sum(dim=1)
+        # losses = losses.sum(dim=1)
+
         td_abs_errors = abs_delta.detach()
         if self.delta_clip is not None:
             td_abs_errors = torch.clamp(td_abs_errors, 0, self.delta_clip)

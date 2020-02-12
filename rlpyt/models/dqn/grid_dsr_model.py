@@ -270,23 +270,22 @@ class GridDsrRandomModel(torch.nn.Module):
  
         fc_sizes = [64]
 
-        self.dsr = MlpModel(self.feature_size + output_size, fc_sizes,
-            output_size=self.feature_size, nonlinearity=nn.Identity)
+        self.dsr = MlpModel(self.feature_size, fc_sizes,
+            output_size=self.output_size * self.feature_size, nonlinearity=nn.Identity)
 
-        self.q_estimate = nn.Linear(self.feature_size, output_size)
+        self.q_estimate = nn.Linear(self.feature_size, 1)
 
-    def forward(self, x, action=None, reward=None, mode='encode'):
-        x = x.type(torch.float)
+    def forward(self, observation, mode='encode'):
+        x = observation.type(torch.float)
         if mode == 'encode':
             return x
         elif mode == 'reconstruct':
             return x
         elif mode == 'dsr':
-            feature_action = torch.cat((x, action), dim=1)
-            dsr = self.dsr(feature_action)
-            return dsr
+            dsr = self.dsr(x)
+            return dsr.reshape(-1, self.output_size, self.feature_size)
         elif mode == 'q':
-            q = self.q_estimate(x)
+            q = self.q_estimate(x).squeeze(2)
             return q
         else:
             raise ValueError('Invalid mode!')

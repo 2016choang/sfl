@@ -33,7 +33,7 @@ def build_and_train(env_id="MiniGrid-FourRooms-v0",
     #                    'reseed': mode != 'random'}
     minigrid_config = {'mode': mode,
                        'reset_episodes': 1,
-                       'num_features': 8}
+                       'num_features': 4}
 
     sampler = SerialSampler(
         EnvCls=gym_make,
@@ -56,12 +56,12 @@ def build_and_train(env_id="MiniGrid-FourRooms-v0",
     config['algo']['delta_clip'] = None
 
     algo = DSR(**config.get('algo', {}))
-    agent = GridDsrAgent(mode=mode)
+    agent = GridDsrAgent(mode=mode, eps_final=1)
     runner = MinibatchRlEval(
         algo=algo,
         agent=agent,
         sampler=sampler,
-        n_steps=1e5,
+        n_steps=4e4,
         log_interval_steps=1e3,
         affinity=dict(cuda_idx=cuda_idx),
         seed=seed

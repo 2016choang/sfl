@@ -17,24 +17,27 @@ AgentInfo = namedarraytuple("AgentInfo", "a")
 
 class DsrAgent(EpsilonGreedyAgentMixin, BaseAgent):
 
-    def __call__(self, observation, prev_action):
-        prev_action = self.distribution.to_onehot(prev_action)
-        model_inputs = buffer_to((observation, prev_action), device=self.device)
-        dsr = self.model(*model_inputs, mode='dsr')
+    def __call__(self, observation):
+        model_inputs = buffer_to(observation,
+            device=self.device)
+        dsr = self.model(model_inputs, mode='dsr')
         return dsr.cpu()
 
     def encode(self, observation):
-        model_inputs = buffer_to(observation, device=self.device)
+        model_inputs = buffer_to(observation,
+            device=self.device)
         features = self.model(model_inputs)
         return features.cpu()
     
     def reconstruct(self, observation):
-        model_inputs = buffer_to(observation, device=self.device)
+        model_inputs = buffer_to(observation,
+            device=self.device)
         reconstructed = self.model(model_inputs, mode='reconstruct')
         return reconstructed.cpu()
 
     def q_estimate(self, observation):
-        model_inputs = buffer_to(observation, device=self.device)
+        model_inputs = buffer_to(observation,
+            device=self.device)
         q = self.model(model_inputs, mode='q')
         return q.cpu()
 
@@ -59,20 +62,22 @@ class DsrAgent(EpsilonGreedyAgentMixin, BaseAgent):
 
     @torch.no_grad()
     def step(self, observation, prev_action, prev_reward):
-        prev_action = self.distribution.to_onehot(prev_action)
-        model_inputs = buffer_to((observation, prev_action, prev_reward),
+        model_inputs = buffer_to(observation,
             device=self.device)
-        q = self.model(*model_inputs, mode='q')
+        dsr = self.model(model_inputs, mode='dsr')
+        model_inputs = buffer_to(dsr,
+            device=self.device)
+        q = self.model(model_inputs, mode='q')
         q = q.cpu()
         action = self.distribution.sample(q)
         agent_info = AgentInfo(a=action)
         # action, agent_info = buffer_to((action, agent_info), device="cpu")
         return AgentStep(action=action, agent_info=agent_info)
 
-    def target(self, observation, prev_action):
-        prev_action = self.distribution.to_onehot(prev_action)
-        model_inputs = buffer_to((observation, prev_action), device=self.device)
-        target_dsr = self.model(*model_inputs, mode='dsr')
+    def target(self, observation):
+        model_inputs = buffer_to(observation,
+            device=self.device)
+        target_dsr = self.model(model_inputs, mode='dsr')
         return target_dsr.cpu()
 
     def update_target(self):

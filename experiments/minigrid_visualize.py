@@ -60,11 +60,8 @@ def visualize(checkpoint, output, cuda_idx=None, mode='full', seed=333):
                     with torch.no_grad():
                         features = model(obs.to(device))
 
-                    for i in range(env.action_space.n):
-                        act = torch.zeros(env.action_space.n, dtype=torch.float).unsqueeze(0).to(device)
-                        act[0, i] = 1
-                        sr_y, sr_x = tuple(env.agent_pos)
-                        SR[sr_y, sr_x, i] = model(features, act, mode='dsr')
+                    sr_y, sr_x = tuple(env.agent_pos)
+                    SR[sr_y, sr_x] = model(features, mode='dsr')
 
                     if done:
                         env.reset()
