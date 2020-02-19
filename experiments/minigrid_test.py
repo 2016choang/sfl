@@ -55,7 +55,7 @@ def build_and_train(env_id="MiniGrid-FourRooms-v0",
     config['algo']['delta_clip'] = None
 
     algo = DSR(**config.get('algo', {}))
-    agent = GridDsrAgent(mode=mode, eps_final=1)
+    agent = GridDsrAgent(mode=mode, eps_final=1, eps_eval=1)
     runner = MinibatchRlEval(
         algo=algo,
         agent=agent,

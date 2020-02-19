@@ -268,7 +268,7 @@ class GridDsrRandomModel(torch.nn.Module):
 
         self.output_size = output_size
  
-        fc_sizes = [64]
+        fc_sizes = [16]
 
         self.dsr = MlpModel(self.feature_size, fc_sizes,
             output_size=self.output_size * self.feature_size, nonlinearity=nn.Identity)
