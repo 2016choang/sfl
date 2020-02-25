@@ -12,6 +12,40 @@ class GridDsrModel(torch.nn.Module):
             self,
             image_shape,
             output_size,
+            fc_sizes=[],
+            nonlinearity=nn.Identity
+            ):
+        super().__init__()
+        self.feature_size = image_shape[0]
+
+        self.output_size = output_size
+        self.dsr = MlpModel(self.feature_size, fc_sizes,
+            output_size=self.output_size * self.feature_size, nonlinearity=nonlinearity)
+
+        self.q_estimate = nn.Linear(self.feature_size, 1)
+
+    def forward(self, observation, mode='encode'):
+        x = observation.type(torch.float)
+        if mode == 'encode':
+            return x
+        elif mode == 'reconstruct':
+            return x
+        elif mode == 'dsr':
+            dsr = self.dsr(x)
+            return dsr.reshape(-1, self.output_size, self.feature_size)
+        elif mode == 'q':
+            q = self.q_estimate(x).squeeze(2)
+            return q
+        else:
+            raise ValueError('Invalid mode!')
+
+
+class GridDsrFullModel(torch.nn.Module):
+
+    def __init__(
+            self,
+            image_shape,
+            output_size,
             fc_sizes=512,
             ):
         super().__init__()
@@ -254,38 +288,3 @@ class GridDsrCompactModel(torch.nn.Module):
 #             return dsr
 #         else:
 #             raise ValueError('Invalid mode!')
-
-
-class GridDsrRandomModel(torch.nn.Module):
-
-    def __init__(
-            self,
-            image_shape,
-            output_size
-            ):
-        super().__init__()
-        self.feature_size = image_shape[0]
-
-        self.output_size = output_size
- 
-        fc_sizes = [16]
-
-        self.dsr = MlpModel(self.feature_size, fc_sizes,
-            output_size=self.output_size * self.feature_size, nonlinearity=nn.Identity)
-
-        self.q_estimate = nn.Linear(self.feature_size, 1)
-
-    def forward(self, observation, mode='encode'):
-        x = observation.type(torch.float)
-        if mode == 'encode':
-            return x
-        elif mode == 'reconstruct':
-            return x
-        elif mode == 'dsr':
-            dsr = self.dsr(x)
-            return dsr.reshape(-1, self.output_size, self.feature_size)
-        elif mode == 'q':
-            q = self.q_estimate(x).squeeze(2)
-            return q
-        else:
-            raise ValueError('Invalid mode!')

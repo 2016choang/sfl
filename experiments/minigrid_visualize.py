@@ -1,3 +1,4 @@
+import json
 import pickle
 
 import gym
@@ -6,13 +7,24 @@ import numpy as np
 import torch
 
 from rlpyt.envs.gym import make as gym_make
-from rlpyt.models.dqn.grid_dsr_model import GridDsrModel, GridDsrSmallModel, GridDsrCompactModel, GridDsrRandomModel
+from rlpyt.models.dqn.grid_dsr_model import GridDsrModel, GridDsrSmallModel, GridDsrCompactModel, GridDsrFullModel
 from rlpyt.utils.seed import set_seed
 
 
 ENV_ID = 'MiniGrid-FourRooms-v0'
 
-def visualize(checkpoint, output, cuda_idx=None, mode='full', seed=333):
+def visualize(config_file, 
+              checkpoint,
+              output,
+              cuda_idx=None):
+    try:
+        with open(config_file, 'r') as f:
+            config = json.load(f)
+    except ValueError:
+        raise ValueError('Unable to read config file {}'.format(config_file))
+
+    mode = config['mode']
+    seed = config['seed']
     set_seed(seed)
 
     if cuda_idx is not None:
@@ -23,10 +35,8 @@ def visualize(checkpoint, output, cuda_idx=None, mode='full', seed=333):
     # load in checkpoint into agent
     params = torch.load(checkpoint, map_location=device)
 
-    
     # sample all possible agent positions within environment
-    minigrid_config = {'mode': mode}
-    env = gym_make(id=ENV_ID, minigrid_config=minigrid_config)
+    env = gym_make(id=ENV_ID, mode=mode, minigrid_config=config['env'])
     env.reset()
 
     # starting_pos = tuple(env.unwrapped.agent_pos)
@@ -37,13 +47,13 @@ def visualize(checkpoint, output, cuda_idx=None, mode='full', seed=333):
     seen = set()
 
     if mode == 'full':
-        model = GridDsrModel(env.observation_space.shape, env.action_space.n)
+        model = GridDsrFullModel(env.observation_space.shape, env.action_space.n)
     elif mode == 'small':
         model = GridDsrSmallModel(env.observation_space.shape, env.action_space.n)
     elif mode == 'compact':
         model = GridDsrCompactModel(env.observation_space.shape, env.action_space.n)
-    elif mode == 'rooms' or mode == 'gaussian':
-        model = GridDsrRandomModel(env.observation_space.shape, env.action_space.n)
+    elif mode == 'one-hot' or mode == 'rooms' or mode == 'gaussian':
+        model = GridDsrModel(env.observation_space.shape, env.action_space.n, **config['agent']['model_kwargs'])
     model.load_state_dict(params['agent_state_dict']['model'])
     model.to(device)
 
@@ -75,14 +85,12 @@ def visualize(checkpoint, output, cuda_idx=None, mode='full', seed=333):
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--input', help='checkpoint file')
+    parser.add_argument('--config', help='config file')
+    parser.add_argument('--checkpoint', help='checkpoint file')
     parser.add_argument('--output', help='output location')
     parser.add_argument('--cuda_idx', help='gpu to use ', type=int, default=0)
-    parser.add_argument('--mode', help='full, small, compact, rooms, gaussian', choices=['full', 'small', 'compact', 'rooms', 'gaussian'], default='rooms')
-    parser.add_argument('--seed', help='seed', type=int, default=333)
     args = parser.parse_args()
-    visualize(checkpoint=args.input,
+    visualize(config_file=args.config,
+              checkpoint=args.checkpoint,
               output=args.output, 
-              cuda_idx=args.cuda_idx,
-              mode=args.mode,
-              seed=args.seed)
+              cuda_idx=args.cuda_idx)

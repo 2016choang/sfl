@@ -51,7 +51,6 @@ class CpuResetCollector(DecorrelatingStartCollector):
         if "bootstrap_value" in agent_buf:
             # agent.value() should not advance rnn state.
             agent_buf.bootstrap_value[:] = self.agent.value(obs_pyt, act_pyt, rew_pyt)
-
         return AgentInputs(observation, action, reward), traj_infos, completed_infos
 
 
