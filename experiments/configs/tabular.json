@@ -1,0 +1,24 @@
+{
+    "agent": {
+        "eps_final": 1,
+        "eps_eval": 1,
+        "model_kwargs": {
+            "fc_sizes": []
+        }
+    },
+    "algo": {
+        "discount": 0.99,
+        "batch_size": 32,
+        "min_steps_learn": 1000,
+        "learning_rate": 5e-2,
+        "replay_size": 20000,
+        "delta_clip": null,
+        "target_update_interval": 1
+    },
+    "env": {
+        "reset_episodes": 200,
+        "reset_same": false
+    },
+    "mode": "one-hot",
+    "seed": 333
+}

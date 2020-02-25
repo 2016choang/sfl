@@ -29,12 +29,12 @@ class TabularDsrAgent(EpsilonGreedyAgentMixin, BaseAgent):
     def __call__(self, observation):
         model_inputs = buffer_to(observation,
             device=self.device)
-        return self.M[:, model_inputs.argmax(dim=1), :].permute(1, 0, 2)
+        return self.M[:, model_inputs.argmax(dim=1), :].permute(1, 0, 2).cpu()
 
     def encode(self, observation):
         observation = buffer_to(observation,
             device=self.device)
-        return observation.type(torch.float) 
+        return observation.type(torch.float).cpu()
 
     def initialize(self, env_spaces, share_memory=False,
             global_B=1, env_ranks=None):
@@ -72,7 +72,7 @@ class TabularDsrAgent(EpsilonGreedyAgentMixin, BaseAgent):
     def target(self, observation):
         model_inputs = buffer_to(observation,
             device=self.device)
-        return self.M[:, model_inputs.argmax(dim=1), :].permute(1, 0, 2)
+        return self.M[:, model_inputs.argmax(dim=1), :].permute(1, 0, 2).cpu()
 
     def update_target(self):
         return
@@ -82,3 +82,6 @@ class TabularDsrAgent(EpsilonGreedyAgentMixin, BaseAgent):
 
     def dsr_parameters(self):
         return [param for name, param in self.model.named_parameters() if 'dsr' in name]
+
+    def state_dict(self):
+        return self.M
