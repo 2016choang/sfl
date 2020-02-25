@@ -228,12 +228,12 @@ class DSR(RlAlgorithm):
             #         if param.requires_grad and param.grad is not None:
             #             summary_writer.add_histogram(name + 'Grad', param.grad.flatten(), itr)
 
-            self.dsr_optimizer.zero_grad()
+            # self.dsr_optimizer.zero_grad()
             dsr_loss, td_abs_errors = self.dsr_loss(samples_from_replay)
-            dsr_loss.backward()
+            # dsr_loss.backward()
             grad_norm = torch.nn.utils.clip_grad_norm_(
                 self.agent.parameters(), self.clip_grad_norm)
-            self.dsr_optimizer.step()
+            # self.dsr_optimizer.step()
             # if self.prioritized_replay:
             #     self.replay_buffer.update_batch_priorities(td_abs_errors)
             opt_info.dsrLoss.append(dsr_loss.item())
@@ -317,6 +317,9 @@ class DSR(RlAlgorithm):
         delta = y - s_features
         losses = 0.5 * delta ** 2
         abs_delta = abs(delta)
+
+        for action, state, td  in zip(samples.action.squeeze(1), samples.agent_inputs.observation.argmax(dim=1), delta):
+            self.agent.update_M(action, state, td, self.learning_rate)
 
         if self.delta_clip is not None:  # Huber loss.
             b = self.delta_clip * (abs_delta - self.delta_clip / 2)

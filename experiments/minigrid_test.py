@@ -16,6 +16,7 @@ import torch
 from rlpyt.samplers.serial.sampler import SerialSampler
 from rlpyt.envs.gym import make as gym_make
 from rlpyt.algos.dqn.dsr.dsr import DSR
+from rlpyt.agents.dqn.tabular_dsr_agent import TabularDsrAgent
 from rlpyt.agents.dqn.grid_dsr.grid_dsr_agent import GridDsrAgent
 from rlpyt.runners.minibatch_rl import MinibatchRlEval
 from rlpyt.utils.logging.context import logger_context
@@ -61,7 +62,8 @@ def build_and_train(config_file,
     else:
         model_checkpoint = None
 
-    agent = GridDsrAgent(mode=mode, initial_model_state_dict=model_checkpoint, **config['agent'])
+    # agent = GridDsrAgent(mode=mode, initial_model_state_dict=model_checkpoint, **config['agent'])
+    agent = TabularDsrAgent(**config['agent'])
     algo = DSR(**config['algo'])
     runner = MinibatchRlEval(
         algo=algo,
@@ -85,7 +87,7 @@ if __name__ == "__main__":
     parser.add_argument('--config', help='config file')
     parser.add_argument('--env_id', help='environment ID', default='MiniGrid-FourRooms-v0')
     parser.add_argument('--run_ID', help='run identifier (logging)', type=int, default=0)
-    parser.add_argument('--cuda_idx', help='gpu to use ', type=int, default=0)
+    parser.add_argument('--cuda_idx', help='gpu to use ', type=int, default=None)
     parser.add_argument('--snapshot_gap', help='iterations between snapshots', type=int, default=5000)
     parser.add_argument('--steps', help='iterations', type=float, default=2e4)
     parser.add_argument('--checkpoint', help='checkpoint file', default=None)
