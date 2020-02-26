@@ -60,12 +60,15 @@ def build_and_train(config_file,
     )    
 
     if checkpoint is not None:
-        model_checkpoint = torch.load(checkpoint, map_location=device)['agent_state_dict']['model']
+        if tabular:
+            model_checkpoint = torch.load(checkpoint, map_location=device)['agent_state_dict']
+        else:
+            model_checkpoint = torch.load(checkpoint, map_location=device)['agent_state_dict']['model']
     else:
         model_checkpoint = None
 
     if tabular:
-        agent = TabularFeaturesDsrAgent(**config['agent'])
+        agent = TabularFeaturesDsrAgent(initial_M=model_checkpoint, **config['agent'])
         algo = TabularDSR(**config['algo'])
     else:  
         agent = GridDsrAgent(mode=mode, initial_model_state_dict=model_checkpoint, **config['agent'])

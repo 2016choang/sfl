@@ -18,9 +18,9 @@ AgentInfo = namedarraytuple("AgentInfo", "a")
 
 class TabularDsrAgent(EpsilonGreedyAgentMixin, BaseAgent):
 
-    def __init__(self, **kwargs):
-        ModelCls = GridDsrDummyModel
-        super().__init__(ModelCls=ModelCls, **kwargs)
+    def __init__(self, initial_M=None, **kwargs):
+        self.initial_M = initial_M
+        super().__init__(ModelCls=GridDsrDummyModel, **kwargs)
 
     def make_env_to_model_kwargs(self, env_spaces):
         return dict(image_shape=env_spaces.observation.shape,
@@ -42,7 +42,10 @@ class TabularDsrAgent(EpsilonGreedyAgentMixin, BaseAgent):
             global_B=global_B, env_ranks=env_ranks)
         self.state_size = env_spaces.observation.shape[0]
         self.action_size = env_spaces.action.n
-        self.M = torch.stack([torch.eye(self.state_size) for _ in range(self.action_size)])
+        if self.initial_M is not None:
+            self.M = self.initial_M
+        else:
+            self.M = torch.stack([torch.eye(self.state_size) for _ in range(self.action_size)])
         self.target_model = self.ModelCls(**self.env_model_kwargs,
             **self.model_kwargs)
         self.target_model.load_state_dict(self.model.state_dict())
@@ -86,9 +89,9 @@ class TabularDsrAgent(EpsilonGreedyAgentMixin, BaseAgent):
 
 class TabularFeaturesDsrAgent(EpsilonGreedyAgentMixin, BaseAgent):
 
-    def __init__(self, **kwargs):
-        ModelCls = GridDsrDummyModel
-        super().__init__(ModelCls=ModelCls, **kwargs)
+    def __init__(self, initial_M=None, **kwargs):
+        self.initial_M = initial_M
+        super().__init__(ModelCls=GridDsrDummyModel, **kwargs)
 
     def make_env_to_model_kwargs(self, env_spaces):
         return dict(image_shape=env_spaces.observation.shape,
@@ -112,7 +115,10 @@ class TabularFeaturesDsrAgent(EpsilonGreedyAgentMixin, BaseAgent):
         self.state_size = env_spaces.observation.shape.position[0]
         self.feature_size = env_spaces.observation.shape.features[0]
         self.action_size = env_spaces.action.n
-        self.M = torch.stack([torch.zeros((self.state_size, self.feature_size)) for _ in range(self.action_size)])
+        if self.initial_M is not None:
+            self.M = self.initial_M
+        else:
+            self.M = torch.stack([torch.zeros((self.state_size, self.feature_size)) for _ in range(self.action_size)])
         self.target_model = self.ModelCls(**self.env_model_kwargs,
             **self.model_kwargs)
         self.target_model.load_state_dict(self.model.state_dict())
