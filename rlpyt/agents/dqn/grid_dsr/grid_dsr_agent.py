@@ -13,6 +13,6 @@ class GridDsrAgent(GridMixin, DsrAgent):
             ModelCls = GridDsrSmallModel
         elif mode == 'compact':
             ModelCls = GridDsrCompactModel
-        elif mode == 'one-hot' or mode == 'rooms' or mode == 'gaussian':
+        elif mode == 'one-hot' or mode == 'rooms' or mode == 'gaussian' or mode == 'features':
             ModelCls = GridDsrModel
         super().__init__(ModelCls=ModelCls, **kwargs)

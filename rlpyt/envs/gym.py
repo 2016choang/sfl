@@ -8,7 +8,7 @@ import numpy as np
 import gym
 from gym_minigrid.wrappers import FullyObsWrapper, ImgObsWrapper, RGBImgObsWrapper, ReseedWrapper
 from gym import Wrapper
-from gym.spaces import Box, Discrete
+from gym.spaces import Box, Discrete, Dict
 from gym.wrappers.time_limit import TimeLimit
 
 from rlpyt.envs.base import EnvSpaces, EnvStep
@@ -118,6 +118,17 @@ def info_to_nt(value, name="info"):
 def normalize(data):
     return (data - np.min(data)) / (np.max(data) - np.min(data))
 
+def get_random_start():
+    if random.random() < 0.5:
+        x = random.randint(1, 8)
+    else:
+        x = random.randint(10, 17)
+    if random.random() < 0.5:
+        y = random.randint(1, 8) 
+    else:
+        y = random.randint(10, 17)
+    return np.array([x, y])
+
 class MinigridColorWrapper(Wrapper):
 
     def __init__(self, env, seed=None):
@@ -136,15 +147,7 @@ class MinigridColorWrapper(Wrapper):
         
         if seed is not None:
             random.seed(seed)
-            if random.random() < 0.5:
-                x = random.randint(1, 8)
-            else:
-                x = random.randint(10, 17)
-            if random.random() < 0.5:
-                y = random.randint(1, 8) 
-            else:
-                y = random.randint(10, 17)
-            self.start_pos = np.array([x, y])
+            self.start_pos = get_random_start()
         else:
             self.start_pos = None
 
@@ -164,15 +167,7 @@ class MinigridColorWrapper(Wrapper):
         if self.start_pos is not None:
             self.env.unwrapped.agent_pos = self.start_pos
         else:
-            if random.random() < 0.5:
-                x = random.randint(1, 8)
-            else:
-                x = random.randint(10, 17)
-            if random.random() < 0.5:
-                y = random.randint(1, 8) 
-            else:
-                y = random.randint(10, 17)
-            self.env.unwrapped.agent_pos = np.array([x, y])
+            self.env.unwrapped.agent_pos = get_random_start()
         
         pos = self.env.unwrapped.agent_pos
         return self.get_obs(pos)
@@ -221,15 +216,7 @@ class MinigridRoomsWrapper(Wrapper):
 
         self.reset_same = reset_same
 
-        if random.random() < 0.5:
-            x = random.randint(1, 8)
-        else:
-            x = random.randint(10, 17)
-        if random.random() < 0.5:
-            y = random.randint(1, 8) 
-        else:
-            y = random.randint(10, 17)
-        self.start_pos = np.array([x, y])
+        self.start_pos = get_random_start()
         
         self.reset_episodes = reset_episodes
         self.episodes = 0
@@ -251,16 +238,7 @@ class MinigridRoomsWrapper(Wrapper):
         if self.reset_same or self.episodes != self.reset_episodes:
             self.env.unwrapped.agent_pos = self.start_pos
         else:
-            if random.random() < 0.5:
-                x = random.randint(1, 8)
-            else:
-                x = random.randint(10, 17)
-            if random.random() < 0.5:
-                y = random.randint(1, 8) 
-            else:
-                y = random.randint(10, 17)
-
-            self.start_pos = np.array([x, y])
+            self.start_pos = get_random_start()
             self.env.unwrapped.agent_pos = self.start_pos
             self.episodes = 0
         
@@ -293,15 +271,7 @@ class MinigridGaussianGridWrapper(Wrapper):
 
         self.reset_same = reset_same
 
-        if random.random() < 0.5:
-            x = random.randint(1, 8)
-        else:
-            x = random.randint(10, 17)
-        if random.random() < 0.5:
-            y = random.randint(1, 8) 
-        else:
-            y = random.randint(10, 17)
-        self.start_pos = np.array([x, y])
+        self.start_pos = get_random_start()
         
         self.reset_episodes = reset_episodes
         self.episodes = 0
@@ -323,16 +293,7 @@ class MinigridGaussianGridWrapper(Wrapper):
         if self.reset_same or self.episodes != self.reset_episodes:
             self.env.unwrapped.agent_pos = self.start_pos
         else:
-            if random.random() < 0.5:
-                x = random.randint(1, 8)
-            else:
-                x = random.randint(10, 17)
-            if random.random() < 0.5:
-                y = random.randint(1, 8) 
-            else:
-                y = random.randint(10, 17)
-
-            self.start_pos = np.array([x, y])
+            self.start_pos = get_random_start()
             self.env.unwrapped.agent_pos = self.start_pos
             self.episodes = 0
         
@@ -355,15 +316,7 @@ class MinigridGaussianWrapper(Wrapper):
 
         if seed is not None:
             random.seed(seed)
-            if random.random() < 0.5:
-                x = random.randint(1, 8)
-            else:
-                x = random.randint(10, 17)
-            if random.random() < 0.5:
-                y = random.randint(1, 8) 
-            else:
-                y = random.randint(10, 17)
-            self.start_pos = np.array([x, y])
+            self.start_pos = get_random_start()
         else:
             self.start_pos = None
 
@@ -383,15 +336,7 @@ class MinigridGaussianWrapper(Wrapper):
         if self.start_pos is not None:
             self.env.unwrapped.agent_pos = self.start_pos
         else:
-            if random.random() < 0.5:
-                x = random.randint(1, 8)
-            else:
-                x = random.randint(10, 17)
-            if random.random() < 0.5:
-                y = random.randint(1, 8) 
-            else:
-                y = random.randint(10, 17)
-            self.env.unwrapped.agent_pos = np.array([x, y])
+            self.env.unwrapped.agent_pos = get_random_start()
         
         pos = self.env.unwrapped.agent_pos
         return self.get_obs(pos)
@@ -402,28 +347,16 @@ class MinigridGaussianWrapper(Wrapper):
 
 class MinigridFeatureWrapper(Wrapper):
     
-    def __init__(self, env, num_features=8, sigma=1, seed=None):
+    def __init__(self, env, num_features=8, sigma=1, reset_same=False, reset_episodes=1):
         super().__init__(env)
         self.env = env
-        # self.local_size = (1, 1, num_features)
-        # self.pad = (max(self.local_size[0] // 2 - 1, 0), max(self.local_size[1] // 2 - 1, 0))
-        # self.feature_map = np.pad(2 * sigma * np.random.rand(19, 19, num_features) - sigma, ((self.pad[0], self.pad[0]), (self.pad[1], self.pad[1]), (0, 0)), mode='constant')
         self.feature_map = 2 * sigma * np.random.rand(19, 19, num_features) - sigma
 
-        if seed is not None:
-            random.seed(seed)
-            if random.random() < 0.5:
-                x = random.randint(1, 8)
-            else:
-                x = random.randint(10, 17)
-            if random.random() < 0.5:
-                y = random.randint(1, 8) 
-            else:
-                y = random.randint(10, 17)
-            self.start_pos = np.array([x, y])
-        else:
-            self.start_pos = None
-        
+        self.reset_same = reset_same
+        self.start_pos = get_random_start()
+        self.reset_episodes = reset_episodes
+        self.episodes = 0
+
         self.observation_space = Box(0, 1, (num_features, ))
         self.action_space = Discrete(4)
 
@@ -437,31 +370,65 @@ class MinigridFeatureWrapper(Wrapper):
 
     def reset(self, **kwargs):
         self.env.reset()
-        if self.start_pos is not None:
+
+        if self.reset_same or self.episodes != self.reset_episodes:
             self.env.unwrapped.agent_pos = self.start_pos
         else:
-            if random.random() < 0.5:
-                x = random.randint(1, 8)
-            else:
-                x = random.randint(10, 17)
-            if random.random() < 0.5:
-                y = random.randint(1, 8) 
-            else:
-                y = random.randint(10, 17)
-            self.env.unwrapped.agent_pos = np.array([x, y])
+            self.start_pos = get_random_start()
+            self.env.unwrapped.agent_pos = self.start_pos
+            self.episodes = 0
         
+        self.episodes += 1
         pos = self.env.unwrapped.agent_pos
         return self.get_obs(pos)
 
     def get_obs(self, pos):
-        # h_pos, w_pos = pos
-        # h_pos += self.pad[0]
-        # w_pos += self.pad[1]
-        # h_len, w_len = self.local_size[:2]
-        # h_len = h_len // 2
-        # w_len = w_len // 2 
-        # return self.feature_map[h_pos - h_len: h_pos + h_len + 1, w_pos - w_len:w_pos + w_len + 1].squeeze()
         return self.feature_map[tuple(pos)]
+
+
+class MinigridTabularFeatureWrapper(Wrapper):
+    
+    def __init__(self, env, num_features=8, sigma=1, reset_same=False, reset_episodes=1):
+        super().__init__(env)
+        self.env = env
+        self.one_hot = np.identity(361)
+        self.feature_map = 2 * sigma * np.random.rand(19, 19, num_features) - sigma
+
+        self.reset_same = reset_same
+        self.start_pos = get_random_start()
+        self.reset_episodes = reset_episodes
+        self.episodes = 0
+
+        self.observation_space = Dict({"position": Box(0, 1, (361, )), "features": Box(0, 1, (num_features, ))})
+        self.action_space = Discrete(4)
+
+    def step(self, action):
+        # 0 -- right, 1 -- down, 2 -- left, 3 -- up
+        self.env.unwrapped.agent_dir = action
+        _, reward, done, info = self.env.step(2)
+        pos = tuple(self.env.unwrapped.agent_pos)
+        obs = self.get_obs(pos)
+        return obs, reward, done, info
+
+    def reset(self, **kwargs):
+        self.env.reset()
+
+        if self.reset_same or self.episodes != self.reset_episodes:
+            self.env.unwrapped.agent_pos = self.start_pos
+        else:
+            self.start_pos = get_random_start()
+            self.env.unwrapped.agent_pos = self.start_pos
+            self.episodes = 0
+        
+        self.episodes += 1
+        pos = self.env.unwrapped.agent_pos
+        return self.get_obs(pos)
+
+    def get_obs(self, pos):
+        return {
+            "position": self.one_hot[pos[0] * 19 + pos[1]],
+            "features": self.feature_map[tuple(pos)]
+        }
         
 
 class MinigridOneHotWrapper(Wrapper):
@@ -469,18 +436,10 @@ class MinigridOneHotWrapper(Wrapper):
     def __init__(self, env, reset_same=False, reset_episodes=1):
         super().__init__(env)
         self.env = env
-        self.reset_same = reset_same
+        self.one_hot = np.identity(361)
 
-        if random.random() < 0.5:
-            x = random.randint(1, 8)
-        else:
-            x = random.randint(10, 17)
-        if random.random() < 0.5:
-            y = random.randint(1, 8) 
-        else:
-            y = random.randint(10, 17)
-        self.start_pos = np.array([x, y])
-        
+        self.reset_same = reset_same
+        self.start_pos = get_random_start()
         self.reset_episodes = reset_episodes
         self.episodes = 0
 
@@ -501,16 +460,7 @@ class MinigridOneHotWrapper(Wrapper):
         if self.reset_same or self.episodes != self.reset_episodes:
             self.env.unwrapped.agent_pos = self.start_pos
         else:
-            if random.random() < 0.5:
-                x = random.randint(1, 8)
-            else:
-                x = random.randint(10, 17)
-            if random.random() < 0.5:
-                y = random.randint(1, 8) 
-            else:
-                y = random.randint(10, 17)
-
-            self.start_pos = np.array([x, y])
+            self.start_pos = get_random_start()
             self.env.unwrapped.agent_pos = self.start_pos
             self.episodes = 0
         
@@ -519,9 +469,7 @@ class MinigridOneHotWrapper(Wrapper):
         return self.get_obs(pos)
 
     def get_obs(self, pos):
-        obs = np.zeros(361)
-        obs[pos[0] * 19 + pos[1]] = 1
-        return obs
+        return self.one_hot[pos[0] * 19 + pos[1]]
 
 
 class MoveWrapper(Wrapper):
@@ -569,7 +517,7 @@ def update_obs_minigrid(obs):
 
 def make(*args, info_example=None, mode=None, minigrid_config=None, **kwargs):
     if minigrid_config is not None:
-        max_steps = minigrid_config.get('max_steps', 3000)
+        max_steps = minigrid_config.get('max_steps', 500)
         num_features = minigrid_config.get('num_features', 4)
         sigma = minigrid_config.get('sigma', 0.5)
         reset_same = minigrid_config.get('reset_same', False)
@@ -588,11 +536,14 @@ def make(*args, info_example=None, mode=None, minigrid_config=None, **kwargs):
             return GymEnvWrapper(MoveWrapper(FullyObsWrapper(env)))
         elif mode == 'one-hot':
             return GymEnvWrapper(MinigridOneHotWrapper(RGBImgObsWrapper(env), reset_same=reset_same, reset_episodes=reset_episodes))
+        elif mode == 'one-hot-features':
+            return GymEnvWrapper(MinigridTabularFeatureWrapper(RGBImgObsWrapper(env), num_features=num_features, sigma=sigma, reset_same=reset_same, reset_episodes=reset_episodes))
         elif mode == 'rooms':
             return GymEnvWrapper(MinigridRoomsWrapper(RGBImgObsWrapper(env), reset_same=reset_same, reset_episodes=reset_episodes))
         elif mode == 'gaussian':
             return GymEnvWrapper(MinigridGaussianGridWrapper(RGBImgObsWrapper(env), num_features=num_features, sigma=sigma, reset_same=reset_same, reset_episodes=reset_episodes))
-            # return GymEnvWrapper(MinigridFeatureWrapper(RGBImgObsWrapper(env), num_features=num_features, sigma=sigma, seed=seed))
+        elif mode == 'features':
+            return GymEnvWrapper(MinigridFeatureWrapper(RGBImgObsWrapper(env), num_features=num_features, sigma=sigma, reset_same=reset_same, reset_episodes=reset_episodes))
     elif info_example is None:
         return GymEnvWrapper(gym.make(*args, **kwargs))
     else:

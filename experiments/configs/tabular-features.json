@@ -7,18 +7,20 @@
         }
     },
     "algo": {
-        "discount": 0.985,
+        "discount": 0.99,
         "batch_size": 16,
         "min_steps_learn": 1000,
-        "learning_rate": 1e-3,
+        "learning_rate": 1e-4,
         "replay_size": 20000,
-        "delta_clip": null,
-        "target_update_interval": 1
+        "delta_clip": null
     },
     "env": {
-        "reset_episodes": 500,
+        "num_features": 64,
+        "sigma": 1,
+        "reset_episodes": 50,
         "reset_same": false
     },
-    "mode": "one-hot",
-    "seed": 333
+    "mode": "one-hot-features",
+    "seed": 333,
+    "tabular": true
 }

@@ -16,7 +16,9 @@ import torch
 from rlpyt.samplers.serial.sampler import SerialSampler
 from rlpyt.envs.gym import make as gym_make
 from rlpyt.algos.dqn.dsr.dsr import DSR
+from rlpyt.algos.dqn.dsr.tabular_dsr import TabularDSR
 from rlpyt.agents.dqn.grid_dsr.grid_dsr_agent import GridDsrAgent
+from rlpyt.agents.dqn.tabular_dsr_agent import TabularDsrAgent, TabularFeaturesDsrAgent
 from rlpyt.runners.minibatch_rl import MinibatchRlEval
 from rlpyt.utils.logging.context import logger_context
 from rlpyt.utils.seed import set_seed
@@ -36,6 +38,7 @@ def build_and_train(config_file,
         raise ValueError('Unable to read config file {}'.format(config_file))
 
     mode = config['mode']
+    tabular = config['tabular']
     seed = config['seed']
     set_seed(seed)
 
@@ -61,8 +64,12 @@ def build_and_train(config_file,
     else:
         model_checkpoint = None
 
-    agent = GridDsrAgent(mode=mode, initial_model_state_dict=model_checkpoint, **config['agent'])
-    algo = DSR(**config['algo'])
+    if tabular:
+        agent = TabularFeaturesDsrAgent(**config['agent'])
+        algo = TabularDSR(**config['algo'])
+    else:  
+        agent = GridDsrAgent(mode=mode, initial_model_state_dict=model_checkpoint, **config['agent'])
+        algo = DSR(**config['algo'])
     runner = MinibatchRlEval(
         algo=algo,
         agent=agent,

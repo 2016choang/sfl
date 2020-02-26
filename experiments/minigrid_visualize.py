@@ -52,7 +52,7 @@ def visualize(config_file,
         model = GridDsrSmallModel(env.observation_space.shape, env.action_space.n)
     elif mode == 'compact':
         model = GridDsrCompactModel(env.observation_space.shape, env.action_space.n)
-    elif mode == 'one-hot' or mode == 'rooms' or mode == 'gaussian':
+    elif mode == 'one-hot' or mode == 'rooms' or mode == 'gaussian' or mode == 'features':
         model = GridDsrModel(env.observation_space.shape, env.action_space.n, **config['agent']['model_kwargs'])
     model.load_state_dict(params['agent_state_dict']['model'])
     model.to(device)

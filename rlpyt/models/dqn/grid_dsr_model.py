@@ -6,6 +6,18 @@ from rlpyt.utils.tensor import infer_leading_dims, restore_leading_dims
 from rlpyt.models.mlp import MlpModel
 
 
+class GridDsrDummyModel(torch.nn.Module):
+
+    def __init__(
+            self,
+            image_shape,
+            output_size,
+            fc_sizes=[],
+            nonlinearity="identity"
+            ):
+        super().__init__()
+
+
 class GridDsrModel(torch.nn.Module):
 
     def __init__(
@@ -13,12 +25,17 @@ class GridDsrModel(torch.nn.Module):
             image_shape,
             output_size,
             fc_sizes=[],
-            nonlinearity=nn.Identity
+            nonlinearity="identity"
             ):
         super().__init__()
         self.feature_size = image_shape[0]
-
         self.output_size = output_size
+
+        if nonlinearity == "identity":
+            nonlinearity = nn.Identity
+        elif nonlinearity == "relu":
+            nonlinearity = nn.ReLU
+
         self.dsr = MlpModel(self.feature_size, fc_sizes,
             output_size=self.output_size * self.feature_size, nonlinearity=nonlinearity)
 
