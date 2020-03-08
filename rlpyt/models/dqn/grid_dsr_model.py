@@ -35,6 +35,8 @@ class GridDsrModel(torch.nn.Module):
             nonlinearity = nn.Identity
         elif nonlinearity == "relu":
             nonlinearity = nn.ReLU
+        elif nonlinearity == 'leaky':
+            nonlinearity = nn.LeakyReLU
 
         self.dsr = MlpModel(self.feature_size, fc_sizes,
             output_size=self.output_size * self.feature_size, nonlinearity=nonlinearity)

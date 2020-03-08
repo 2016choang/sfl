@@ -4,7 +4,7 @@
         "eps_eval": 1,
         "model_kwargs": {
             "fc_sizes": [512],
-            "nonlinearity": "relu"
+            "nonlinearity": "leaky"
         }
     },
     "algo": {
