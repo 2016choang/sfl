@@ -350,7 +350,7 @@ class MinigridFeatureWrapper(Wrapper):
     def __init__(self, env, num_features=8, sigma=1, reset_same=False, reset_episodes=1):
         super().__init__(env)
         self.env = env
-        self.feature_map = 2 * sigma * np.random.rand(19, 19, num_features) - sigma
+        self.feature_map = np.random.rand(19, 19, num_features)
 
         self.reset_same = reset_same
         self.start_pos = get_random_start()
