@@ -3,7 +3,7 @@
         "eps_final": 1,
         "eps_eval": 1,
         "model_kwargs": {
-            "fc_sizes": [64, 64, 64],
+            "fc_sizes": [512],
             "nonlinearity": "relu"
         }
     },
@@ -11,7 +11,7 @@
         "discount": 0.99,
         "batch_size": 32,
         "min_steps_learn": 1000,
-        "learning_rate": 1e-6,
+        "learning_rate": 5e-2,
         "replay_size": 20000,
         "delta_clip": null
     },
