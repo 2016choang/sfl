@@ -41,10 +41,8 @@ def visualize(config_file,
 
     # starting_pos = tuple(env.unwrapped.agent_pos)
     # print(starting_pos)
-    if 'features' in mode:
-        SR = torch.zeros((19, 19, env.action_space.n, config['env']['num_features']), dtype=torch.float)
-    else:
-        SR = torch.zeros((19, 19, env.action_space.n, env.observation_space.shape[0]), dtype=torch.float)
+    
+    SR = torch.zeros((19, 19, env.action_space.n, env.observation_space.shape[0]), dtype=torch.float)
     SR += np.nan
     seen = set()
 
