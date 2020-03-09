@@ -3,8 +3,8 @@
         "eps_final": 1,
         "eps_eval": 1,
         "model_kwargs": {
-            "fc_sizes": [512],
-            "nonlinearity": "leaky"
+            "fc_sizes": [128],
+            "nonlinearity": "relu"
         }
     },
     "algo": {
