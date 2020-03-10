@@ -393,6 +393,7 @@ class MinigridTabularFeatureWrapper(Wrapper):
         self.env = env
         self.one_hot = np.identity(361)
         self.feature_map = np.random.rand(19, 19, num_features)
+        # self.feature_map = self.feature_map / self.feature_map.sum(axis=2, keepdims=True)
 
         self.reset_same = reset_same
         self.start_pos = get_random_start()

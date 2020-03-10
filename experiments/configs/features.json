@@ -3,7 +3,7 @@
         "eps_final": 1,
         "eps_eval": 1,
         "model_kwargs": {
-            "fc_sizes": [128],
+            "fc_sizes": [512],
             "nonlinearity": "relu"
         }
     },
@@ -13,10 +13,10 @@
         "min_steps_learn": 1000,
         "learning_rate": 5e-2,
         "replay_size": 20000,
-        "delta_clip": null
+        "delta_clip": 1
     },
     "env": {
-        "num_features": 64,
+        "num_features": 8,
         "sigma": 1,
         "reset_episodes": 50,
         "reset_same": false

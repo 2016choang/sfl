@@ -15,7 +15,7 @@
         "delta_clip": null
     },
     "env": {
-        "num_features": 64,
+        "num_features": 8,
         "sigma": 1,
         "reset_episodes": 50,
         "reset_same": false
