@@ -11,12 +11,12 @@
         "discount": 0.99,
         "batch_size": 32,
         "min_steps_learn": 1000,
-        "learning_rate": 5e-2,
+        "learning_rate": 1e-3,
         "replay_size": 20000,
         "delta_clip": 1
     },
     "env": {
-        "num_features": 8,
+        "num_features": 64,
         "sigma": 1,
         "reset_episodes": 50,
         "reset_same": false
