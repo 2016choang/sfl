@@ -3,8 +3,14 @@
         "eps_final": 1,
         "eps_eval": 1,
         "model_kwargs": {
-            "fc_sizes": [512],
-            "nonlinearity": "relu"
+            "dsr_params": {
+                "fc_sizes": [512],
+                "nonlinearity": "relu"
+            },
+            "goal_params": {
+                "fc_sizes": [512],
+                "nonlinearity": "relu"
+            }    
         }
     },
     "algo": {

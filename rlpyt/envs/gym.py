@@ -347,10 +347,12 @@ class MinigridGaussianWrapper(Wrapper):
 
 class MinigridFeatureWrapper(Wrapper):
     
-    def __init__(self, env, num_features=8, sigma=1, reset_same=False, reset_episodes=1):
+    def __init__(self, env, num_features=8, normalize=True, reset_same=False, reset_episodes=1):
         super().__init__(env)
         self.env = env
         self.feature_map = np.random.rand(19, 19, num_features)
+        if normalize:
+            self.feature_map = self.feature_map / np.linalg.norm(self.feature_map, axis=2, keepdims=True)
 
         self.reset_same = reset_same
         self.start_pos = get_random_start()
@@ -521,6 +523,7 @@ def make(*args, info_example=None, mode=None, minigrid_config=None, **kwargs):
         max_steps = minigrid_config.get('max_steps', 500)
         num_features = minigrid_config.get('num_features', 4)
         sigma = minigrid_config.get('sigma', 0.5)
+        normalize = minigrid_config.get('normalize', False)
         reset_same = minigrid_config.get('reset_same', False)
         reset_episodes = minigrid_config.get('reset_episodes', 1)
         env = gym.make(*args, **kwargs)
@@ -544,7 +547,7 @@ def make(*args, info_example=None, mode=None, minigrid_config=None, **kwargs):
         elif mode == 'gaussian':
             return GymEnvWrapper(MinigridGaussianGridWrapper(RGBImgObsWrapper(env), num_features=num_features, sigma=sigma, reset_same=reset_same, reset_episodes=reset_episodes))
         elif mode == 'features':
-            return GymEnvWrapper(MinigridFeatureWrapper(RGBImgObsWrapper(env), num_features=num_features, sigma=sigma, reset_same=reset_same, reset_episodes=reset_episodes))
+            return GymEnvWrapper(MinigridFeatureWrapper(RGBImgObsWrapper(env), num_features=num_features, normalize=normalize, reset_same=reset_same, reset_episodes=reset_episodes))
     elif info_example is None:
         return GymEnvWrapper(gym.make(*args, **kwargs))
     else:
