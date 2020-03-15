@@ -46,7 +46,7 @@ def visualize(config_file,
     SR += np.nan
     seen = set()
 
-    model = GridDsrModel(env.observation_space.shape, env.action_space.n, **config['agent']['model_kwargs'])
+    model = GridGoalModel(env.observation_space.shape, env.action_space.n, **config['agent']['model_kwargs'])
     model.load_state_dict(params['agent_state_dict']['model'])
     model.to(device)
 
