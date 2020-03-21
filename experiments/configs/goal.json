@@ -23,7 +23,6 @@
     },
     "env": {
         "num_features": 64,
-        "normalize": false,
         "reset_episodes": 50,
         "reset_same": false
     },

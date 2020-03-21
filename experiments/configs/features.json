@@ -8,7 +8,7 @@
         }
     },
     "algo": {
-        "discount": 0.99,
+        "discount": 0.999,
         "batch_size": 32,
         "min_steps_learn": 1000,
         "learning_rate": 1e-3,
@@ -17,7 +17,6 @@
     },
     "env": {
         "num_features": 64,
-        "normalize": false,
         "reset_episodes": 50,
         "reset_same": false
     },
