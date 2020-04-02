@@ -6,7 +6,7 @@
             "dsr_params": {
                 "fc_sizes": [512],
                 "nonlinearity": "relu"
-            }   
+            }
         }
     },
     "algo": {
@@ -18,8 +18,7 @@
         "delta_clip": 1
     },
     "env": {
-        "num_features": 64,
-        "reset_episodes": 50,
+        "fixed_feature_file": "/home/choang/research/deep-sf/experiments/aux-data/inverse-features-10k.npy",
         "reset_same": false
     },
     "mode": "features",

@@ -16,6 +16,7 @@ import torch
 from rlpyt.samplers.serial.sampler import SerialSampler
 from rlpyt.envs.gym import make as gym_make
 from rlpyt.algos.dqn.dsr.dsr import DSR
+from rlpyt.algos.dqn.dsr.action_dsr import ActionDSR
 from rlpyt.algos.dqn.dsr.tabular_dsr import TabularDSR
 from rlpyt.agents.dqn.grid_dsr.grid_dsr_agent import GridDsrAgent
 from rlpyt.agents.dqn.tabular_dsr_agent import TabularDsrAgent, TabularFeaturesDsrAgent
@@ -72,7 +73,10 @@ def build_and_train(config_file,
         algo = TabularDSR(**config['algo'])
     else:  
         agent = GridDsrAgent(mode=mode, initial_model_state_dict=model_checkpoint, **config['agent'])
-        algo = DSR(**config['algo'])
+        if 'action' in mode:
+            algo = ActionDSR(**config['algo'])
+        else:
+            algo = DSR(**config['algo'])
     runner = MinibatchRlEval(
         algo=algo,
         agent=agent,

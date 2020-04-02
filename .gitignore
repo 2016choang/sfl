@@ -121,3 +121,6 @@ venv.bak/
 
 # Visualizations
 *.png
+
+# auxiliary data
+experiments/aux-data/

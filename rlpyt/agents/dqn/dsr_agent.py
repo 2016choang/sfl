@@ -28,12 +28,6 @@ class DsrAgent(EpsilonGreedyAgentMixin, BaseAgent):
             device=self.device)
         features = self.model(model_inputs)
         return features.cpu()
-    
-    def reconstruct(self, observation):
-        model_inputs = buffer_to(observation,
-            device=self.device)
-        reconstructed = self.model(model_inputs, mode='reconstruct')
-        return reconstructed.cpu()
 
     def q_estimate(self, observation):
         model_inputs = buffer_to(observation,

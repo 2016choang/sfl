@@ -7,13 +7,13 @@ import numpy as np
 import torch
 
 from rlpyt.envs.gym import make as gym_make
-from rlpyt.models.dqn.grid_dsr_model import GridDsrModel, GridDsrSmallModel, GridDsrFullModel
+from rlpyt.models.dqn.grid_dsr_model import GridActionDsrModel
 from rlpyt.utils.seed import set_seed
 
 
 ENV_ID = 'MiniGrid-FourRooms-v0'
 
-def visualize(config_file, 
+def test(config_file, 
               checkpoint,
               output,
               cuda_idx=None):
@@ -38,43 +38,43 @@ def visualize(config_file,
     # sample all possible agent positions within environment
     env = gym_make(id=ENV_ID, mode=mode, minigrid_config=config['env'])
     env.reset()
-
-    # starting_pos = tuple(env.unwrapped.agent_pos)
-    # print(starting_pos)
     
     SR = torch.zeros((19, 19, env.action_space.n, env.observation_space.shape[0]), dtype=torch.float)
     SR += np.nan
-    seen = set()
 
-    if mode == 'full':
-        model = GridDsrFullModel(env.observation_space.shape, env.action_space.n)
-    elif mode == 'small':
-        model = GridDsrSmallModel(env.observation_space.shape, env.action_space.n)
-    elif mode == 'one-hot' or mode == 'rooms' or mode == 'gaussian' or mode == 'features':
-        model = GridDsrModel(env.observation_space.shape, env.action_space.n, **config['agent']['model_kwargs'])
+    model = GridActionDsrModel(env.observation_space.shape, env.action_space.n, **config['agent']['model_kwargs'])
     model.load_state_dict(params['agent_state_dict']['model'])
     model.to(device)
 
+    positions = set()
     for y in range(19):
         for x in range(19):
             if x not in [0, 9, 18] and y not in [0, 9, 18]:
-                for a in range(env.action_space.n):
+                for action in range(4):
                     env.env.env.unwrapped.agent_pos = np.array([y, x])
-                    obs, _, done, _ = env.step(a)
+                    _, _, done, _ = env.step(action)
 
-                    obs = torch.Tensor(obs).unsqueeze(0)
-                    seen.add(tuple(env.agent_pos))
-
-                    with torch.no_grad():
-                        features = model(obs.to(device))
-
-                    sr_y, sr_x = tuple(env.agent_pos)
-                    SR[sr_y, sr_x] = model(features, mode='dsr')
+                    pos = tuple(env.agent_pos)
+                    if pos not in positions:
+                        positions.add(pos)
 
                     if done:
                         env.reset()
 
-    print(len(seen))
+    print(len(pos))
+
+    for pos in positions:
+        for a in range(4):
+            env.env.env.unwrapped.agent_pos = np.array(pos)
+            obs, _, done, _ = env.step(4)
+            obs = torch.Tensor(obs[a]).unsqueeze(0).to(device)
+
+            features = model(obs)
+            SR[pos[0], pos[1], a] = model(features, 'dsr')
+
+            if done:
+                env.reset()
+
     env.close()
 
     torch.save(SR, output)
@@ -88,7 +88,7 @@ if __name__ == "__main__":
     parser.add_argument('--output', help='output location')
     parser.add_argument('--cuda_idx', help='gpu to use ', type=int, default=0)
     args = parser.parse_args()
-    visualize(config_file=args.config,
+    test(config_file=args.config,
               checkpoint=args.checkpoint,
               output=args.output, 
               cuda_idx=args.cuda_idx)

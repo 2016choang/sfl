@@ -107,7 +107,6 @@ class DSR(RlAlgorithm):
         self.rank = rank
         self.optimizer = self.OptimCls(self.agent.parameters(),
             lr=self.learning_rate, **self.optim_kwargs)
-        self.scheduler = None
         if self.initial_optim_state_dict is not None:
             self.optimizer.load_state_dict(self.initial_optim_state_dict['optim'])
         # if self.prioritized_replay:
