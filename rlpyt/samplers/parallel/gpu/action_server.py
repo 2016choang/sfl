@@ -67,7 +67,6 @@ class ActionServer:
                 step_np.reward[b_reset] = 0  # Null prev_reward.
                 self.agent.reset_one(idx=b_reset)
             action, agent_info = self.agent.step(*agent_inputs)
-            step_np.action[:] = action
             step_np.agent_info[:] = agent_info
             if self.eval_max_trajectories is not None and t % EVAL_TRAJ_CHECK == 0:
                 self.sync.stop_eval.value = len(traj_infos) >= self.eval_max_trajectories

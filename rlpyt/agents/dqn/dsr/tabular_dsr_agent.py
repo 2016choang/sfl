@@ -9,7 +9,7 @@ from rlpyt.distributions.epsilon_greedy import EpsilonGreedy
 from rlpyt.utils.buffer import buffer_to
 from rlpyt.utils.logging import logger
 from rlpyt.utils.collections import namedarraytuple
-from rlpyt.models.dqn.grid_dsr_model import GridDsrModel, GridDsrDummyModel
+from rlpyt.models.dqn.dsr.grid_dsr_model import GridDsrModel, GridDsrDummyModel
 from rlpyt.models.utils import strip_ddp_state_dict
 
 

@@ -199,7 +199,6 @@ class DQN(RlAlgorithm):
             td_abs_errors *= valid
         else:
             loss = torch.mean(losses)
-
         return loss, td_abs_errors
 
     def update_itr_hyperparams(self, itr):

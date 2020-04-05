@@ -1,3 +1,4 @@
+
 from collections import namedtuple
 
 import numpy as np
@@ -186,7 +187,7 @@ class DSR(RlAlgorithm):
 
         # 1b. estimate successor features given features
         dsr = self.agent(features)
-        s_features = select_at_indexes(samples.action.squeeze(1), dsr)
+        s_features = select_at_indexes(samples.action, dsr)
 
         with torch.no_grad():
             # 2a. encode target observations in feature space
@@ -198,7 +199,7 @@ class DSR(RlAlgorithm):
             # next_qs = self.agent.q_estimate(target_dsr)
             # next_a = torch.argmax(next_qs, dim=-1)
             # random actions
-            next_a = torch.randint(high=target_dsr.shape[1], size=samples.action.squeeze(1).shape)
+            next_a = torch.randint(high=target_dsr.shape[1], size=samples.action.shape)
 
             target_s_features = select_at_indexes(next_a, target_dsr)
 
@@ -219,10 +220,11 @@ class DSR(RlAlgorithm):
         # sum losses over feature vector such that each sample has a scalar loss (result: B x 1)
         # losses = losses.sum(dim=1)
 
-        td_abs_errors = abs_delta.detach()
+        td_abs_errors = abs_delta.mean(axis=1).detach()
         if self.delta_clip is not None:
             td_abs_errors = torch.clamp(td_abs_errors, 0, self.delta_clip)
         if not self.mid_batch_reset:
+            losses = torch.mean(losses, axis=1)
             valid = valid_from_done(samples.done)
             loss = valid_mean(losses, valid)
             td_abs_errors *= valid

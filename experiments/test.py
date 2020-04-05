@@ -7,7 +7,8 @@ import numpy as np
 import torch
 
 from rlpyt.envs.gym import make as gym_make
-from rlpyt.models.dqn.grid_dsr_model import GridDsrModel, GridDsrSmallModel, GridDsrFullModel
+from rlpyt.models.dqn.dsr.grid_dsr_model import GridDsrModel
+from rlpyt.models.dqn.dsr.idf_model import IDFModel
 from rlpyt.utils.seed import set_seed
 
 
@@ -42,16 +43,17 @@ def visualize(config_file,
     # starting_pos = tuple(env.unwrapped.agent_pos)
     # print(starting_pos)
     
-    SR = torch.zeros((19, 19, env.action_space.n, env.observation_space.shape[0]), dtype=torch.float)
+    SR = torch.zeros((19, 19, env.action_space.n, config['agent']['model_kwargs']['feature_size']),
+                     dtype=torch.float)
     SR += np.nan
     seen = set()
 
-    if mode == 'full':
-        model = GridDsrFullModel(env.observation_space.shape, env.action_space.n)
-    elif mode == 'small':
-        model = GridDsrSmallModel(env.observation_space.shape, env.action_space.n)
-    elif mode == 'one-hot' or mode == 'rooms' or mode == 'gaussian' or mode == 'features':
-        model = GridDsrModel(env.observation_space.shape, env.action_space.n, **config['agent']['model_kwargs'])
+    if mode == 'image':
+        feature_model = IDFModel(env.observation_space.shape, env.action_space.n, **config['agent']['idf_model_kwargs'])
+        feature_model.load_state_dict(params['agent_state_dict']['idf_model'])
+        feature_model.to(device)
+    
+    model = GridDsrModel(env.observation_space.shape, env.action_space.n, **config['agent']['model_kwargs'])
     model.load_state_dict(params['agent_state_dict']['model'])
     model.to(device)
 
@@ -66,7 +68,7 @@ def visualize(config_file,
                     seen.add(tuple(env.agent_pos))
 
                     with torch.no_grad():
-                        features = model(obs.to(device))
+                        features = feature_model(obs.to(device), mode='encode')
 
                     sr_y, sr_x = tuple(env.agent_pos)
                     SR[sr_y, sr_x] = model(features, mode='dsr')

@@ -3,14 +3,11 @@
         "eps_final": 1,
         "eps_eval": 1,
         "model_kwargs": {
+            "feature_size": 64,
             "dsr_params": {
                 "fc_sizes": [512],
                 "nonlinearity": "relu"
-            },
-            "goal_params": {
-                "fc_sizes": [512],
-                "nonlinearity": "relu"
-            }    
+            }   
         }
     },
     "algo": {
@@ -22,11 +19,12 @@
         "delta_clip": 1
     },
     "env": {
-        "num_features": 64,
+        "size": [19, 19],
+        "grayscale": false,
         "reset_episodes": 50,
         "reset_same": false
     },
-    "mode": "features",
+    "mode": "image",
     "seed": 333,
     "tabular": false
 }

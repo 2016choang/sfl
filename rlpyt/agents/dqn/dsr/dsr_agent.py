@@ -6,11 +6,10 @@ from torch.nn.parallel import DistributedDataParallelCPU as DDPC
 from rlpyt.agents.base import BaseAgent, AgentStep
 from rlpyt.agents.dqn.epsilon_greedy import EpsilonGreedyAgentMixin
 from rlpyt.distributions.epsilon_greedy import EpsilonGreedy
+from rlpyt.models.utils import strip_ddp_state_dict
 from rlpyt.utils.buffer import buffer_to
 from rlpyt.utils.logging import logger
 from rlpyt.utils.collections import namedarraytuple
-from rlpyt.models.utils import strip_ddp_state_dict
-
 
 AgentInfo = namedarraytuple("AgentInfo", "a")
 
@@ -26,7 +25,7 @@ class DsrAgent(EpsilonGreedyAgentMixin, BaseAgent):
     def encode(self, observation):
         model_inputs = buffer_to(observation,
             device=self.device)
-        features = self.model(model_inputs)
+        features = self.model(model_inputs, mode='encode')
         return features.cpu()
 
     def q_estimate(self, observation):
@@ -56,13 +55,22 @@ class DsrAgent(EpsilonGreedyAgentMixin, BaseAgent):
 
     @torch.no_grad()
     def step(self, observation, prev_action, prev_reward):
-        model_inputs = buffer_to(observation,
-            device=self.device)
-        dsr = self.model(model_inputs, mode='dsr')
-        model_inputs = buffer_to(dsr,
-            device=self.device)
-        q = self.model(model_inputs, mode='q')
-        q = q.cpu()
+        if self.distribution.epsilon >= 1.0:
+            if prev_action.shape:
+                q = torch.zeros(prev_action.shape[0], self.distribution.dim)
+            else:
+                q = torch.zeros(self.distribution.dim)
+        else:
+            model_inputs = buffer_to(observation,
+                device=self.device)
+            features = self.model(model_inputs, mode='encode')
+            model_inputs = buffer_to(features,
+                device=self.device)
+            dsr = self.model(model_inputs, mode='dsr')
+            model_inputs = buffer_to(dsr,
+                device=self.device)
+            q = self.model(model_inputs, mode='q')
+            q = q.cpu()
         action = self.distribution.sample(q)
         agent_info = AgentInfo(a=action)
         # action, agent_info = buffer_to((action, agent_info), device="cpu")

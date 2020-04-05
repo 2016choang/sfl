@@ -1,5 +1,19 @@
 
 import torch
+import torch.nn as nn
+
+FUNCTION_MAP = {'identity': nn.Identity,
+                'relu': nn.ReLU,
+                'leaky': nn.LeakyReLU}
+
+
+class Reshape(nn.Module):
+    def __init__(self, *args):
+        super(Reshape, self).__init__()
+        self.shape = args
+
+    def forward(self, x):
+        return x.view(-1, *self.shape)  # B x self.shape...
 
 
 def conv2d_output_shape(h, w, kernel_size=1, stride=1, padding=0, dilation=1):

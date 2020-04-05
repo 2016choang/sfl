@@ -16,10 +16,12 @@ import torch
 from rlpyt.samplers.serial.sampler import SerialSampler
 from rlpyt.envs.gym import make as gym_make
 from rlpyt.algos.dqn.dsr.dsr import DSR
+from rlpyt.algos.dqn.dsr.idf_dsr import IDFDSR
 from rlpyt.algos.dqn.dsr.action_dsr import ActionDSR
 from rlpyt.algos.dqn.dsr.tabular_dsr import TabularDSR
-from rlpyt.agents.dqn.grid_dsr.grid_dsr_agent import GridDsrAgent
-from rlpyt.agents.dqn.tabular_dsr_agent import TabularDsrAgent, TabularFeaturesDsrAgent
+from rlpyt.agents.dqn.dsr.grid_dsr_agent import GridDsrAgent
+from rlpyt.agents.dqn.dsr.idf_dsr_agent import IDFDSRAgent
+from rlpyt.agents.dqn.dsr.tabular_dsr_agent import TabularFeaturesDsrAgent
 from rlpyt.runners.minibatch_rl import MinibatchRlEval
 from rlpyt.utils.logging.context import logger_context
 from rlpyt.utils.seed import set_seed
@@ -56,7 +58,7 @@ def build_and_train(config_file,
         batch_B=1,  # One environment (i.e. sampler Batch dimension).
         max_decorrelation_steps=0,
         eval_n_envs=1,
-        eval_max_steps=int(10e3),
+        eval_max_steps=int(1e3),
         eval_max_trajectories=5,
     )    
 
@@ -64,18 +66,24 @@ def build_and_train(config_file,
         if tabular:
             model_checkpoint = torch.load(checkpoint, map_location=device)['agent_state_dict']
         else:
-            model_checkpoint = torch.load(checkpoint, map_location=device)['agent_state_dict']['model']
+            agent_state_dict = torch.load(checkpoint, map_location=device)['agent_state_dict']
+            if mode == 'image':
+                idf_model_checkpoint = agent_state_dict['idf_model']
+            model_checkpoint = agent_state_dict['model']
     else:
         model_checkpoint = None
+        idf_model_checkpoint = None
 
     if tabular:
         agent = TabularFeaturesDsrAgent(initial_M=model_checkpoint, **config['agent'])
         algo = TabularDSR(**config['algo'])
     else:  
-        agent = GridDsrAgent(mode=mode, initial_model_state_dict=model_checkpoint, **config['agent'])
-        if 'action' in mode:
-            algo = ActionDSR(**config['algo'])
+        if mode == 'image':
+            agent = IDFDSRAgent(initial_model_state_dict=model_checkpoint,
+                                initial_idf_model_state_dict=idf_model_checkpoint, **config['agent'])
+            algo = IDFDSR(**config['algo'])
         else:
+            agent = GridDsrAgent(mode=mode,initial_model_state_dict=model_checkpoint, **config['agent'])
             algo = DSR(**config['algo'])
     runner = MinibatchRlEval(
         algo=algo,
@@ -88,7 +96,7 @@ def build_and_train(config_file,
     )
     config['env_id'] = env_id
     name = "dsr_" + env_id
-    log_dir = "minigrid_test"
+    log_dir = mode
     with logger_context(log_dir, run_ID, name, config, snapshot_mode='gap', snapshot_gap=snapshot_gap, tensorboard=True):
         runner.train()
 

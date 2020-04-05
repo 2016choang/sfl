@@ -1,7 +1,7 @@
 
 """
 Parallel sampler version of Atari DQN.  Increasing the number of parallel
-environmnets (sampler batch_B) should improve the efficiency of the forward
+environments (sampler batch_B) should improve the efficiency of the forward
 pass for action sampling on the GPU.  Using a larger batch size in the algorithm
 should improve the efficiency of the forward/backward passes during training.
 (But both settings may impact hyperparameter selection and learning.)
