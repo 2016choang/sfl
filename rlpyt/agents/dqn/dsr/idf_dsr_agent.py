@@ -25,8 +25,8 @@ class IDFDSRAgent(Mixin, DsrAgent):
     def to_device(self, cuda_idx=None):
         super().to_device(cuda_idx)
         self.idf_model.to(self.device)
-        self.mean = self.mean.to(self.device)
-        self.var = self.var.to(self.device)
+        # self.mean = self.mean.to(self.device)
+        # self.var = self.var.to(self.device)
 
     def initialize(self, env_spaces, share_memory=False,
             global_B=1, env_ranks=None):
@@ -36,24 +36,23 @@ class IDFDSRAgent(Mixin, DsrAgent):
             **self.idf_model_kwargs)
         if self.initial_idf_model_state_dict is not None:
             self.idf_model.load_state_dict(self.initial_idf_model_state_dict)
-        self.mean = torch.zeros(self.idf_model_kwargs['feature_size'])
-        self.var = torch.ones(self.idf_model_kwargs['feature_size'])
+        # self.mean = torch.zeros(self.idf_model_kwargs['feature_size'])
+        # self.var = torch.ones(self.idf_model_kwargs['feature_size'])
 
     def encode(self, observation, normalize=True):
         model_inputs = buffer_to(observation,
             device=self.device)
         features = self.idf_model(model_inputs, mode='encode')
-        if normalize:
-            with torch.no_grad():
-                features = (features - self.mean) / (self.var + self.epsilon).sqrt()                
+        # if normalize:
+        #     with torch.no_grad():
+        #         features = (features - self.mean) / (self.var + self.epsilon).sqrt()                
         return features.cpu()
 
     def state_dict(self):
         return dict(model=self.model.state_dict(),
             target=self.target_model.state_dict(),
-            idf_model=self.idf_model.state_dict(),
-            mean=self.mean,
-            var=self.var)
+            idf_model=self.idf_model.state_dict())
+
 
     @torch.no_grad()
     def step(self, observation, prev_action, prev_reward):
@@ -86,10 +85,10 @@ class IDFDSRAgent(Mixin, DsrAgent):
             device=self.device)
 
         features = self.idf_model(model_inputs, mode='encode')
-        with torch.no_grad():
-            N = features.shape[0]
-            self.mean = self.momentum * self.mean + (1.0 - self.momentum) * features.mean(axis=0)
-            self.var = self.momentum  * self.var + (1.0 - self.momentum) * (N / (N - 1) * features.var(axis=0))
+        # with torch.no_grad():
+        #     N = features.shape[0]
+        #     self.mean = self.momentum * self.mean + (1.0 - self.momentum) * features.mean(axis=0)
+        #     self.var = self.momentum  * self.var + (1.0 - self.momentum) * (N / (N - 1) * features.var(axis=0))
 
         model_inputs = buffer_to(next_observation,
             device=self.device)

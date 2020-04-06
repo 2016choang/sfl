@@ -78,7 +78,7 @@ def build_and_train(config_file,
         agent = TabularFeaturesDsrAgent(initial_M=model_checkpoint, **config['agent'])
         algo = TabularDSR(**config['algo'])
     else:  
-        if mode == 'image':
+        if mode == 'image' or mode == 'multiroom':
             agent = IDFDSRAgent(initial_model_state_dict=model_checkpoint,
                                 initial_idf_model_state_dict=idf_model_checkpoint, **config['agent'])
             algo = IDFDSR(**config['algo'])

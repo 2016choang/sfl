@@ -43,42 +43,39 @@ def visualize(config_file,
     # starting_pos = tuple(env.unwrapped.agent_pos)
     # print(starting_pos)
 
-    size = (19, 19)
+    size = (25, 25)
     
-    SR = torch.zeros((*size, env.action_space.n, config['agent']['model_kwargs']['feature_size']),
+    SR = torch.zeros((*size, 4, env.action_space.n, config['agent']['model_kwargs']['feature_size']),
                      dtype=torch.float)
     SR += np.nan
     seen = set()
 
-    if mode == 'image':
-        feature_model = IDFModel(env.observation_space.shape, env.action_space.n, **config['agent']['idf_model_kwargs'])
-        feature_model.load_state_dict(params['agent_state_dict']['idf_model'])
-        feature_model.to(device)
-        # mean = params['agent_state_dict']['mean'].to(device)
-        # var = params['agent_state_dict']['var'].to(device)
-        # epsilon = 1e-5
+    feature_model = IDFModel(env.observation_space.shape, env.action_space.n, **config['agent']['idf_model_kwargs'])
+    feature_model.load_state_dict(params['agent_state_dict']['idf_model'])
+    feature_model.to(device)
     
     model = GridDsrModel(env.observation_space.shape, env.action_space.n, **config['agent']['model_kwargs'])
     model.load_state_dict(params['agent_state_dict']['model'])
     model.to(device)
 
-    for y in range(19):
-        for x in range(19):
-            if x not in [0, 9, 18] and y not in [0, 9, 18]:
-                for a in range(env.action_space.n):
+    for room in env.env.env.rooms:
+        start_x, start_y = room.top
+        size_x, size_y = room.size
+        for x in range(start_x + 1, start_x + size_x - 1):
+            for y in range(start_y + 1, start_y + size_y - 1):
+                for direction in range(4):
                     env.env.env.unwrapped.agent_pos = np.array([y, x])
-                    obs, _, done, _ = env.step(a)
+                    env.env.env.unwrapped.agent_dir = direction
+                    obs, _, done, _ = env.step(4)
 
                     obs = torch.Tensor(obs).unsqueeze(0)
                     seen.add(tuple(env.agent_pos))
 
                     with torch.no_grad():
                         features = feature_model(obs.to(device), mode='encode')
-                        # if mode == 'image':
-                        #     features = (features - mean) / (var + epsilon).sqrt() 
 
                     sr_y, sr_x = tuple(env.agent_pos)
-                    SR[sr_y, sr_x] = model(features, mode='dsr')
+                    SR[sr_y, sr_x, direction] = model(features, mode='dsr')
 
                     if done:
                         env.reset()
