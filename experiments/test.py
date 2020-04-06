@@ -52,6 +52,9 @@ def visualize(config_file,
         feature_model = IDFModel(env.observation_space.shape, env.action_space.n, **config['agent']['idf_model_kwargs'])
         feature_model.load_state_dict(params['agent_state_dict']['idf_model'])
         feature_model.to(device)
+        mean = params['agent_state_dict']['mean'].to(device)
+        var = params['agent_state_dict']['var'].to(device)
+        epsilon = 1e-5
     
     model = GridDsrModel(env.observation_space.shape, env.action_space.n, **config['agent']['model_kwargs'])
     model.load_state_dict(params['agent_state_dict']['model'])
@@ -69,6 +72,8 @@ def visualize(config_file,
 
                     with torch.no_grad():
                         features = feature_model(obs.to(device), mode='encode')
+                        if mode == 'image':
+                            features = (features - mean) / (var + epsilon).sqrt() 
 
                     sr_y, sr_x = tuple(env.agent_pos)
                     SR[sr_y, sr_x] = model(features, mode='dsr')

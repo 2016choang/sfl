@@ -16,18 +16,20 @@ class IDFModel(torch.nn.Module):
             feature_size=64
             ):
         super().__init__()
-        h, w, c = image_shape  # 19 x 19 x 3
+        h, w, c = image_shape
 
         self.output_size = output_size
         self.feature_size = feature_size
 
+        conv_embedding_size = 16 * (((h - 3) // 2) - 1) ** 2
+
         self.encoder = nn.Sequential(
-            nn.Conv2d(c, 16, (3, 3), stride=2),  # 9 x 9 x 16
+            nn.Conv2d(c, 16, (3, 3), stride=2),
             nn.ReLU(),
-            nn.Conv2d(16, 16, (3, 3), stride=1),  # 7 x 7 x 16
+            nn.Conv2d(16, 16, (3, 3), stride=1),
             nn.ReLU(),
-            nn.Flatten(),  # 784
-            nn.Linear(784, self.feature_size)  # feature_size 
+            nn.Flatten(),
+            nn.Linear(conv_embedding_size, self.feature_size)
         )
 
         self.inverse = nn.Sequential(
@@ -36,15 +38,11 @@ class IDFModel(torch.nn.Module):
 
     def forward(self, obs, next_obs=None, mode='inverse'):
         x = obs.type(torch.float)
-        x = x.permute(0, 3, 1, 2)
-
         if mode == 'inverse':
             next_x = next_obs.type(torch.float)
-            next_x = next_x.permute(0, 3, 1, 2)
-            embedding = self.encoder(x)
-            next_embedding = self.encoder(next_x)
-            return self.inverse(torch.cat((embedding, next_embedding), dim=1))
+            return self.inverse(torch.cat((x, next_x), dim=1))
         elif mode == 'encode':
+            x = x.permute(0, 3, 1, 2)
             return self.encoder(x)
         else:
             raise ValueError('Invalid mode!')

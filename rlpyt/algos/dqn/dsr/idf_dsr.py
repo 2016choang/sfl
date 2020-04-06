@@ -102,47 +102,6 @@ class IDFDSR(DSR):
                 self.update_counter += 1
                 if self.update_counter % self.target_update_interval == 0:
                     self.agent.update_target()
-
-        # for _ in range(self.idf_updates_per_optimize):
-        #     samples_from_replay = self.replay_buffer.sample_batch(self.idf_batch_size)
-        #     self.idf_optimizer.zero_grad()
-
-        #     idf_loss, accuracy = self.idf_loss(samples_from_replay)
-        #     idf_loss.backward()
-        #     idf_grad_norm = torch.nn.utils.clip_grad_norm_(
-        #         self.agent.idf_parameters(), self.clip_grad_norm)
-
-        #     self.idf_optimizer.step()
-
-        #     opt_info.idfLoss.append(idf_loss.item())
-        #     opt_info.idfAccuracy.append(accuracy.item())
-        #     opt_info.idfGradNorm.append(idf_grad_norm)
-
-        #     self.idf_update_counter += 1
-        #     if self.idf_update_counter % self.idf_update_interval == 0:
-        #         self.agent.update_idf()
-
-        # if itr < self.min_itr_dsr_learn:
-        #     return opt_info
-         
-        # for _ in range(self.updates_per_optimize):
-        #     samples_from_replay = self.replay_buffer.sample_batch(self.batch_size)
-        #     self.dsr_optimizer.zero_grad()
-
-        #     dsr_loss, td_abs_errors = self.dsr_loss(samples_from_replay)
-        #     dsr_loss.backward()
-        #     dsr_grad_norm = torch.nn.utils.clip_grad_norm_(
-        #         self.agent.dsr_parameters(), self.clip_grad_norm)
-
-        #     self.dsr_optimizer.step()
-
-        #     opt_info.dsrLoss.append(dsr_loss.item())
-        #     opt_info.dsrGradNorm.append(dsr_grad_norm)
-        #     opt_info.tdAbsErr.extend(td_abs_errors[::8].numpy())  # Downsample.
-
-        #     self.update_counter += 1
-        #     if self.update_counter % self.target_update_interval == 0:
-        #         self.agent.update_target()
             
         self.update_itr_hyperparams(itr)
         return opt_info
