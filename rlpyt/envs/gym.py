@@ -200,6 +200,26 @@ class MinigridImageWrapper(Wrapper):
         else:
             return resized
 
+class MinigridMultiRoomOracleWrapper(Wrapper):
+
+    def __init__(self, env):
+        self.env = env
+
+        # record rooms/doors in "order"
+
+        # variables to remember if we are in an "option" or not
+
+    def generate_path(self):
+        # used in new oracle collector
+        pass
+
+    def step(self, action):
+        pass
+
+    def reset(self, **kwargs):
+        # reset "option" variables
+        pass
+
 
 class MinigridMultiRoomWrapper(Wrapper):
     
