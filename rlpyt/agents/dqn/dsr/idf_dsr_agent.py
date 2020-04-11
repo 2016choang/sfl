@@ -1,4 +1,5 @@
 
+import numpy as np
 import torch
 
 from rlpyt.agents.base import AgentStep
@@ -104,3 +105,31 @@ class IDFDSRAgent(Mixin, DsrAgent):
 
     def idf_parameters(self):
         return [param for name, param in self.idf_model.named_parameters()]
+
+    @torch.no_grad()
+    def get_dsr(self, env):
+        h, w = env.grid.height, env.grid.width
+        dsr = torch.zeros((h, w, 4, env.action_space.n, self.idf_model.feature_size), dtype=torch.float)
+        dsr += np.nan
+
+        for room in env.rooms:
+            start_x, start_y = room.top
+            size_x, size_y = room.size
+            for x in range(start_x + 1, start_x + size_x - 1):
+                for y in range(start_y + 1, start_y + size_y - 1):
+                    for direction in range(4):
+                        env.env.env.unwrapped.agent_pos = np.array([y, x])
+                        env.env.env.unwrapped.agent_dir = direction
+                        obs, _, _, _ = env.env.env.step(5)
+                        
+                        model_inputs = buffer_to(torch.Tensor(obs).unsqueeze(0),
+                            device=self.device)
+
+                        features = self.idf_model(model_inputs, mode='encode')
+
+                        model_inputs = buffer_to(features,
+                            device=self.device)
+
+                        dsr[y, x, direction] = self.model(model_inputs, mode='dsr')
+
+        return dsr

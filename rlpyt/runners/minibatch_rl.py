@@ -1,9 +1,15 @@
-
+import io
 import psutil
 import time
 import torch
 import math
+import numpy as np
+import os
 from collections import deque
+
+import matplotlib.pyplot as plt
+import PIL.Image
+from torchvision.transforms import ToTensor
 
 from rlpyt.runners.base import BaseRunner
 from rlpyt.utils.quick_args import save__init__args
@@ -249,7 +255,6 @@ class MinibatchRlEval(MinibatchRlBase):
                     #     if param.requires_grad:
                     #         summary_writer.add_histogram(name, param.flatten(), itr)
 
-
         self.shutdown()
 
     def evaluate_agent(self, itr):
@@ -276,3 +281,103 @@ class MinibatchRlEval(MinibatchRlBase):
         self._cum_eval_time += eval_time
         logger.record_tabular('CumEvalTime', self._cum_eval_time)
         super().log_diagnostics(itr, eval_traj_infos, eval_time)
+
+
+class MinibatchRlDSREval(MinibatchRlEval):
+    """Runs RL on minibatches; tracks performance offline using evaluation
+    trajectories."""
+
+    _eval = True
+
+    def __init__(self, log_dsr_interal_steps=1e4, **kwargs):
+        self.log_dsr_interval_steps = int(log_dsr_interal_steps)
+        super().__init__(**kwargs)
+
+    def train(self):
+        n_itr = self.startup()
+        with logger.prefix(f"itr #0 "):
+            eval_traj_infos, eval_time = self.evaluate_agent(0)
+            self.log_diagnostics(0, eval_traj_infos, eval_time)
+        for itr in range(n_itr):
+            with logger.prefix(f"itr #{itr} "):
+                self.agent.sample_mode(itr)
+                samples, traj_infos = self.sampler.obtain_samples(itr)
+                self.agent.train_mode(itr)
+                opt_info = self.algo.optimize_agent(itr, samples)
+                logger.log_itr_info(itr, opt_info)
+                self.store_diagnostics(itr, traj_infos, opt_info)
+                if (itr + 1) % self.log_interval_itrs == 0:
+                    eval_traj_infos, eval_time = self.evaluate_agent(itr)
+                    self.log_diagnostics(itr, eval_traj_infos, eval_time)
+                    self.algo.update_scheduler(self._opt_infos)
+
+                if (itr + 1) % self.log_dsr_interval_steps == 0:
+                    self.log_dsr(itr)
+                    
+        self.shutdown()
+
+
+    def log_dsr(self, itr):
+        summary_writer = logger.get_tf_summary_writer()
+        env = self.sampler.collector.envs[0]
+        
+        figure = plt.figure(figsize=(10, 10))
+        plt.subplot(2, 2, 1, title='Environment')
+        plt.imshow(env.render(8))
+
+        plt.subplot(2, 2, 2, title='State Visitation Heatmap')
+        plt.imshow(env.visited.T)
+        plt.colorbar()
+
+        env_kwargs = self.sampler.env_kwargs
+        env_kwargs['minigrid_config']['epsilon'] = 0.0
+        dsr_env = self.sampler.EnvCls(**env_kwargs)
+        dsr_env.reset()
+
+        dsr = self.agent.get_dsr(dsr_env)
+        torch.save(dsr, os.path.join(logger.get_snapshot_dir(), 'dsr_itr_{}.pt'.format(itr)))
+        dsr_env.close()
+        dsr_heatmap = self.get_dsr_heatmap(dsr)
+        plt.subplot(2, 2, 3, title='L2 Distance in SF Space')
+        plt.imshow(dsr_heatmap)
+        plt.colorbar()
+
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png')
+        buf.seek(0)
+        image = PIL.Image.open(buf).convert('RGB')
+        image = ToTensor()(image)
+        summary_writer.add_image('DSR {}'.format(itr), image, itr)
+
+
+    def get_dsr_heatmap(self, dsr, starting_pos=(12, 5), direction=-1, action=-1, normalize=True):
+        dsr = dsr.detach().numpy()
+
+        if direction == -1:
+            dsr_matrix = dsr.mean(axis=2)
+            
+        else:
+            dsr_matrix = dsr[:, :, direction]
+
+        if action == -1:
+            dsr_matrix = dsr_matrix.mean(axis=2)
+        else:
+            dsr_matrix = dsr_matrix[:, :, action]
+        
+        side_size = dsr_matrix.shape[0]
+        
+        if normalize:
+            dsr_matrix = dsr_matrix.reshape(side_size ** 2, -1)
+            dsr_matrix = (dsr_matrix - np.nanmean(dsr_matrix, axis=0)) / np.nanstd(dsr_matrix, axis=0)
+            dsr_matrix = dsr_matrix.reshape(side_size, side_size, -1)
+
+        starting_dsr = dsr_matrix[starting_pos]
+        
+        heatmap = np.zeros((side_size, side_size))
+        for y in range(side_size):
+            for x in range(side_size):
+                heatmap[y, x] = np.linalg.norm(dsr_matrix[y, x] - starting_dsr, 2)
+
+        return heatmap
+
+        

@@ -200,32 +200,167 @@ class MinigridImageWrapper(Wrapper):
         else:
             return resized
 
-class MinigridMultiRoomOracleWrapper(Wrapper):
 
-    def __init__(self, env):
+class MinigridMultiRoomOracleWrapper(Wrapper):
+    # 0 -- right, 1 -- down, 2 -- left, 3 -- up
+
+    def __init__(self, env, epsilon=0.05):
         self.env = env
 
-        # record rooms/doors in "order"
+        self.observation_space = env.observation_space
+        self.action_space = Discrete(4)
 
-        # variables to remember if we are in an "option" or not
+        self.epsilon = epsilon
+        self.option_index = 0
+        self.option_path = []
 
-    def generate_path(self):
-        # used in new oracle collector
-        pass
+        self.visited = np.zeros((self.env.grid.height, self.env.grid.width)) - 1
+
+    def generate_path(self, start, goal):
+        delta = start - goal
+
+        path = np.zeros(sum(abs(delta)), dtype=int)
+        path[:abs(delta[1])] = -1
+
+        if delta[0] > 0:
+            horizontal_act = 2
+        else:
+            horizontal_act = 0
+        if delta[1] > 0:
+            vertical_act = 3
+        else:
+            vertical_act = 1
+
+        path[path == 0] = horizontal_act
+        path[path == -1] = vertical_act
+
+        return path
+    
+    def get_room(self, pos):
+        for i, room in enumerate(self.env.rooms):
+            if all(pos == room.exitDoorPos):
+                return i
+
+            top_left = np.array(room.top)
+            bot_right = top_left + room.size - 1
+            if all(top_left < pos) and all(pos < bot_right):
+                return i
+        raise RuntimeError
+
+    def reset_room_option(self):
+        self.option_index = 0
+        if np.random.random() < self.epsilon:
+            cur_pos = self.env.unwrapped.agent_pos
+            goal_room = np.random.randint(self.env.num_rooms)
+            cur_room = self.get_room(cur_pos)
+
+            opposite = False
+            if goal_room < cur_room:
+                rooms = range(cur_room - 1, goal_room - 1, -1)
+                opposite = True
+            else:
+                rooms = range(cur_room, goal_room, 1)           
+
+            path = []
+            for i in rooms:
+                door = np.array(self.env.rooms[i].exitDoorPos)
+                next_to_door = door.copy()
+                next_pos = door.copy()
+                exit_door_direction = self.exit_door_directions[i]
+
+                if opposite:
+                    exit_door_direction = (exit_door_direction + 2) % 4
+
+                if exit_door_direction == 0:
+                    next_to_door[0] -= 1
+                    next_pos[0] +=1
+                elif exit_door_direction == 1:
+                    next_to_door[1] -= 1
+                    next_pos[1] += 1
+                elif exit_door_direction == 2:
+                    next_to_door[0] += 1
+                    next_pos[0] -= 1
+                else: 
+                    next_to_door[1] += 1
+                    next_pos[1] -= 1
+
+                path.extend(self.generate_path(cur_pos, next_to_door))
+
+                path.append(exit_door_direction)
+                path.append(exit_door_direction)
+                cur_pos = next_pos
+
+            self.option_path = path
+        else:
+            self.option_path = []
+
+    def get_option_action(self):
+        if self.option_index < len(self.option_path):
+            return self.option_path[self.option_index]
+        else:
+            return None
 
     def step(self, action):
-        pass
+        obs, reward, done, info = self.env.step(action)
+
+        self.visited[tuple(self.env.unwrapped.agent_pos)] += 1
+
+        self.option_index += 1
+        if self.option_index >= len(self.option_path):
+            self.reset_room_option()
+
+        return obs, reward, done, info
 
     def reset(self, **kwargs):
-        # reset "option" variables
-        pass
+        self.env.reset()
+        org_dir = self.env.unwrapped.agent_dir
+        org_pos = self.env.unwrapped.agent_pos.copy()
+
+        self.exit_door_directions = []
+        for room in self.env.rooms[:-1]:
+            top_left = np.array(room.top)
+            bot_right = top_left + room.size - 1
+
+            exit_door = np.array(room.exitDoorPos)
+            open_door_pos = exit_door.copy()
+
+            if exit_door[0] == top_left[0]:
+                exit_door_direction = 2
+                open_door_pos[0] += 1
+            elif exit_door[0] == bot_right[0]:
+                exit_door_direction = 0
+                open_door_pos[0] -= 1
+            elif exit_door[1] == top_left[1]:
+                exit_door_direction = 3
+                open_door_pos[1] += 1
+            elif exit_door[1] == bot_right[1]:
+                exit_door_direction = 1
+                open_door_pos[1] -= 1
+            else:
+                raise RuntimeError
+
+            self.env.env.unwrapped.agent_pos = open_door_pos
+            self.env.env.unwrapped.agent_dir = exit_door_direction
+            self.env.step(4)
+
+            self.exit_door_directions.append(exit_door_direction)
+
+        self.reset_room_option()
+        self.env.unwrapped.agent_dir = org_dir
+        self.env.unwrapped.agent_pos = org_pos
+        
+        self.visited[tuple(self.env.unwrapped.agent_pos)] += 1
+
+        obs = self.env.step(5)[0]
+        self.env.steps_remaining = self.env.max_steps
+        return obs
 
 
 class MinigridMultiRoomWrapper(Wrapper):
     
-    def __init__(self, env, rooms=10, size=(25, 25), grayscale=True, terminate=False, reset_same=False, reset_episodes=1):
+    def __init__(self, env, num_rooms=10, size=(25, 25), grayscale=True, terminate=False, reset_same=False, reset_episodes=1):
         super().__init__(env)
-        self.rooms = rooms
+        self.num_rooms = num_rooms
         self.env = env
         
         self.size = size
@@ -243,16 +378,18 @@ class MinigridMultiRoomWrapper(Wrapper):
         else:
             self.observation_space = Box(0, 1, (*size, 3))
 
-        self.action_space = Discrete(5)
+        self.action_space = Discrete(6)
 
     def get_random_room_start(self):
-        room = self.env.rooms[np.random.randint(self.rooms)]
+        room = self.env.rooms[np.random.randint(self.num_rooms)]
         return self.env.place_agent(room.top, room.size)
 
     def step(self, action):
-        # 0 -- right, 1 -- down, 2 -- left, 3 -- up, 4 - toggle doors
+        # 0 -- right, 1 -- down, 2 -- left, 3 -- up, 4 - toggle doors, 5 - do nothing
         if action == 4:
             obs, reward, done, info = self.env.step(5)
+        elif action == 5:
+            obs, reward, done, info = self.env.step(6)
         else:
             self.env.unwrapped.agent_dir = action
             obs, reward, done, info = self.env.step(2)
@@ -513,12 +650,18 @@ def make(*args, info_example=None, mode=None, minigrid_config=None, **kwargs):
         max_steps = minigrid_config.get('max_steps', 500)
 
         if mode == 'multiroom':
-            rooms = minigrid_config.get('rooms', 10)
+            num_rooms = minigrid_config.get('num_rooms', 10)
             room_size = minigrid_config.get('room_size', 10)
-            env = MultiRoomEnv(rooms, rooms, room_size)
+            env = MultiRoomEnv(num_rooms, num_rooms, room_size)
             env.max_steps = max_steps
             env = RGBImgObsWrapper(ReseedWrapper(env))
-            return GymEnvWrapper(MinigridMultiRoomWrapper(env, rooms=rooms, size=size, grayscale=grayscale, terminate=terminate, reset_same=reset_same, reset_episodes=reset_episodes))
+            env = MinigridMultiRoomWrapper(env, num_rooms=num_rooms, size=size, grayscale=grayscale, terminate=terminate, reset_same=reset_same, reset_episodes=reset_episodes)
+            
+            oracle = minigrid_config.get('oracle', False)
+            if oracle:
+                epsilon = minigrid_config.get('epsilon', 0.05)
+                env = MinigridMultiRoomOracleWrapper(env, epsilon=epsilon)
+            return GymEnvWrapper(env)
         else:
             env = gym.make(*args, **kwargs)
             env.max_steps = max_steps

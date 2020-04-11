@@ -14,6 +14,7 @@ import json
 import torch
 
 from rlpyt.samplers.serial.sampler import SerialSampler
+from rlpyt.samplers.parallel.cpu.collectors import OracleCollector
 from rlpyt.envs.gym import make as gym_make
 from rlpyt.algos.dqn.dsr.dsr import DSR
 from rlpyt.algos.dqn.dsr.idf_dsr import IDFDSR
@@ -22,7 +23,7 @@ from rlpyt.algos.dqn.dsr.tabular_dsr import TabularDSR
 from rlpyt.agents.dqn.dsr.grid_dsr_agent import GridDsrAgent
 from rlpyt.agents.dqn.dsr.idf_dsr_agent import IDFDSRAgent
 from rlpyt.agents.dqn.dsr.tabular_dsr_agent import TabularFeaturesDsrAgent
-from rlpyt.runners.minibatch_rl import MinibatchRlEval
+from rlpyt.runners.minibatch_rl import MinibatchRlDSREval
 from rlpyt.utils.logging.context import logger_context
 from rlpyt.utils.seed import set_seed
 
@@ -51,6 +52,7 @@ def build_and_train(config_file,
         device = torch.device('cpu')
 
     sampler = SerialSampler(
+        CollectorCls=OracleCollector,
         EnvCls=gym_make,
         env_kwargs=dict(id=env_id, mode=mode, minigrid_config=config['env']),
         eval_env_kwargs=dict(id=env_id, mode=mode, minigrid_config=config['env']),
@@ -85,14 +87,14 @@ def build_and_train(config_file,
         else:
             agent = GridDsrAgent(mode=mode,initial_model_state_dict=model_checkpoint, **config['agent'])
             algo = DSR(**config['algo'])
-    runner = MinibatchRlEval(
+    runner = MinibatchRlDSREval(
         algo=algo,
         agent=agent,
         sampler=sampler,
         n_steps=steps,
-        log_interval_steps=1e3,
         affinity=dict(cuda_idx=cuda_idx),
-        seed=seed
+        seed=seed,
+        **config['runner']
     )
     config['env_id'] = env_id
     name = "dsr_" + env_id
