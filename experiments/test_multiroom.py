@@ -40,15 +40,9 @@ def visualize(config_file,
     env = gym_make(id=ENV_ID, mode=mode, minigrid_config=config['env'])
     env.reset()
 
-    # starting_pos = tuple(env.unwrapped.agent_pos)
-    # print(starting_pos)
-
-    size = (25, 25)
-    
-    SR = torch.zeros((*size, 4, env.action_space.n, config['agent']['model_kwargs']['feature_size']),
+    SR = torch.zeros((env.grid.height, env.grid.width, 4, env.action_space.n, config['agent']['model_kwargs']['feature_size']),
                      dtype=torch.float)
     SR += np.nan
-    seen = set()
 
     feature_model = IDFModel(env.observation_space.shape, env.action_space.n, **config['agent']['idf_model_kwargs'])
     feature_model.load_state_dict(params['agent_state_dict']['idf_model'])
@@ -58,29 +52,34 @@ def visualize(config_file,
     model.load_state_dict(params['agent_state_dict']['model'])
     model.to(device)
 
-    for room in env.env.env.rooms:
+    for room in env.rooms:
         start_x, start_y = room.top
         size_x, size_y = room.size
-        for x in range(start_x + 1, start_x + size_x - 1):
-            for y in range(start_y + 1, start_y + size_y - 1):
-                for direction in range(4):
-                    env.env.env.unwrapped.agent_pos = np.array([y, x])
+        for direction in range(4):
+            for x in range(start_x + 1, start_x + size_x - 1):
+                for y in range(start_y + 1, start_y + size_y - 1):
+                    env.env.env.unwrapped.agent_pos = np.array([x, y])
                     env.env.env.unwrapped.agent_dir = direction
-                    obs, _, done, _ = env.step(4)
+                    obs, _, _, _ = env.env.env.step(5)
 
                     obs = torch.Tensor(obs).unsqueeze(0)
-                    seen.add(tuple(env.agent_pos))
 
-                    with torch.no_grad():
-                        features = feature_model(obs.to(device), mode='encode')
+                    features = feature_model(obs.to(device), mode='encode')
 
-                    sr_y, sr_x = tuple(env.agent_pos)
-                    SR[sr_y, sr_x, direction] = model(features, mode='dsr')
+                    SR[x, y, direction] = model(features, mode='dsr')
 
-                    if done:
-                        env.reset()
+            if room.exitDoorPos is not None:
+                exit_door = np.array(room.exitDoorPos)
+                env.env.env.unwrapped.agent_pos = exit_door
+                env.env.env.unwrapped.agent_dir = direction
+                obs, _, _, _ = env.env.env.step(5)
 
-    print(len(seen))
+                obs = torch.Tensor(obs).unsqueeze(0)
+
+                features = feature_model(obs.to(device), mode='encode')
+
+                SR[exit_door[0], exit_door[1], direction] = model(features, mode='dsr')
+
     env.close()
 
     torch.save(SR, output)

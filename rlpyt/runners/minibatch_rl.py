@@ -289,8 +289,8 @@ class MinibatchRlDSREval(MinibatchRlEval):
 
     _eval = True
 
-    def __init__(self, log_dsr_interal_steps=1e4, **kwargs):
-        self.log_dsr_interval_steps = int(log_dsr_interal_steps)
+    def __init__(self, log_dsr_interval_steps=1e4, **kwargs):
+        self.log_dsr_interval_steps = int(log_dsr_interval_steps)
         super().__init__(**kwargs)
 
     def train(self):
@@ -339,7 +339,7 @@ class MinibatchRlDSREval(MinibatchRlEval):
         dsr_env.close()
         dsr_heatmap = self.get_dsr_heatmap(dsr)
         plt.subplot(2, 2, 3, title='L2 Distance in SF Space')
-        plt.imshow(dsr_heatmap)
+        plt.imshow(dsr_heatmap.T)
         plt.colorbar()
 
         buf = io.BytesIO()
@@ -350,7 +350,7 @@ class MinibatchRlDSREval(MinibatchRlEval):
         summary_writer.add_image('DSR {}'.format(itr), image, itr)
 
 
-    def get_dsr_heatmap(self, dsr, starting_pos=(12, 5), direction=-1, action=-1, normalize=True):
+    def get_dsr_heatmap(self, dsr, starting_pos=(4, 13), direction=-1, action=-1, normalize=True):
         dsr = dsr.detach().numpy()
 
         if direction == -1:
@@ -374,9 +374,9 @@ class MinibatchRlDSREval(MinibatchRlEval):
         starting_dsr = dsr_matrix[starting_pos]
         
         heatmap = np.zeros((side_size, side_size))
-        for y in range(side_size):
-            for x in range(side_size):
-                heatmap[y, x] = np.linalg.norm(dsr_matrix[y, x] - starting_dsr, 2)
+        for x in range(side_size):
+            for y in range(side_size):
+                heatmap[x, y] = np.linalg.norm(dsr_matrix[x, y] - starting_dsr, 2)
 
         return heatmap
 

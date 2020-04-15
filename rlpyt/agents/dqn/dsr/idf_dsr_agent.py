@@ -115,10 +115,10 @@ class IDFDSRAgent(Mixin, DsrAgent):
         for room in env.rooms:
             start_x, start_y = room.top
             size_x, size_y = room.size
-            for x in range(start_x + 1, start_x + size_x - 1):
-                for y in range(start_y + 1, start_y + size_y - 1):
-                    for direction in range(4):
-                        env.env.env.unwrapped.agent_pos = np.array([y, x])
+            for direction in range(4):
+                for x in range(start_x + 1, start_x + size_x - 1):
+                    for y in range(start_y + 1, start_y + size_y - 1):
+                        env.env.env.unwrapped.agent_pos = np.array([x, y])
                         env.env.env.unwrapped.agent_dir = direction
                         obs, _, _, _ = env.env.env.step(5)
                         
@@ -130,6 +130,22 @@ class IDFDSRAgent(Mixin, DsrAgent):
                         model_inputs = buffer_to(features,
                             device=self.device)
 
-                        dsr[y, x, direction] = self.model(model_inputs, mode='dsr')
+                        dsr[x, y, direction] = self.model(model_inputs, mode='dsr')
+
+                if room.exitDoorPos is not None:
+                    exit_door = np.array(room.exitDoorPos)
+                    env.env.env.unwrapped.agent_pos = exit_door
+                    env.env.env.unwrapped.agent_dir = direction
+                    obs, _, _, _ = env.env.env.step(5)
+
+                    model_inputs = buffer_to(torch.Tensor(obs).unsqueeze(0),
+                            device=self.device)
+
+                    features = self.idf_model(model_inputs, mode='encode')
+
+                    model_inputs = buffer_to(features,
+                        device=self.device)
+
+                    dsr[exit_door[0], exit_door[1], direction] = self.model(model_inputs, mode='dsr')
 
         return dsr
