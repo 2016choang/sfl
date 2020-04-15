@@ -1,6 +1,7 @@
 {
     "agent": {
-        "eps_final": 1,
+        "eps_init": 0,
+        "eps_final": 0,
         "eps_eval": 1,
         "model_kwargs": {
             "feature_size": 64,
@@ -11,7 +12,11 @@
         },
         "idf_model_kwargs": {
             "feature_size": 64
-        }
+        },
+        "exploit_prob": 0.01,
+        "exploit_batch_size": 1024,
+        "exploit_max_steps": 50,
+        "num_landmarks": 5
     },
     "algo": {
         "discount": 0.99,
@@ -25,8 +30,7 @@
     },
     "env": {
         "size": [25, 25],
-        "epsilon": 0.01,
-        "oracle": true, 
+        "max_steps": 5000,
         "grayscale": false,
         "reset_episodes": 5,
         "reset_same": false

@@ -19,7 +19,6 @@ class IDFDSR(DSR):
 
     def __init__(
             self,
-            idf_batch_size=32,
             idf_learning_rate=2.5e-4,
             idf_update_interval=312,  # 312 * 32 = 1e4 env steps.
             min_steps_dsr_learn=int(5e4),
@@ -34,13 +33,6 @@ class IDFDSR(DSR):
             world_size=1, rank=0):
         super().initialize(agent, n_itr, batch_spec, mid_batch_reset, examples,
             world_size, rank)
-        self.idf_updates_per_optimize = max(1, round(self.replay_ratio * self.sampler_bs /
-            self.idf_batch_size))
-        logger.log(f"From sampler batch size {batch_spec.size}, training "
-            f"IDF batch size {self.idf_batch_size}, and replay ratio "
-            f"{self.replay_ratio}, computed {self.idf_updates_per_optimize} "
-            f"IDF updates per iteration.")
-
         self.min_itr_dsr_learn = int(self.min_steps_dsr_learn // self.sampler_bs)
 
     def optim_initialize(self, rank=0):

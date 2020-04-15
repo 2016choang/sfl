@@ -58,7 +58,7 @@ class MinibatchRlBase(BaseRunner):
         self.rank = rank = getattr(self, "rank", 0)
         self.world_size = world_size = getattr(self, "world_size", 1)
         examples = self.sampler.initialize(
-            agent=self.agent,  # Agent gets intialized in sampler.
+            agent=self.agent,  # Agent gets initialized in sampler.
             affinity=self.affinity,
             seed=self.seed + 1,
             bootstrap_value=getattr(self.algo, "bootstrap_value", False),
@@ -283,10 +283,7 @@ class MinibatchRlEval(MinibatchRlBase):
         super().log_diagnostics(itr, eval_traj_infos, eval_time)
 
 
-class MinibatchRlDSREval(MinibatchRlEval):
-    """Runs RL on minibatches; tracks performance offline using evaluation
-    trajectories."""
-
+class MinibatchDSREval(MinibatchRlEval):
     _eval = True
 
     def __init__(self, log_dsr_interval_steps=1e4, **kwargs):
@@ -380,4 +377,11 @@ class MinibatchRlDSREval(MinibatchRlEval):
 
         return heatmap
 
-        
+
+class MinibatchLandmarkDSREval(MinibatchDSREval):
+    _eval = True
+
+    def startup(self):
+        n_itr = super().startup()
+        self.agent.set_replay_buffer(self.algo.replay_buffer)
+        return n_itr

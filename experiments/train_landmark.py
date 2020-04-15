@@ -14,16 +14,11 @@ import json
 import torch
 
 from rlpyt.samplers.serial.sampler import SerialSampler
-from rlpyt.samplers.parallel.cpu.collectors import OracleCollector
 from rlpyt.envs.gym import make as gym_make
 from rlpyt.algos.dqn.dsr.dsr import DSR
 from rlpyt.algos.dqn.dsr.idf_dsr import IDFDSR
-from rlpyt.algos.dqn.dsr.action_dsr import ActionDSR
-from rlpyt.algos.dqn.dsr.tabular_dsr import TabularDSR
-from rlpyt.agents.dqn.dsr.grid_dsr_agent import GridDsrAgent
-from rlpyt.agents.dqn.dsr.idf_dsr_agent import IDFDSRAgent
-from rlpyt.agents.dqn.dsr.tabular_dsr_agent import TabularFeaturesDsrAgent
-from rlpyt.runners.minibatch_rl import MinibatchDSREval
+from rlpyt.agents.dqn.dsr.landmark_agent import LandmarkAgent
+from rlpyt.runners.minibatch_rl import MinibatchLandmarkDSREval
 from rlpyt.utils.logging.context import logger_context
 from rlpyt.utils.seed import set_seed
 
@@ -52,7 +47,6 @@ def build_and_train(config_file,
         device = torch.device('cpu')
 
     sampler = SerialSampler(
-        CollectorCls=OracleCollector,
         EnvCls=gym_make,
         env_kwargs=dict(id=env_id, mode=mode, minigrid_config=config['env']),
         eval_env_kwargs=dict(id=env_id, mode=mode, minigrid_config=config['env']),
@@ -65,29 +59,17 @@ def build_and_train(config_file,
     )    
 
     if checkpoint is not None:
-        if tabular:
-            model_checkpoint = torch.load(checkpoint, map_location=device)['agent_state_dict']
-        else:
-            agent_state_dict = torch.load(checkpoint, map_location=device)['agent_state_dict']
-            if mode == 'image':
-                idf_model_checkpoint = agent_state_dict['idf_model']
-            model_checkpoint = agent_state_dict['model']
+        agent_state_dict = torch.load(checkpoint, map_location=device)['agent_state_dict']
+        idf_model_checkpoint = agent_state_dict['idf_model']
+        model_checkpoint = agent_state_dict['model']
     else:
         model_checkpoint = None
         idf_model_checkpoint = None
 
-    if tabular:
-        agent = TabularFeaturesDsrAgent(initial_M=model_checkpoint, **config['agent'])
-        algo = TabularDSR(**config['algo'])
-    else:  
-        if mode == 'image' or mode == 'multiroom':
-            agent = IDFDSRAgent(initial_model_state_dict=model_checkpoint,
-                                initial_idf_model_state_dict=idf_model_checkpoint, **config['agent'])
-            algo = IDFDSR(**config['algo'])
-        else:
-            agent = GridDsrAgent(mode=mode,initial_model_state_dict=model_checkpoint, **config['agent'])
-            algo = DSR(**config['algo'])
-    runner = MinibatchDSREval(
+    agent = LandmarkAgent(seed=seed, initial_model_state_dict=model_checkpoint, 
+                          initial_idf_model_state_dict=idf_model_checkpoint, **config['agent'])
+    algo = IDFDSR(**config['algo'])
+    runner = MinibatchLandmarkDSREval(
         algo=algo,
         agent=agent,
         sampler=sampler,
