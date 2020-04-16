@@ -163,9 +163,8 @@ class LandmarkAgent(IDFDSRAgent):
         if self.explore:
             action = torch.randint_like(prev_action, high=self.distribution.dim)
         else:
-            import pdb; pdb.set_trace()
             subgoal_landmark_features = self.landmarks.features[self.subgoal_landmark]
-            q_values = torch.matmul(dsr, subgoal_landmark_features)
+            q_values = torch.matmul(dsr, subgoal_landmark_features).cpu()
             action = self.distribution.sample(q_values)
             self.landmark_steps += 1
 

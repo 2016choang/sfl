@@ -13,21 +13,21 @@
         "idf_model_kwargs": {
             "feature_size": 64
         },
-        "exploit_prob": 0.01,
-        "landmark_update_interval": 1000,
-        "landmark_batch_size": 2048,
-        "landmark_distance_threshold": 15,
-        "num_landmarks": 8,
+        "exploit_prob": 0.005,
+        "landmark_update_interval": 5000,
+        "landmark_batch_size": 20000,
+        "landmark_distance_threshold": 1e-6,
+        "num_landmarks": 4,
         "steps_per_landmark": 25
     },
     "algo": {
         "discount": 0.99,
-        "batch_size": 64,
+        "batch_size": 128,
         "min_steps_learn": 1000,
         "learning_rate": 1e-3,
         "replay_size": 20000,
         "delta_clip": 1,
-        "min_steps_dsr_learn": 2000,
+        "min_steps_dsr_learn": 10000,
         "idf_learning_rate": 5e-4
     },
     "env": {
@@ -36,13 +36,13 @@
         "epsilon": 0, 
         "max_steps": 5000,
         "grayscale": false,
-        "reset_episodes": 5,
-        "reset_same": false
+        "reset_episodes": 1,
+        "reset_same": true
     },
     "runner": {
         "log_interval_steps": 1e3,
-        "log_dsr_interval_steps": 1e3,
-        "min_steps_landmark": 3e3
+        "log_dsr_interval_steps": 1e4,
+        "min_steps_landmark": 2e4
     },
     "mode": "multiroom",
     "seed": 333,
