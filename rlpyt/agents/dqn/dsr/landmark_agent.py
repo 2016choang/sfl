@@ -77,6 +77,7 @@ class LandmarkAgent(IDFDSRAgent):
 
             self.kmedoids.fit(reshaped_dsr)
             landmark_indices = self.kmedoids.medoid_indices_
+            import pdb; pdb.set_trace()
 
             landmark_features = features[landmark_indices] 
             landmark_features /= torch.norm(landmark_features, p=2, keepdim=True, dim=1)
