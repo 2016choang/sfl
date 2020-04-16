@@ -77,7 +77,6 @@ class LandmarkAgent(IDFDSRAgent):
 
             self.kmedoids.fit(reshaped_dsr)
             landmark_indices = self.kmedoids.medoid_indices_
-            import pdb; pdb.set_trace()
 
             landmark_features = features[landmark_indices] 
             landmark_features /= torch.norm(landmark_features, p=2, keepdim=True, dim=1)
@@ -142,6 +141,8 @@ class LandmarkAgent(IDFDSRAgent):
                         self.explore = True
                     else:
                         next_landmark = self.landmark_predecessor[self.subgoal_landmark, self.goal_landmark]
+                        if next_landmark == -9999:
+                            import pdb; pdb.set_trace()
                         if self.subgoal_landmark == next_landmark:
                             self.subgoal_landmark = self.goal_landmark
                         else:
@@ -154,6 +155,8 @@ class LandmarkAgent(IDFDSRAgent):
                     self.explore = True
                 else:
                     next_landmark = self.landmark_predecessor[self.subgoal_landmark, self.goal_landmark]
+                    if next_landmark == -9999:
+                        import pdb; pdb.set_trace()
                     if self.subgoal_landmark == next_landmark:
                         self.subgoal_landmark = self.goal_landmark
                     else:

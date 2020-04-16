@@ -416,34 +416,34 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
 
         self.shutdown()
 
-    def log_landmarks(self, itr):
-        summary_writer = logger.get_tf_summary_writer()
-        env = self.sampler.collector.envs[0]
+    # def log_landmarks(self, itr):
+    #     summary_writer = logger.get_tf_summary_writer()
+    #     env = self.sampler.collector.envs[0]
         
-        figure = plt.figure(figsize=(10, 10))
-        plt.subplot(2, 2, 1, title='Environment')
-        plt.imshow(env.render(8))
+    #     figure = plt.figure(figsize=(10, 10))
+    #     plt.subplot(2, 2, 1, title='Environment')
+    #     plt.imshow(env.render(8))
 
-        plt.subplot(2, 2, 2, title='State Visitation Heatmap')
-        plt.imshow(env.visited.T)
-        plt.colorbar()
+    #     plt.subplot(2, 2, 2, title='State Visitation Heatmap')
+    #     plt.imshow(env.visited.T)
+    #     plt.colorbar()
 
-        env_kwargs = self.sampler.env_kwargs
-        env_kwargs['minigrid_config']['epsilon'] = 0.0
-        dsr_env = self.sampler.EnvCls(**env_kwargs)
-        dsr_env.reset()
+    #     env_kwargs = self.sampler.env_kwargs
+    #     env_kwargs['minigrid_config']['epsilon'] = 0.0
+    #     dsr_env = self.sampler.EnvCls(**env_kwargs)
+    #     dsr_env.reset()
 
-        dsr = self.agent.get_dsr(dsr_env)
-        torch.save(dsr, os.path.join(logger.get_snapshot_dir(), 'dsr_itr_{}.pt'.format(itr)))
-        dsr_env.close()
-        dsr_heatmap = self.get_dsr_heatmap(dsr)
-        plt.subplot(2, 2, 3, title='L2 Distance in SF Space')
-        plt.imshow(dsr_heatmap.T)
-        plt.colorbar()
+    #     dsr = self.agent.get_dsr(dsr_env)
+    #     torch.save(dsr, os.path.join(logger.get_snapshot_dir(), 'dsr_itr_{}.pt'.format(itr)))
+    #     dsr_env.close()
+    #     dsr_heatmap = self.get_dsr_heatmap(dsr)
+    #     plt.subplot(2, 2, 3, title='L2 Distance in SF Space')
+    #     plt.imshow(dsr_heatmap.T)
+    #     plt.colorbar()
 
-        buf = io.BytesIO()
-        plt.savefig(buf, format='png')
-        buf.seek(0)
-        image = PIL.Image.open(buf).convert('RGB')
-        image = ToTensor()(image)
-        summary_writer.add_image('DSR', image, itr)
+    #     buf = io.BytesIO()
+    #     plt.savefig(buf, format='png')
+    #     buf.seek(0)
+    #     image = PIL.Image.open(buf).convert('RGB')
+    #     image = ToTensor()(image)
+    #     summary_writer.add_image('DSR', image, itr)
