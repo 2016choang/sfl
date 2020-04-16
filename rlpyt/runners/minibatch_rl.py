@@ -286,8 +286,8 @@ class MinibatchRlEval(MinibatchRlBase):
 class MinibatchDSREval(MinibatchRlEval):
     _eval = True
 
-    def __init__(self, log_dsr_interval_steps=1e4, **kwargs):
-        self.log_dsr_interval_steps = int(log_dsr_interval_steps)
+    def __init__(self, log_dsr_interval_steps=int(1e4), **kwargs):
+        self.log_dsr_interval_steps = log_dsr_interval_steps
         super().__init__(**kwargs)
 
     def train(self):
@@ -381,7 +381,37 @@ class MinibatchDSREval(MinibatchRlEval):
 class MinibatchLandmarkDSREval(MinibatchDSREval):
     _eval = True
 
+    def __init__(self, min_steps_landmark=2e4, **kwargs):
+        self.min_steps_landmark = int(min_steps_landmark)
+        super().__init__(**kwargs)
+
     def startup(self):
         n_itr = super().startup()
         self.agent.set_replay_buffer(self.algo.replay_buffer)
         return n_itr
+
+    def train(self):
+        n_itr = self.startup()
+        with logger.prefix(f"itr #0 "):
+            eval_traj_infos, eval_time = self.evaluate_agent(0)
+            self.log_diagnostics(0, eval_traj_infos, eval_time)
+        for itr in range(n_itr):
+            with logger.prefix(f"itr #{itr} "):
+                self.agent.sample_mode(itr)
+                samples, traj_infos = self.sampler.obtain_samples(itr)
+                self.agent.train_mode(itr)
+                opt_info = self.algo.optimize_agent(itr, samples)
+                logger.log_itr_info(itr, opt_info)
+                self.store_diagnostics(itr, traj_infos, opt_info)
+                if (itr + 1) % self.log_interval_itrs == 0:
+                    eval_traj_infos, eval_time = self.evaluate_agent(itr)
+                    self.log_diagnostics(itr, eval_traj_infos, eval_time)
+                    self.algo.update_scheduler(self._opt_infos)
+
+                if (itr + 1) % self.log_dsr_interval_steps == 0:
+                    self.log_dsr(itr)
+
+                if (itr + 1) >= self.min_steps_landmark:
+                    self.agent.update_landmarks(itr)
+
+        self.shutdown()

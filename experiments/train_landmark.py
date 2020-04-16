@@ -66,7 +66,7 @@ def build_and_train(config_file,
         model_checkpoint = None
         idf_model_checkpoint = None
 
-    agent = LandmarkAgent(seed=seed, initial_model_state_dict=model_checkpoint, 
+    agent = LandmarkAgent(initial_model_state_dict=model_checkpoint, 
                           initial_idf_model_state_dict=idf_model_checkpoint, **config['agent'])
     algo = IDFDSR(**config['algo'])
     runner = MinibatchLandmarkDSREval(
