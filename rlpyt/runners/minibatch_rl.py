@@ -334,10 +334,42 @@ class MinibatchDSREval(MinibatchRlEval):
         dsr = self.agent.get_dsr(dsr_env)
         torch.save(dsr, os.path.join(logger.get_snapshot_dir(), 'dsr_itr_{}.pt'.format(itr)))
         dsr_env.close()
-        dsr_heatmap = self.get_dsr_heatmap(dsr)
+        starting_pos = (4, 13)
+        dsr_heatmap = self.get_dsr_heatmap(dsr, starting_pos=starting_pos)
         plt.subplot(2, 2, 3, title='L2 Distance in SF Space')
         plt.imshow(dsr_heatmap.T)
         plt.colorbar()
+
+        # plt.subplot(2, 2, 4, title='Subgoal Policy')
+        # q_values = self.agent.get_q_values(dsr_env, dsr)
+        # plt.imshow(q_values.max(axis=2).T)
+        # for x in range(q_values.shape[0]):
+        #     plt.axvline(x + 0.5, color='k', linestyle=':')
+        #     for y in range(q_values.shape[1]):
+        #         plt.axhline(y + 0.5, color='k', linestyle=':')
+                
+        #         if (x, y) == subgoal:
+        #             circle = plt.Circle((x, y), 0.2, color='k')
+        #             plt.gca().add_artist(circle)
+                
+        #         else:
+        #             if any(np.isnan(q_values[x, y])):
+        #                 continue
+
+        #             action = q_values[x, y].argmax()
+        #             dx = 0
+        #             dy = 0
+        #             if action == 0:
+        #                 dx = 0.35
+        #             elif action == 1:
+        #                 dy = 0.35
+        #             elif action == 2:
+        #                 dx = -0.35
+        #             else:
+        #                 dy = -0.35
+
+        #             plt.arrow(x - dx, y - dy, dx, dy, head_width=0.3, head_length=0.3, fc='k', ec='k')
+        # plt.colorbar()
 
         buf = io.BytesIO()
         plt.savefig(buf, format='png')
@@ -415,35 +447,3 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                     self.agent.update_landmarks(itr)
 
         self.shutdown()
-
-    # def log_landmarks(self, itr):
-    #     summary_writer = logger.get_tf_summary_writer()
-    #     env = self.sampler.collector.envs[0]
-        
-    #     figure = plt.figure(figsize=(10, 10))
-    #     plt.subplot(2, 2, 1, title='Environment')
-    #     plt.imshow(env.render(8))
-
-    #     plt.subplot(2, 2, 2, title='State Visitation Heatmap')
-    #     plt.imshow(env.visited.T)
-    #     plt.colorbar()
-
-    #     env_kwargs = self.sampler.env_kwargs
-    #     env_kwargs['minigrid_config']['epsilon'] = 0.0
-    #     dsr_env = self.sampler.EnvCls(**env_kwargs)
-    #     dsr_env.reset()
-
-    #     dsr = self.agent.get_dsr(dsr_env)
-    #     torch.save(dsr, os.path.join(logger.get_snapshot_dir(), 'dsr_itr_{}.pt'.format(itr)))
-    #     dsr_env.close()
-    #     dsr_heatmap = self.get_dsr_heatmap(dsr)
-    #     plt.subplot(2, 2, 3, title='L2 Distance in SF Space')
-    #     plt.imshow(dsr_heatmap.T)
-    #     plt.colorbar()
-
-    #     buf = io.BytesIO()
-    #     plt.savefig(buf, format='png')
-    #     buf.seek(0)
-    #     image = PIL.Image.open(buf).convert('RGB')
-    #     image = ToTensor()(image)
-    #     summary_writer.add_image('DSR', image, itr)

@@ -15,7 +15,7 @@
         },
         "exploit_prob": 0.005,
         "landmark_update_interval": 5000,
-        "landmark_batch_size": 20000,
+        "landmark_batch_size": 5000,
         "landmark_distance_threshold": 1e-6,
         "num_landmarks": 4,
         "steps_per_landmark": 25

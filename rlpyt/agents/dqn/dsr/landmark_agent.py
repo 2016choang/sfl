@@ -77,6 +77,13 @@ class LandmarkAgent(IDFDSRAgent):
 
             self.kmedoids.fit(reshaped_dsr)
             landmark_indices = self.kmedoids.medoid_indices_
+            
+            # Remove empty clusters
+            for i in range(len(landmark_indices)):
+                if self.kmedoids.labels_[landmark_indices[i]] != i:
+                    landmark_indices[i] = -1
+            landmark_indices = landmark_indices[landmark_indices != -1]
+            self.num_landmarks = len(landmark_indices)
 
             landmark_features = features[landmark_indices] 
             landmark_features /= torch.norm(landmark_features, p=2, keepdim=True, dim=1)
