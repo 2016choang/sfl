@@ -148,7 +148,7 @@ class LandmarkAgent(IDFDSRAgent):
                         self.explore = True
                     else:
                         next_landmark = self.landmark_predecessor[self.subgoal_landmark, self.goal_landmark]
-                        if self.subgoal_landmark == next_landmark:
+                        if self.subgoal_landmark == next_landmark or next_landmark == -9999:
                             self.subgoal_landmark = self.goal_landmark
                         else:
                             self.subgoal_landmark = next_landmark
