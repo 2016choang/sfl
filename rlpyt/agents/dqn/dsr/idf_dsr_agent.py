@@ -149,3 +149,55 @@ class IDFDSRAgent(Mixin, DsrAgent):
                     dsr[exit_door[0], exit_door[1], direction] = self.model(model_inputs, mode='dsr')
 
         return dsr
+
+    @torch.no_grad()
+    def get_dsr_heatmap(self, dsr, subgoal=(4, 13), direction=-1, action=-1):
+        dsr = dsr.detach().numpy()
+
+        if direction == -1:
+            dsr_matrix = dsr.mean(axis=2)
+            
+        else:
+            dsr_matrix = dsr[:, :, direction]
+
+        if action == -1:
+            dsr_matrix = dsr_matrix.mean(axis=2)
+        else:
+            dsr_matrix = dsr_matrix[:, :, action]
+        
+        dsr_matrix = dsr_matrix / np.linalg.norm(dsr_matrix, ord=2, axis=2, keepdims=True)
+
+        subgoal_dsr = dsr_matrix[subgoal]
+
+        side_size = dsr_matrix.shape[0]
+        heatmap = np.zeros((side_size, side_size))
+        for x in range(side_size):
+            for y in range(side_size):
+                heatmap[x, y] = np.dot(dsr_matrix[x, y], subgoal_dsr)
+
+        return heatmap
+
+    @torch.no_grad()
+    def get_q_values(self, env, dsr, subgoal=(4, 13), direction=-1):
+        dsr = dsr.detach().numpy()
+
+        if direction == -1:
+            dsr_matrix = dsr.mean(axis=2)
+            
+        else:
+            dsr_matrix = dsr[:, :, direction]
+        
+        dsr_matrix = dsr_matrix / np.linalg.norm(dsr_matrix, ord=2, axis=3, keepdims=True)
+
+        side_size = dsr_matrix.shape[0]
+
+        env.unwrapped.agent_pos = np.array(subgoal)
+        obs = env.env.env.step(5)[0]
+        obs = torch.Tensor(obs).unsqueeze(0).to(self.device)
+        features = self.idf_model(obs, mode='encode')
+        features = features.squeeze().detach().cpu().numpy()
+        normed_features = features / np.linalg.norm(features, ord=2)
+
+        q_values = np.dot(dsr_matrix, normed_features)
+
+        return q_values

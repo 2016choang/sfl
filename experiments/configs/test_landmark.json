@@ -13,11 +13,11 @@
         "idf_model_kwargs": {
             "feature_size": 64
         },
-        "exploit_prob": 0.005,
-        "landmark_update_interval": 1000,
+        "exploit_prob": 0.01,
+        "landmark_update_interval": 500,
         "add_threshold": 0.6,
         "reach_threshold": 0.95,
-        "max_landmarks": 10,
+        "max_landmarks": 3,
         "steps_per_landmark": 10
     },
     "algo": {
@@ -27,7 +27,7 @@
         "learning_rate": 1e-3,
         "replay_size": 20000,
         "delta_clip": 1,
-        "min_steps_dsr_learn": 10000,
+        "min_steps_dsr_learn": 1500,
         "idf_learning_rate": 5e-4
     },
     "env": {
@@ -41,9 +41,9 @@
     },
     "runner": {
         "log_interval_steps": 1e3,
-        "log_dsr_interval_steps": 5e3,
-        "log_landmark_steps": 5e3,
-        "min_steps_landmark": 20000
+        "log_dsr_interval_steps": 1e3,
+        "log_landmark_steps": 1e3,
+        "min_steps_landmark": 2000
     },
     "mode": "multiroom",
     "seed": 333,

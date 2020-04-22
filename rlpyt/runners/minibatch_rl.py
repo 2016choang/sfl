@@ -283,11 +283,22 @@ class MinibatchRlEval(MinibatchRlBase):
         super().log_diagnostics(itr, eval_traj_infos, eval_time)
 
 
+def save_image(title, itr):
+    plt.title(title)
+    summary_writer = logger.get_tf_summary_writer()
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png')
+    buf.seek(0)
+    image = PIL.Image.open(buf).convert('RGB')
+    image = ToTensor()(image)
+    summary_writer.add_image(title, image, itr)
+
+
 class MinibatchDSREval(MinibatchRlEval):
     _eval = True
 
-    def __init__(self, log_dsr_interval_steps=int(1e4), **kwargs):
-        self.log_dsr_interval_steps = log_dsr_interval_steps
+    def __init__(self, log_dsr_interval_steps=1e4, **kwargs):
+        self.log_dsr_interval_steps = int(log_dsr_interval_steps)
         super().__init__(**kwargs)
 
     def train(self):
@@ -315,16 +326,19 @@ class MinibatchDSREval(MinibatchRlEval):
 
 
     def log_dsr(self, itr):
-        summary_writer = logger.get_tf_summary_writer()
         env = self.sampler.collector.envs[0]
         
-        figure = plt.figure(figsize=(10, 10))
-        plt.subplot(2, 2, 1, title='Environment')
+        figure = plt.figure(figsize=(7, 7))
         plt.imshow(env.render(8))
+        save_image('Environment', itr)
 
-        plt.subplot(2, 2, 2, title='State Visitation Heatmap')
+
+        figure = plt.figure(figsize=(7, 7))
         plt.imshow(env.visited.T)
+        circle = plt.Circle(tuple(env.start_pos), 0.2, color='r')
+        plt.gca().add_artist(circle)
         plt.colorbar()
+        save_image('State Visitation Heatmap', itr)
 
         env_kwargs = self.sampler.env_kwargs
         env_kwargs['minigrid_config']['epsilon'] = 0.0
@@ -333,94 +347,54 @@ class MinibatchDSREval(MinibatchRlEval):
 
         dsr = self.agent.get_dsr(dsr_env)
         torch.save(dsr, os.path.join(logger.get_snapshot_dir(), 'dsr_itr_{}.pt'.format(itr)))
-        dsr_env.close()
-        starting_pos = (4, 13)
-        dsr_heatmap = self.get_dsr_heatmap(dsr, starting_pos=starting_pos)
-        plt.subplot(2, 2, 3, title='L2 Distance in SF Space')
+        subgoal = (4, 13)
+
+        figure = plt.figure(figsize=(7, 7))
+        dsr_heatmap = self.agent.get_dsr_heatmap(dsr, subgoal=subgoal)
         plt.imshow(dsr_heatmap.T)
         plt.colorbar()
+        save_image('Cosine Similarity in SF Space', itr)
 
-        # plt.subplot(2, 2, 4, title='Subgoal Policy')
-        # q_values = self.agent.get_q_values(dsr_env, dsr)
-        # plt.imshow(q_values.max(axis=2).T)
-        # for x in range(q_values.shape[0]):
-        #     plt.axvline(x + 0.5, color='k', linestyle=':')
-        #     for y in range(q_values.shape[1]):
-        #         plt.axhline(y + 0.5, color='k', linestyle=':')
+        figure = plt.figure(figsize=(7, 7))
+        q_values = self.agent.get_q_values(dsr_env, dsr, subgoal=subgoal)
+        plt.imshow(q_values.max(axis=2).T)
+        for x in range(q_values.shape[0]):
+            plt.axvline(x + 0.5, color='k', linestyle=':')
+            for y in range(q_values.shape[1]):
+                plt.axhline(y + 0.5, color='k', linestyle=':')
                 
-        #         if (x, y) == subgoal:
-        #             circle = plt.Circle((x, y), 0.2, color='k')
-        #             plt.gca().add_artist(circle)
+                if (x, y) == subgoal:
+                    circle = plt.Circle((x, y), 0.2, color='r')
+                    plt.gca().add_artist(circle)
                 
-        #         else:
-        #             if any(np.isnan(q_values[x, y])):
-        #                 continue
+                else:
+                    if any(np.isnan(q_values[x, y])):
+                        continue
 
-        #             action = q_values[x, y].argmax()
-        #             dx = 0
-        #             dy = 0
-        #             if action == 0:
-        #                 dx = 0.35
-        #             elif action == 1:
-        #                 dy = 0.35
-        #             elif action == 2:
-        #                 dx = -0.35
-        #             else:
-        #                 dy = -0.35
+                    action = q_values[x, y].argmax()
+                    dx = 0
+                    dy = 0
+                    if action == 0:
+                        dx = 0.35
+                    elif action == 1:
+                        dy = 0.35
+                    elif action == 2:
+                        dx = -0.35
+                    else:
+                        dy = -0.35
 
-        #             plt.arrow(x - dx, y - dy, dx, dy, head_width=0.3, head_length=0.3, fc='k', ec='k')
-        # plt.colorbar()
-
-        buf = io.BytesIO()
-        plt.savefig(buf, format='png')
-        buf.seek(0)
-        image = PIL.Image.open(buf).convert('RGB')
-        image = ToTensor()(image)
-        summary_writer.add_image('DSR', image, itr)
-
-
-    def get_dsr_heatmap(self, dsr, starting_pos=(4, 13), direction=-1, action=-1, normalize=True):
-        dsr = dsr.detach().numpy()
-
-        if direction == -1:
-            dsr_matrix = dsr.mean(axis=2)
-            
-        else:
-            dsr_matrix = dsr[:, :, direction]
-
-        if action == -1:
-            dsr_matrix = dsr_matrix.mean(axis=2)
-        else:
-            dsr_matrix = dsr_matrix[:, :, action]
-        
-        side_size = dsr_matrix.shape[0]
-        
-        if normalize:
-            dsr_matrix = dsr_matrix.reshape(side_size ** 2, -1)
-            dsr_matrix = (dsr_matrix - np.nanmean(dsr_matrix, axis=0)) / np.nanstd(dsr_matrix, axis=0)
-            dsr_matrix = dsr_matrix.reshape(side_size, side_size, -1)
-
-        starting_dsr = dsr_matrix[starting_pos]
-        
-        heatmap = np.zeros((side_size, side_size))
-        for x in range(side_size):
-            for y in range(side_size):
-                heatmap[x, y] = np.linalg.norm(dsr_matrix[x, y] - starting_dsr, 2)
-
-        return heatmap
+                    plt.arrow(x - dx, y - dy, dx, dy, head_width=0.3, head_length=0.3, fc='k', ec='k')
+        plt.colorbar()
+        save_image('Subgoal Policy', itr)
 
 
 class MinibatchLandmarkDSREval(MinibatchDSREval):
     _eval = True
 
-    def __init__(self, min_steps_landmark=2e4, **kwargs):
+    def __init__(self, min_steps_landmark=2e4, log_landmark_steps=1e4, **kwargs):
         self.min_steps_landmark = int(min_steps_landmark)
+        self.log_landmark_steps = int(log_landmark_steps)
         super().__init__(**kwargs)
-
-    def startup(self):
-        n_itr = super().startup()
-        self.agent.set_replay_buffer(self.algo.replay_buffer)
-        return n_itr
 
     def train(self):
         n_itr = self.startup()
@@ -445,5 +419,27 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
 
                 if (itr + 1) >= self.min_steps_landmark:
                     self.agent.update_landmarks(itr)
+                    if (itr + 1) % self.log_landmark_steps == 0:
+                        self.log_landmarks(itr)
 
         self.shutdown()
+
+    def log_landmarks(self, itr):
+        env = self.sampler.collector.envs[0]
+        figure = plt.figure(figsize=(7, 7))
+        landmarks_grid = env.visited.T.copy()
+        landmarks_grid[landmarks_grid != -1] = 0
+        
+        if self.agent.landmarks.observations is not None:
+            for observation in self.agent.landmarks.observations:
+                
+                diff = observation[:, :, 0] - observation[:, :, 1]
+                idx = diff.argmax()
+                landmark_pos = (idx // 25, idx % 25)
+                landmarks_grid[landmark_pos] += 1
+
+        plt.imshow(landmarks_grid)
+        circle = plt.Circle(tuple(env.start_pos), 0.2, color='r')
+        plt.gca().add_artist(circle)
+        plt.colorbar()
+        save_image('Landmarks', itr)
