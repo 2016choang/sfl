@@ -1,3 +1,4 @@
+import networkx as nx
 import numpy as np
 from scipy.spatial import distance_matrix
 from scipy.sparse.csgraph import floyd_warshall
@@ -6,13 +7,13 @@ import torch
 
 from rlpyt.agents.base import AgentStep
 from rlpyt.agents.dqn.dsr.idf_dsr_agent import IDFDSRAgent, AgentInfo
-from rlpyt.utils.buffer import buffer_to
+from rlpyt.utils.buffer import buffer_to, torchify_buffer
 from rlpyt.utils.collections import namedarraytuple
 from rlpyt.utils.quick_args import save__init__args
 
 class Landmarks(object):
 
-    def __init__(self, max_landmarks, threshold=0.9):
+    def __init__(self, max_landmarks, threshold=0.75):
         save__init__args(locals())
         self.num_landmarks = 0
         self.observations = None 
@@ -23,6 +24,27 @@ class Landmarks(object):
         self.visitations = None
         self.predecessors = None
 
+    def add_goal_landmark(self, observation, features, dsr):
+        self.observations = torch.cat((self.observations, observation), dim=0)
+        self.set_features(features, self.num_landmarks)
+        self.set_dsr(dsr, self.num_landmarks)
+        self.num_landmarks += 1
+        self.visitations = np.append(self.visitations, 0)
+
+    def remove_goal_landmark(self):
+        save_idx = range(self.num_landmarks - 1)
+
+        self.observations = self.observations[save_idx]
+        self.features = self.features[save_idx]
+        self.norm_features = self.norm_features[save_idx]
+        self.dsr = self.dsr[save_idx]
+        self.norm_dsr = self.norm_dsr[save_idx]
+        
+        self.visitations = self.visitations[save_idx]
+
+        self.num_landmarks -= 1 
+
+        self.update_predecessors()
 
     def add_landmark(self, observation, features, dsr):
         if self.num_landmarks == 0:
@@ -81,11 +103,30 @@ class Landmarks(object):
         self.update_predecessors()
 
     def update_predecessors(self):
-        landmark_distances = 1 + 1e-6 - torch.matmul(self.norm_dsr, self.norm_dsr.T)
-        landmark_distances[landmark_distances < 0] = 0
-        landmark_distances = landmark_distances.detach().cpu().numpy()
-        _, predecessors = floyd_warshall(landmark_distances, directed=False, return_predecessors=True)
+        n_landmarks = len(self.norm_dsr)
+        similarities = torch.clamp(torch.matmul(self.norm_dsr, self.norm_dsr.T), min=-1.0, max=1.0)
+        similarities = similarities.detach().cpu().numpy()
+        similarities[range(n_landmarks), range(n_landmarks)] = -2
+        max_idx = similarities.argmax(axis=1)
+
+        landmark_distances = 1.001 - similarities
+        non_edges = similarities < self.threshold
+        non_edges[range(n_landmarks), max_idx] = False
+        landmark_distances[non_edges] = 0
+
+        G = nx.from_numpy_array(landmark_distances)
+        
+        if not nx.is_connected(G):
+            avail = {index: 1.001 - x for index, x in np.ndenumerate(similarities) if non_edges[index]}
+            for edge in nx.k_edge_augmentation(G, 1, avail):
+                landmark_distances[edge] = 1.001 - similarities[edge]
+            G = nx.from_numpy_array(landmark_distances)
+            # Should be connected now!
+
+        self.graph = G
+        predecessors, distances = nx.floyd_warshall_predecessor_and_distance(G)
         self.predecessors = predecessors
+        self.distances = distances
 
     def prune_landmarks(self):
         landmark_similarities = torch.matmul(self.norm_dsr, self.norm_dsr.T)
@@ -102,7 +143,8 @@ class Landmarks(object):
 
         self.num_landmarks = sum(save_idx)
 
-        self.update_predecessors()
+        if self.num_landmarks:
+            self.update_predecessors()
 
 
 class LandmarkAgent(IDFDSRAgent):
@@ -167,41 +209,42 @@ class LandmarkAgent(IDFDSRAgent):
                 device=self.device)
             dsr = self.model(model_inputs, mode='dsr')
 
-            self.landmarks.add_landmark(observation, features, dsr)
+            if self._mode != 'eval':
+                self.landmarks.add_landmark(observation, features, dsr)
 
-        if not self.explore:
-            if self.subgoal_landmark is None:
-                norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, keepdim=True) 
-                landmark_similarity = torch.matmul(self.landmarks.norm_dsr, norm_dsr.T)
-                self.subgoal_landmark = landmark_similarity.argmax().item()
-                self.landmarks.visitations[self.subgoal_landmark] += 1
+            if not self.explore:
+                if self.subgoal_landmark is None:
+                    norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, keepdim=True) 
+                    landmark_similarity = torch.matmul(self.landmarks.norm_dsr, norm_dsr.T)
+                    self.subgoal_landmark = landmark_similarity.argmax().item()
+                    self.landmarks.visitations[self.subgoal_landmark] += 1
 
-            if self.landmark_steps < self.steps_per_landmark:
-                norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, keepdim=True) 
-                subgoal_similarity = torch.matmul(self.landmarks.norm_dsr[self.subgoal_landmark], norm_dsr.T)
-                if subgoal_similarity > self.reach_threshold:
+                if self.landmark_steps < self.steps_per_landmark:
+                    norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, keepdim=True) 
+                    subgoal_similarity = torch.matmul(self.landmarks.norm_dsr[self.subgoal_landmark], norm_dsr.T)
+                    if subgoal_similarity > self.reach_threshold:
+                        if self.subgoal_landmark == self.goal_landmark and self._mode != 'eval':
+                            self.explore = True
+                        else:
+                            next_landmark = self.landmarks.predecessors[self.subgoal_landmark][self.goal_landmark]
+                            if self.subgoal_landmark == next_landmark or next_landmark == -9999:
+                                self.subgoal_landmark = self.goal_landmark
+                            else:
+                                self.subgoal_landmark = next_landmark
+                            self.landmark_steps = 0
+                            self.landmarks.visitations[self.subgoal_landmark] += 1
+
+                else:
                     if self.subgoal_landmark == self.goal_landmark:
                         self.explore = True
                     else:
-                        next_landmark = self.landmarks.predecessors[self.subgoal_landmark, self.goal_landmark]
+                        next_landmark = self.landmarks.predecessors[self.subgoal_landmark][self.goal_landmark]
                         if self.subgoal_landmark == next_landmark or next_landmark == -9999:
                             self.subgoal_landmark = self.goal_landmark
                         else:
                             self.subgoal_landmark = next_landmark
                         self.landmark_steps = 0
                         self.landmarks.visitations[self.subgoal_landmark] += 1
-
-            else:
-                if self.subgoal_landmark == self.goal_landmark:
-                    self.explore = True
-                else:
-                    next_landmark = self.landmarks.predecessors[self.subgoal_landmark, self.goal_landmark]
-                    if self.subgoal_landmark == next_landmark or next_landmark == -9999:
-                        self.subgoal_landmark = self.goal_landmark
-                    else:
-                        self.subgoal_landmark = next_landmark
-                    self.landmark_steps = 0
-                    self.landmarks.visitations[self.subgoal_landmark] += 1
 
         if self.explore:
             action = torch.randint_like(prev_action, high=self.distribution.dim)
@@ -213,3 +256,46 @@ class LandmarkAgent(IDFDSRAgent):
 
         agent_info = AgentInfo(a=action)
         return AgentStep(action=action, agent_info=agent_info)
+
+    @torch.no_grad()
+    def set_eval_goal(self, goal_obs):
+        if self.landmarks is not None:
+            observation = torchify_buffer(goal_obs).unsqueeze(0).float()
+
+            model_inputs = buffer_to(observation,
+                    device=self.device)
+            features = self.idf_model(model_inputs, mode='encode')
+
+            model_inputs = buffer_to(features,
+                    device=self.device)
+            dsr = self.model(model_inputs, mode='dsr')
+
+            self.landmarks.add_goal_landmark(observation, features, dsr)        
+
+            self.landmark_state = {'explore': self.explore,
+                                   'landmark_steps': self.landmark_steps,
+                                   'subgoal_landmark': self.subgoal_landmark,
+                                   'goal_landmark': self.goal_landmark}
+
+    def reset(self):
+        if self.landmarks is not None:
+            self.landmark_steps = 0
+            self.subgoal_landmark = None
+            self.goal_landmark = self.landmarks.num_landmarks - 1
+            if self._mode == 'eval':
+                self.explore = False
+            else:
+                self.explore = True
+
+    def reset_one(self, idx):
+        self.reset()
+
+    @torch.no_grad()
+    def remove_eval_goal(self):
+        if self.landmarks is not None:
+            self.landmarks.remove_goal_landmark()
+
+            self.explore = self.landmark_state['explore']
+            self.landmark_steps = self.landmark_state['landmark_steps']
+            self.subgoal_landmark = self.landmark_state['subgoal_landmark']
+            self.goal_landmark = self.landmark_state['goal_landmark']

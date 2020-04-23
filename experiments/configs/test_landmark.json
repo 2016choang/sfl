@@ -2,7 +2,7 @@
     "agent": {
         "eps_init": 0,
         "eps_final": 0,
-        "eps_eval": 1,
+        "eps_eval": 0,
         "model_kwargs": {
             "feature_size": 64,
             "dsr_params": {
@@ -15,9 +15,9 @@
         },
         "exploit_prob": 0.01,
         "landmark_update_interval": 500,
-        "add_threshold": 0.6,
+        "add_threshold": 0.75,
         "reach_threshold": 0.95,
-        "max_landmarks": 3,
+        "max_landmarks": 8,
         "steps_per_landmark": 10
     },
     "algo": {
@@ -32,12 +32,22 @@
     },
     "env": {
         "size": [25, 25],
-        "oracle": true,
+        "oracle": false,
         "epsilon": 0, 
         "max_steps": 5000,
         "grayscale": false,
         "reset_episodes": 1,
         "reset_same": true
+    },
+    "eval_env": {
+        "size": [25, 25],
+        "oracle": false,
+        "epsilon": 0,
+        "max_steps": 500,
+        "grayscale": false,
+        "reset_episodes": 1,
+        "reset_same": true,
+        "terminate": true
     },
     "runner": {
         "log_interval_steps": 1e3,

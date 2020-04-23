@@ -460,6 +460,11 @@ def record_tabular_misc_stat(key, values, itr=None, placement='back'):
         record_tabular(prefix + "Min" + suffix, np.nan)
         record_tabular(prefix + "Max" + suffix, np.nan)
 
+def record_tabular_stat(key, value, itr=None):
+    record_tabular(key, value)
+    if itr is not None and _tf_summary_writer is not None:
+        _tf_summary_writer.add_scalar(key, value, itr)
+
 def log_itr_info(itr, opt_info):
     for key, values in opt_info._asdict().items():
         if _tf_summary_writer is not None and values:

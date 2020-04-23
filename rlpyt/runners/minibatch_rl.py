@@ -1,3 +1,4 @@
+from collections import deque
 import io
 import psutil
 import time
@@ -5,9 +6,10 @@ import torch
 import math
 import numpy as np
 import os
-from collections import deque
+from scipy.stats import entropy
 
 import matplotlib.pyplot as plt
+import networkx as nx
 import PIL.Image
 from torchvision.transforms import ToTensor
 
@@ -247,7 +249,6 @@ class MinibatchRlEval(MinibatchRlBase):
                 if (itr + 1) % self.log_interval_itrs == 0:
                     eval_traj_infos, eval_time = self.evaluate_agent(itr)
                     self.log_diagnostics(itr, eval_traj_infos, eval_time)
-                    self.algo.update_scheduler(self._opt_infos)
 
                     # summary_writer = logger.get_tf_summary_writer()
                     # # Debugging layer parameters
@@ -323,7 +324,15 @@ class MinibatchDSREval(MinibatchRlEval):
                     self.log_dsr(itr)
                     
         self.shutdown()
-
+        
+    def log_diagnostics(self, itr, eval_traj_infos, eval_time):
+        super().log_diagnostics(itr, eval_traj_infos, eval_time)
+        env = self.sampler.collector.envs[0]
+        state_entropy = entropy(env.visited.flatten(), base=2)
+        if not np.isnan(state_entropy):
+            logger.record_tabular_stat('Entropy', state_entropy, itr)
+        if self.agent.landmarks is not None:
+            logger.record_tabular_stat('Landmark Threshold', self.agent.landmarks.threshold, itr)
 
     def log_dsr(self, itr):
         env = self.sampler.collector.envs[0]
@@ -331,7 +340,6 @@ class MinibatchDSREval(MinibatchRlEval):
         figure = plt.figure(figsize=(7, 7))
         plt.imshow(env.render(8))
         save_image('Environment', itr)
-
 
         figure = plt.figure(figsize=(7, 7))
         plt.imshow(env.visited.T)
@@ -347,7 +355,7 @@ class MinibatchDSREval(MinibatchRlEval):
 
         dsr = self.agent.get_dsr(dsr_env)
         torch.save(dsr, os.path.join(logger.get_snapshot_dir(), 'dsr_itr_{}.pt'.format(itr)))
-        subgoal = (4, 13)
+        subgoal = tuple(env.goal_pos)
 
         figure = plt.figure(figsize=(7, 7))
         dsr_heatmap = self.agent.get_dsr_heatmap(dsr, subgoal=subgoal)
@@ -416,30 +424,66 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
 
                 if (itr + 1) % self.log_dsr_interval_steps == 0:
                     self.log_dsr(itr)
+                    plt.close('all')
 
                 if (itr + 1) >= self.min_steps_landmark:
                     self.agent.update_landmarks(itr)
                     if (itr + 1) % self.log_landmark_steps == 0:
                         self.log_landmarks(itr)
+                    plt.close('all')
 
         self.shutdown()
 
+    @torch.no_grad()
     def log_landmarks(self, itr):
+        if self.agent.landmarks.observations is None:
+            return
+        
         env = self.sampler.collector.envs[0]
-        figure = plt.figure(figsize=(7, 7))
         landmarks_grid = env.visited.T.copy()
+        landmarks_grid[landmarks_grid == 0] = -1
         landmarks_grid[landmarks_grid != -1] = 0
         
-        if self.agent.landmarks.observations is not None:
-            for observation in self.agent.landmarks.observations:
-                
-                diff = observation[:, :, 0] - observation[:, :, 1]
-                idx = diff.argmax()
-                landmark_pos = (idx // 25, idx % 25)
-                landmarks_grid[landmark_pos] += 1
+        nodes = {}
 
+        for i, observation in enumerate(self.agent.landmarks.observations):
+            diff = observation[:, :, 0] - observation[:, :, 1]
+            idx = diff.argmax().detach().cpu().numpy()
+            pos = (idx // 25, idx % 25)
+            nodes[i] = str(pos[1]) + ', ' + str(pos[0])
+            landmark_pos = pos
+            landmarks_grid[landmark_pos] += 1
+
+        figure = plt.figure(figsize=(7, 7))
         plt.imshow(landmarks_grid)
         circle = plt.Circle(tuple(env.start_pos), 0.2, color='r')
         plt.gca().add_artist(circle)
         plt.colorbar()
         save_image('Landmarks', itr)
+
+        figure = plt.figure(figsize=(7, 7))
+        G = self.agent.landmarks.graph
+        pos = nx.circular_layout(G)
+        nx.draw_networkx_nodes(G, pos, node_size=600)
+        nx.draw_networkx_edges(G, pos, edgelist=G.edges, width=6)
+
+        edge_labels = nx.get_edge_attributes(G, 'weight')
+        for k, v in edge_labels.items():
+            edge_labels[k] = round(v, 3)
+        nx.draw_networkx_labels(G, pos, font_size=8, font_family='sans-serif', labels=nodes)
+        nx.draw_networkx_edge_labels(G, pos, font_size=10, font_family='sans-serif', edge_labels=edge_labels)
+        plt.axis('off')
+        save_image('Landmarks graph', itr)
+
+    def evaluate_agent(self, itr):
+        if itr > 0:
+            self.pbar.stop()
+        logger.log("Evaluating agent...")
+        goal_obs = self.sampler.eval_collector.envs[0].get_goal_state()
+        self.agent.set_eval_goal(goal_obs)  # Might be agent in sampler.
+        eval_time = -time.time()
+        traj_infos = self.sampler.evaluate_agent(itr)
+        eval_time += time.time()
+        self.agent.remove_eval_goal()
+        logger.log("Evaluation runs complete.")
+        return traj_infos, eval_time

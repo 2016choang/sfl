@@ -201,3 +201,15 @@ class IDFDSRAgent(Mixin, DsrAgent):
         q_values = np.dot(dsr_matrix, normed_features)
 
         return q_values
+
+    def train_mode(self, itr):
+        super().train_mode(itr)
+        self.idf_model.train()
+
+    def sample_mode(self, itr):
+        super().sample_mode(itr)
+        self.idf_model.eval()
+
+    def eval_mode(self, itr):
+        super().eval_mode(itr)
+        self.idf_model.eval()

@@ -9,6 +9,7 @@ Requires OpenAI gym (and maybe mujoco).  If not installed, move on to next
 example.
 
 """
+import copy
 import json
 
 import torch
@@ -49,12 +50,12 @@ def build_and_train(config_file,
     sampler = SerialSampler(
         EnvCls=gym_make,
         env_kwargs=dict(id=env_id, mode=mode, minigrid_config=config['env']),
-        eval_env_kwargs=dict(id=env_id, mode=mode, minigrid_config=config['env']),
+        eval_env_kwargs=dict(id=env_id, mode=mode, minigrid_config=config['eval_env']),
         batch_T=1,  # One time-step per sampler iteration.
         batch_B=1,  # One environment (i.e. sampler Batch dimension).
         max_decorrelation_steps=0,
         eval_n_envs=1,
-        eval_max_steps=int(1e3),
+        eval_max_steps=int(5e3),
         eval_max_trajectories=5,
     )    
 

@@ -2,7 +2,7 @@
     "agent": {
         "eps_init": 0,
         "eps_final": 0,
-        "eps_eval": 1,
+        "eps_eval": 0,
         "model_kwargs": {
             "feature_size": 64,
             "dsr_params": {
@@ -13,12 +13,12 @@
         "idf_model_kwargs": {
             "feature_size": 64
         },
-        "exploit_prob": 0.005,
+        "exploit_prob": 0.01,
         "landmark_update_interval": 1000,
-        "add_threshold": 0.6,
-        "reach_threshold": 0.95,
+        "add_threshold": 0.75,
+        "reach_threshold": 0.99,
         "max_landmarks": 10,
-        "steps_per_landmark": 10
+        "steps_per_landmark": 20
     },
     "algo": {
         "discount": 0.99,
@@ -32,15 +32,25 @@
     },
     "env": {
         "size": [25, 25],
-        "oracle": true,
+        "oracle": false,
         "epsilon": 0, 
-        "max_steps": 5000,
+        "max_steps": 500,
         "grayscale": false,
         "reset_episodes": 1,
         "reset_same": true
     },
+    "eval_env": {
+        "size": [25, 25],
+        "oracle": false,
+        "epsilon": 0,
+        "max_steps": 500,
+        "grayscale": false,
+        "reset_episodes": 1,
+        "reset_same": true,
+        "terminate": true
+    }, 
     "runner": {
-        "log_interval_steps": 1e3,
+        "log_interval_steps": 2.5e3,
         "log_dsr_interval_steps": 5e3,
         "log_landmark_steps": 5e3,
         "min_steps_landmark": 20000
