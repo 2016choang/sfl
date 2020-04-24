@@ -16,9 +16,9 @@
         "exploit_prob": 0.01,
         "landmark_update_interval": 500,
         "add_threshold": 0.75,
-        "reach_threshold": 0.95,
-        "max_landmarks": 8,
-        "steps_per_landmark": 10
+        "reach_threshold": 0.99,
+        "max_landmarks": 5,
+        "steps_per_landmark": 20
     },
     "algo": {
         "discount": 0.99,
@@ -34,7 +34,7 @@
         "size": [25, 25],
         "oracle": false,
         "epsilon": 0, 
-        "max_steps": 5000,
+        "max_steps": 500,
         "grayscale": false,
         "reset_episodes": 1,
         "reset_same": true

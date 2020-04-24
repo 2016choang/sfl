@@ -370,7 +370,9 @@ class MinigridMultiRoomLandmarkWrapper(Wrapper):
         self.reset()
         self.env.episodes -= 1  # does not count towards number of episodes per start position
 
-        self.env.unwrapped.agent_pos = self.env.unwrapped.goal_pos
+        # self.env.unwrapped.agent_pos = self.env.unwrapped.goal_pos
+        # TODO: hard-coded for now
+        self.env.unwrapped.agent_pos = np.array([16, 19])
         obs = self.env.step(5)[0]
         self.reset_episode()
         return obs

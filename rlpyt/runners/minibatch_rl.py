@@ -1,4 +1,4 @@
-from collections import deque
+from collections import deque, defaultdict
 import io
 import psutil
 import time
@@ -331,8 +331,8 @@ class MinibatchDSREval(MinibatchRlEval):
         state_entropy = entropy(env.visited.flatten(), base=2)
         if not np.isnan(state_entropy):
             logger.record_tabular_stat('Entropy', state_entropy, itr)
-        if self.agent.landmarks is not None:
-            logger.record_tabular_stat('Landmark Threshold', self.agent.landmarks.threshold, itr)
+        # if self.agent.landmarks is not None:
+        #     logger.record_tabular_stat('Landmark Threshold', self.agent.landmarks.threshold, itr)
 
     def log_dsr(self, itr):
         env = self.sampler.collector.envs[0]
@@ -344,6 +344,8 @@ class MinibatchDSREval(MinibatchRlEval):
         figure = plt.figure(figsize=(7, 7))
         plt.imshow(env.visited.T)
         circle = plt.Circle(tuple(env.start_pos), 0.2, color='r')
+        plt.gca().add_artist(circle)
+        circle = plt.Circle(tuple(env.goal_pos), 0.2, color='m')
         plt.gca().add_artist(circle)
         plt.colorbar()
         save_image('State Visitation Heatmap', itr)
@@ -418,9 +420,14 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                 logger.log_itr_info(itr, opt_info)
                 self.store_diagnostics(itr, traj_infos, opt_info)
                 if (itr + 1) % self.log_interval_itrs == 0:
+                    goal_obs = self.sampler.eval_collector.envs[0].get_goal_state()
+                    self.agent.set_eval_goal(goal_obs)  # Might be agent in sampler.
+
                     eval_traj_infos, eval_time = self.evaluate_agent(itr)
                     self.log_diagnostics(itr, eval_traj_infos, eval_time)
                     self.algo.update_scheduler(self._opt_infos)
+                    if self.agent.landmarks:
+                        print('NUM LANDMARKS: {}'.format(self.agent.landmarks.num_landmarks))
 
                 if (itr + 1) % self.log_dsr_interval_steps == 0:
                     self.log_dsr(itr)
@@ -431,6 +438,9 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                     if (itr + 1) % self.log_landmark_steps == 0:
                         self.log_landmarks(itr)
                     plt.close('all')
+
+                if (itr + 1) % self.log_interval_itrs == 0:
+                    self.agent.remove_eval_goal()
 
         self.shutdown()
 
@@ -444,19 +454,22 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         landmarks_grid[landmarks_grid == 0] = -1
         landmarks_grid[landmarks_grid != -1] = 0
         
-        nodes = {}
+        node_labels = defaultdict(list)
 
         for i, observation in enumerate(self.agent.landmarks.observations):
             diff = observation[:, :, 0] - observation[:, :, 1]
             idx = diff.argmax().detach().cpu().numpy()
             pos = (idx // 25, idx % 25)
-            nodes[i] = str(pos[1]) + ', ' + str(pos[0])
-            landmark_pos = pos
-            landmarks_grid[landmark_pos] += 1
+            node_labels[pos].append(i)
+            landmarks_grid[pos] += 1
 
         figure = plt.figure(figsize=(7, 7))
         plt.imshow(landmarks_grid)
+        for pos, nodes in node_labels.items():
+            plt.text(pos[1] -0.25, pos[0] + 0.25, ','.join(map(str, nodes)), fontsize=6)
         circle = plt.Circle(tuple(env.start_pos), 0.2, color='r')
+        plt.gca().add_artist(circle)
+        circle = plt.Circle(tuple(env.goal_pos), 0.2, color='m')
         plt.gca().add_artist(circle)
         plt.colorbar()
         save_image('Landmarks', itr)
@@ -470,7 +483,7 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         edge_labels = nx.get_edge_attributes(G, 'weight')
         for k, v in edge_labels.items():
             edge_labels[k] = round(v, 3)
-        nx.draw_networkx_labels(G, pos, font_size=8, font_family='sans-serif', labels=nodes)
+        nx.draw_networkx_labels(G, pos, font_size=8, font_family='sans-serif')
         nx.draw_networkx_edge_labels(G, pos, font_size=10, font_family='sans-serif', edge_labels=edge_labels)
         plt.axis('off')
         save_image('Landmarks graph', itr)
@@ -479,11 +492,8 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         if itr > 0:
             self.pbar.stop()
         logger.log("Evaluating agent...")
-        goal_obs = self.sampler.eval_collector.envs[0].get_goal_state()
-        self.agent.set_eval_goal(goal_obs)  # Might be agent in sampler.
         eval_time = -time.time()
         traj_infos = self.sampler.evaluate_agent(itr)
         eval_time += time.time()
-        self.agent.remove_eval_goal()
         logger.log("Evaluation runs complete.")
         return traj_infos, eval_time
