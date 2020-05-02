@@ -14,46 +14,38 @@
             "feature_size": 64
         },
         "exploit_prob": 0.01,
-        "landmark_update_interval": 500,
+        "landmark_update_interval": 1000,
         "add_threshold": 0.75,
         "reach_threshold": 0.99,
-        "max_landmarks": 5,
+        "max_landmarks": 10,
         "steps_per_landmark": 20
     },
     "algo": {
-        "discount": 0.99,
+        "discount": 0.999,
         "batch_size": 128,
-        "min_steps_learn": 500,
+        "min_steps_learn": 1000,
         "learning_rate": 1e-3,
         "replay_size": 20000,
         "delta_clip": 1,
-        "min_steps_dsr_learn": 1000,
+        "min_steps_dsr_learn": 10000,
         "idf_learning_rate": 5e-4
     },
     "env": {
         "size": [25, 25],
-        "oracle": false,
-        "epsilon": 0, 
         "max_steps": 500,
-        "grayscale": false,
-        "reset_episodes": 1,
         "reset_same": true
     },
     "eval_env": {
         "size": [25, 25],
-        "oracle": false,
-        "epsilon": 0,
         "max_steps": 500,
-        "grayscale": false,
-        "reset_episodes": 1,
         "reset_same": true,
         "terminate": true
-    },
+    }, 
     "runner": {
-        "log_interval_steps": 500,
-        "log_dsr_interval_steps": 500,
-        "log_landmark_steps": 500,
-        "min_steps_landmark": 1500
+        "log_interval_steps": 2.5e3,
+        "log_dsr_interval_steps": 5e3,
+        "log_landmark_steps": 5e3,
+        "min_steps_landmark": 1e10
     },
     "mode": "multiroom",
     "seed": 333,

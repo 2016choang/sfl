@@ -121,6 +121,7 @@ venv.bak/
 
 # Visualizations
 *.png
+playground/gym-results/
 
 # auxiliary data
 experiments/aux-data/

@@ -345,7 +345,7 @@ class MinibatchDSREval(MinibatchRlEval):
         plt.imshow(env.visited.T)
         circle = plt.Circle(tuple(env.start_pos), 0.2, color='r')
         plt.gca().add_artist(circle)
-        circle = plt.Circle(tuple(env.goal_pos), 0.2, color='m')
+        circle = plt.Circle(tuple(env.goal_pos), 0.2, color='purple')
         plt.gca().add_artist(circle)
         plt.colorbar()
         save_image('State Visitation Heatmap', itr)
@@ -362,6 +362,8 @@ class MinibatchDSREval(MinibatchRlEval):
         figure = plt.figure(figsize=(7, 7))
         dsr_heatmap = self.agent.get_dsr_heatmap(dsr, subgoal=subgoal)
         plt.imshow(dsr_heatmap.T)
+        circle = plt.Circle(subgoal, 0.2, color='purple')
+        plt.gca().add_artist(circle)
         plt.colorbar()
         save_image('Cosine Similarity in SF Space', itr)
 
@@ -374,7 +376,7 @@ class MinibatchDSREval(MinibatchRlEval):
                 plt.axhline(y + 0.5, color='k', linestyle=':')
                 
                 if (x, y) == subgoal:
-                    circle = plt.Circle((x, y), 0.2, color='r')
+                    circle = plt.Circle((x, y), 0.2, color='purple')
                     plt.gca().add_artist(circle)
                 
                 else:
@@ -419,34 +421,39 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                 opt_info = self.algo.optimize_agent(itr, samples)
                 logger.log_itr_info(itr, opt_info)
                 self.store_diagnostics(itr, traj_infos, opt_info)
+                
+                eval_goal = False
+                if (itr + 1) >= self.min_steps_landmark:
+                    self.agent.update_landmarks(itr)
+
                 if (itr + 1) % self.log_interval_itrs == 0:
                     goal_obs = self.sampler.eval_collector.envs[0].get_goal_state()
-                    self.agent.set_eval_goal(goal_obs)  # Might be agent in sampler.
+                    eval_goal = self.agent.set_eval_goal(goal_obs)  # Might be agent in sampler.
 
                     eval_traj_infos, eval_time = self.evaluate_agent(itr)
                     self.log_diagnostics(itr, eval_traj_infos, eval_time)
                     self.algo.update_scheduler(self._opt_infos)
-                    if self.agent.landmarks:
-                        print('NUM LANDMARKS: {}'.format(self.agent.landmarks.num_landmarks))
 
                 if (itr + 1) % self.log_dsr_interval_steps == 0:
                     self.log_dsr(itr)
                     plt.close('all')
 
-                if (itr + 1) >= self.min_steps_landmark:
-                    self.agent.update_landmarks(itr)
-                    if (itr + 1) % self.log_landmark_steps == 0:
-                        self.log_landmarks(itr)
+                if (itr + 1) % self.log_landmark_steps == 0:
+                    self.log_landmarks(itr)
                     plt.close('all')
 
-                if (itr + 1) % self.log_interval_itrs == 0:
+                if eval_goal:
+                    summary_writer = logger.get_tf_summary_writer()                   
+                    summary_writer.add_text("Path to goal", ','.join(map(str, self.agent.path)), itr)
+                    logger.record_tabular_misc_stat("PathProgress", self.agent.path_progress, itr)
                     self.agent.remove_eval_goal()
+
 
         self.shutdown()
 
     @torch.no_grad()
     def log_landmarks(self, itr):
-        if self.agent.landmarks.observations is None:
+        if self.agent.landmarks is None or self.agent.landmarks.observations is None:
             return
         
         env = self.sampler.collector.envs[0]
@@ -469,7 +476,7 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
             plt.text(pos[1] -0.25, pos[0] + 0.25, ','.join(map(str, nodes)), fontsize=6)
         circle = plt.Circle(tuple(env.start_pos), 0.2, color='r')
         plt.gca().add_artist(circle)
-        circle = plt.Circle(tuple(env.goal_pos), 0.2, color='m')
+        circle = plt.Circle(tuple(env.goal_pos), 0.2, color='purple')
         plt.gca().add_artist(circle)
         plt.colorbar()
         save_image('Landmarks', itr)

@@ -444,7 +444,7 @@ class MinigridMultiRoomLandmarkWrapper(Wrapper):
 
 class MinigridMultiRoomWrapper(Wrapper):
     
-    def __init__(self, env, num_rooms=10, size=(25, 25), grayscale=True, terminate=False, reset_same=False, reset_episodes=1):
+    def __init__(self, env, num_rooms=10, size=(25, 25), grayscale=True, max_steps=500, terminate=False, reset_same=False, reset_episodes=1):
         super().__init__(env)
         self.num_rooms = num_rooms
         self.env = env
@@ -452,6 +452,8 @@ class MinigridMultiRoomWrapper(Wrapper):
         self.size = size
         self.grayscale = grayscale
 
+        self.steps_remaining = max_steps
+        self.max_steps = max_steps
         self.terminate = terminate
 
         self.reset_same = reset_same
@@ -480,13 +482,15 @@ class MinigridMultiRoomWrapper(Wrapper):
             self.env.unwrapped.agent_dir = action
             obs, reward, done, info = self.env.step(2)
 
-        obs = self.get_obs(obs)
+        self.steps_remaining -= 1        
         if not self.terminate or not done:
-            done = self.env.steps_remaining == 0
+            done = self.steps_remaining == 0
+        
+        obs = self.get_obs(obs)
         return obs, reward, done, info
 
     def reset_episode(self):
-        self.env.steps_remaining = self.env.max_steps
+        self.steps_remaining = self.max_steps
 
     def reset(self, **kwargs):
         self.env.reset()
@@ -744,7 +748,7 @@ def make(*args, info_example=None, mode=None, minigrid_config=None, **kwargs):
             env = MultiRoomEnv(num_rooms, num_rooms, room_size)
             env.max_steps = max_steps
             env = RGBImgObsWrapper(ReseedWrapper(env))
-            env = MinigridMultiRoomWrapper(env, num_rooms=num_rooms, size=size, grayscale=grayscale, terminate=terminate, reset_same=reset_same, reset_episodes=reset_episodes)
+            env = MinigridMultiRoomWrapper(env, num_rooms=num_rooms, size=size, grayscale=grayscale, max_steps=max_steps, terminate=terminate, reset_same=reset_same, reset_episodes=reset_episodes)
             
             oracle = minigrid_config.get('oracle', False)
             if oracle:
