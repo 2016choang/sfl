@@ -357,12 +357,12 @@ class MinibatchDSREval(MinibatchRlEval):
 
         dsr = self.agent.get_dsr(dsr_env)
         torch.save(dsr, os.path.join(logger.get_snapshot_dir(), 'dsr_itr_{}.pt'.format(itr)))
-        subgoal = tuple(env.goal_pos)
+        subgoal = tuple(env.start_pos)
 
         figure = plt.figure(figsize=(7, 7))
         dsr_heatmap = self.agent.get_dsr_heatmap(dsr, subgoal=subgoal)
         plt.imshow(dsr_heatmap.T)
-        circle = plt.Circle(subgoal, 0.2, color='purple')
+        circle = plt.Circle(subgoal, 0.2, color='r')
         plt.gca().add_artist(circle)
         plt.colorbar()
         save_image('Cosine Similarity in SF Space', itr)
@@ -376,7 +376,7 @@ class MinibatchDSREval(MinibatchRlEval):
                 plt.axhline(y + 0.5, color='k', linestyle=':')
                 
                 if (x, y) == subgoal:
-                    circle = plt.Circle((x, y), 0.2, color='purple')
+                    circle = plt.Circle((x, y), 0.2, color='r')
                     plt.gca().add_artist(circle)
                 
                 else:
@@ -413,6 +413,7 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         with logger.prefix(f"itr #0 "):
             eval_traj_infos, eval_time = self.evaluate_agent(0)
             self.log_diagnostics(0, eval_traj_infos, eval_time)
+        self.agent.set_env_true_dist(self.sampler.collector.envs[0])
         for itr in range(n_itr):
             with logger.prefix(f"itr #{itr} "):
                 self.agent.sample_mode(itr)
@@ -445,7 +446,6 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                 if eval_goal:
                     summary_writer = logger.get_tf_summary_writer()                   
                     summary_writer.add_text("Path to goal", ','.join(map(str, self.agent.path)), itr)
-                    logger.record_tabular_misc_stat("PathProgress", self.agent.path_progress, itr)
                     self.agent.remove_eval_goal()
 
 
@@ -455,6 +455,23 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
     def log_landmarks(self, itr):
         if self.agent.landmarks is None or self.agent.landmarks.observations is None:
             return
+
+        figure = plt.figure(figsize=(7, 7))
+        path_success = self.agent.path_progress / np.clip(self.agent.path_freq, 1, None)
+        ind = np.arange(len(path_success))
+        width = 0.2
+        plt.bar(ind, path_success, width, label='Similarity-based reach')
+        
+        true_path_success = self.agent.true_path_progress / np.clip(self.agent.path_freq, 1, None)
+        plt.bar(ind + width, true_path_success, width, label='True distance reach')
+        
+        true_reach = self.agent.true_reach_freq / np.clip(self.agent.total_reach_freq, 1, None)
+        plt.bar(ind + 2 * width, true_reach, width, label='Similarity / true reach')
+
+        plt.xlabel('Landmark')
+        plt.ylabel('Reach rate')
+        plt.legend()
+        save_image('Landmarks reach rates', itr)
         
         env = self.sampler.collector.envs[0]
         landmarks_grid = env.visited.T.copy()
@@ -464,7 +481,7 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         node_labels = defaultdict(list)
 
         for i, observation in enumerate(self.agent.landmarks.observations):
-            diff = observation[:, :, 0] - observation[:, :, 1]
+            diff = observation[:, :, 0] - observation[:, :, 2]
             idx = diff.argmax().detach().cpu().numpy()
             pos = (idx // 25, idx % 25)
             node_labels[pos].append(i)

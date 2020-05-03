@@ -19,7 +19,7 @@
         "reach_threshold": 0.99,
         "max_landmarks": 10,
         "steps_per_landmark": 20,
-        "true_distance": false,
+        "true_distance": true,
         "steps_for_true_reach": 2
     },
     "algo": {
