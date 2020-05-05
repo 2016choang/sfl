@@ -1,5 +1,6 @@
 {
     "agent": {
+        "eps_init": 1,
         "eps_final": 1,
         "eps_eval": 1,
         "model_kwargs": {
@@ -21,15 +22,16 @@
         "replay_size": 20000,
         "delta_clip": 1,
         "min_steps_dsr_learn": 10000,
-        "idf_batch_size": 128,
-        "idf_learning_rate": 5e-4,
-        "idf_update_interval": 10000
+        "idf_learning_rate": 5e-4
     },
     "env": {
         "size": [19, 19],
         "grayscale": false,
-        "reset_episodes": 50,
-        "reset_same": false
+        "reset_same": true
+    },
+    "runner": {
+        "log_interval_steps": 1e4,
+        "log_dsr_interval_steps": 5e3
     },
     "mode": "image",
     "seed": 333,

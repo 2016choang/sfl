@@ -13,12 +13,12 @@
         "idf_model_kwargs": {
             "feature_size": 64
         },
-        "exploit_prob": 0.1,
+        "exploit_prob": 0.01,
         "landmark_update_interval": 1000,
         "add_threshold": 0.75,
         "reach_threshold": 0.99,
         "max_landmarks": 10,
-        "steps_per_landmark": 20,
+        "steps_per_landmark": 10,
         "true_distance": true,
         "steps_for_true_reach": 2
     },
@@ -44,7 +44,7 @@
         "terminate": true
     }, 
     "runner": {
-        "log_interval_steps": 2.5e3,
+        "log_interval_steps": 1e4,
         "log_dsr_interval_steps": 5e3,
         "log_landmark_steps": 5e3,
         "min_steps_landmark": 20000

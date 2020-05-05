@@ -134,13 +134,15 @@ def get_random_start():
 
 class MinigridImageWrapper(Wrapper):
     
-    def __init__(self, env, size=(19, 19), grayscale=True, collection=False, terminate=False, reset_same=False, reset_episodes=1):
+    def __init__(self, env, size=(19, 19), grayscale=True, max_steps=500, terminate=False, reset_same=False, reset_episodes=1):
         super().__init__(env)
         self.env = env
         
         self.size = size
         self.grayscale = grayscale
 
+        self.steps_remaining = max_steps
+        self.max_steps = max_steps
         self.terminate = terminate
 
         self.reset_same = reset_same
@@ -148,33 +150,52 @@ class MinigridImageWrapper(Wrapper):
         self.reset_episodes = reset_episodes
         self.episodes = 0
 
+        self.visited = np.zeros((self.env.grid.height, self.env.grid.width), dtype=int)
+
         if grayscale:
             self.observation_space = Box(0, 1, size)
         else:
             self.observation_space = Box(0, 1, (*size, 3))
 
-        self.collection = collection
-        if self.collection:
-            self.action_space = Discrete(5)
-        else:
-            self.action_space = Discrete(4)
+        self.action_space = Discrete(4)
+    
+    def get_possible_pos(self):
+        h, w = self.env.grid.height, self.env.grid.width
+
+        positions = set()
+        for y in range(h):
+            for x in range(w):
+                if x not in [0, 9, 18] and y not in [0, 9, 18]:
+                    for action in range(4):
+                        self.env.unwrapped.agent_pos = np.array([x, y])
+                        self.step(action)
+
+                        pos = tuple(self.env.unwrapped.agent_pos)
+                        positions.add(pos)
+
+        return positions 
+
+    def get_current_state(self):
+        self.env.step(0)
+        obs, reward, done, info = self.env.step(1)
+        obs = self.get_obs(obs)
+        return obs, reward, done, info
 
     def step(self, action):
         # # 0 -- turn left  1 -- turn right  2 -- move forward
-        # obs, reward, done, info = self.env.step(action)
+        self.env.unwrapped.agent_dir = action
+        obs, reward, done, info = self.env.step(2)
 
-        # 0 -- right, 1 -- down, 2 -- left, 3 -- up, 4 -- do nothing
-        if action == 4:
-            self.env.step(0)
-            obs, reward, done, info = self.env.step(1)
-        else:
-            self.env.unwrapped.agent_dir = action
-            obs, reward, done, info = self.env.step(2)
+        self.visited[tuple(self.env.unwrapped.agent_pos)] += 1
 
         obs = self.get_obs(obs)
-        if not self.terminate:
-            done = self.env.steps_remaining == 0
+        self.steps_remaining -= 1        
+        if not self.terminate or not done:
+            done = self.steps_remaining == 0
         return obs, reward, done, info
+        
+    def reset_episode(self):
+        self.steps_remaining = self.max_steps
 
     def reset(self, **kwargs):
         self.env.reset()
@@ -188,13 +209,16 @@ class MinigridImageWrapper(Wrapper):
         
         self.env.step(0)
         obs, _, _, _ = self.env.step(1)
-        self.env.steps_remaining = self.env.max_steps
+        
+        self.visited[tuple(self.env.unwrapped.agent_pos)] += 1
         
         self.episodes += 1
+        self.reset_episode()
+
         return self.get_obs(obs) 
 
     def get_obs(self, obs):
-        resized = resize(obs['image'], self.size, anti_aliasing=True)
+        resized = resize(obs, self.size, anti_aliasing=True)
         if self.grayscale:
             return np.dot(resized, [0.2989, 0.5870, 0.1140])
         else:
@@ -215,6 +239,9 @@ class MinigridMultiRoomOracleWrapper(Wrapper):
         self.option_path = []
 
         self.visited = np.zeros((self.env.grid.height, self.env.grid.width), dtype=int)
+
+    def get_current_state(self):
+        return self.env.get_current_state()
 
     def generate_path(self, start, goal):
         delta = start - goal
@@ -351,7 +378,7 @@ class MinigridMultiRoomOracleWrapper(Wrapper):
         
         self.visited[tuple(self.env.unwrapped.agent_pos)] += 1
 
-        obs = self.env.step(5)[0]
+        obs = self.get_current_state()[0]
         self.env.steps_remaining = self.env.max_steps
         return obs
 
@@ -366,15 +393,18 @@ class MinigridMultiRoomLandmarkWrapper(Wrapper):
         self.action_space = Discrete(4)
 
         self.visited = np.zeros((self.env.grid.height, self.env.grid.width), dtype=int)
-    
+
+    def get_current_state(self):
+        return self.env.get_current_state()
+
     def get_goal_state(self):
         self.reset()
         self.env.episodes -= 1  # does not count towards number of episodes per start position
 
         # self.env.unwrapped.agent_pos = self.env.unwrapped.goal_pos
-        # TODO: hard-coded for now
+        # TODO: Hard-coded state next to goal state for now!
         self.env.unwrapped.agent_pos = np.array([16, 19])
-        obs = self.env.step(5)[0]
+        obs = self.get_current_state()[0]
         self.reset_episode()
         return obs
 
@@ -476,7 +506,7 @@ class MinigridMultiRoomLandmarkWrapper(Wrapper):
         
         self.visited[tuple(self.env.unwrapped.agent_pos)] += 1
 
-        obs = self.env.step(5)[0]
+        obs = self.get_current_state()[0]
         self.reset_episode()
         return obs
 
@@ -505,18 +535,36 @@ class MinigridMultiRoomWrapper(Wrapper):
         else:
             self.observation_space = Box(0, 1, (*size, 3))
 
-        self.action_space = Discrete(6)
+        self.action_space = Discrete(5)
+
+    def get_current_state(self):
+        self.env.step(0)
+        obs, reward, done, info = self.env.step(1)
+        obs = self.get_obs(obs)
+        return obs, reward, done, info
+        
+    def get_possible_pos(self):
+        positions = set()
+        for room in self.env.rooms:
+            start_x, start_y = room.top
+            size_x, size_y = room.size
+            for x in range(start_x + 1, start_x + size_x - 1):
+                for y in range(start_y + 1, start_y + size_y - 1):
+                    positions.add((x, y))
+            
+            if room.exitDoorPos is not None:
+                positions.add(room.exitDoorPos)
+
+        return positions
 
     def get_random_room_start(self):
         room = self.env.rooms[np.random.randint(self.num_rooms)]
         return self.env.place_agent(room.top, room.size)
 
     def step(self, action):
-        # 0 -- right, 1 -- down, 2 -- left, 3 -- up, 4 - toggle doors, 5 - do nothing
+        # 0 -- right, 1 -- down, 2 -- left, 3 -- up, 4 - toggle doors
         if action == 4:
             obs, reward, done, info = self.env.step(5)
-        elif action == 5:
-            obs, reward, done, info = self.env.step(6)
         else:
             self.env.unwrapped.agent_dir = action
             obs, reward, done, info = self.env.step(2)
@@ -773,7 +821,6 @@ def make(*args, info_example=None, mode=None, minigrid_config=None, **kwargs):
 
         size = minigrid_config.get('size', (19, 19))
         grayscale = minigrid_config.get('grayscale', False)
-        collection = minigrid_config.get('collection', False)
 
         terminate = minigrid_config.get('terminate', False)
         reset_same = minigrid_config.get('reset_same', False)
@@ -801,8 +848,8 @@ def make(*args, info_example=None, mode=None, minigrid_config=None, **kwargs):
             env.max_steps = max_steps
             env = ReseedWrapper(env)
             if mode == 'image':
-                env = RGBImgObsWrapper(env)
-                return GymEnvWrapper(MinigridImageWrapper(env, size=size, grayscale=grayscale, collection=collection, terminate=terminate, reset_same=reset_same, reset_episodes=reset_episodes))
+                env = ImgObsWrapper(RGBImgObsWrapper(env))
+                return GymEnvWrapper(MinigridImageWrapper(env, size=size, grayscale=grayscale, max_steps=max_steps, terminate=terminate, reset_same=reset_same, reset_episodes=reset_episodes))
             elif mode == 'one-hot':
                 return GymEnvWrapper(MinigridOneHotWrapper(RGBImgObsWrapper(env), reset_same=reset_same, reset_episodes=reset_episodes))
             elif mode == 'one-hot-features':

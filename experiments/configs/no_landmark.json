@@ -33,7 +33,8 @@
     "env": {
         "size": [25, 25],
         "max_steps": 500,
-        "reset_same": true
+        "reset_same": false,
+        "reset_episodes": 1
     },
     "eval_env": {
         "size": [25, 25],
@@ -42,7 +43,7 @@
         "terminate": true
     }, 
     "runner": {
-        "log_interval_steps": 2.5e3,
+        "log_interval_steps": 1e4,
         "log_dsr_interval_steps": 5e3,
         "log_landmark_steps": 5e3,
         "min_steps_landmark": 1e10

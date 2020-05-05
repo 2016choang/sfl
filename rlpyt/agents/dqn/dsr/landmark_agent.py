@@ -247,8 +247,6 @@ class LandmarkAgent(IDFDSRAgent):
 
     @torch.no_grad()
     def step(self, observation, prev_action, prev_reward):
-        self.exploit()
-
         if self.landmarks is not None:
             model_inputs = buffer_to(observation,
                 device=self.device)
@@ -313,6 +311,8 @@ class LandmarkAgent(IDFDSRAgent):
             q_values = torch.matmul(dsr, subgoal_landmark_features).cpu()
             action = self.distribution.sample(q_values)
             self.landmark_steps += 1
+
+        self.exploit()
 
         agent_info = AgentInfo(a=action)
         return AgentStep(action=action, agent_info=agent_info)

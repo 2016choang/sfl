@@ -52,7 +52,6 @@ def build_and_train(config_file,
         device = torch.device('cpu')
 
     sampler = SerialSampler(
-        CollectorCls=OracleCollector,
         EnvCls=gym_make,
         env_kwargs=dict(id=env_id, mode=mode, minigrid_config=config['env']),
         eval_env_kwargs=dict(id=env_id, mode=mode, minigrid_config=config['env']),

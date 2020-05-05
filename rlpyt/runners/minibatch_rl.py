@@ -1,3 +1,4 @@
+import copy
 from collections import deque, defaultdict
 import io
 import psutil
@@ -345,8 +346,8 @@ class MinibatchDSREval(MinibatchRlEval):
         plt.imshow(env.visited.T)
         circle = plt.Circle(tuple(env.start_pos), 0.2, color='r')
         plt.gca().add_artist(circle)
-        circle = plt.Circle(tuple(env.goal_pos), 0.2, color='purple')
-        plt.gca().add_artist(circle)
+        # circle = plt.Circle(tuple(env.goal_pos), 0.2, color='purple')
+        # plt.gca().add_artist(circle)
         plt.colorbar()
         save_image('State Visitation Heatmap', itr)
 
@@ -418,6 +419,13 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
             with logger.prefix(f"itr #{itr} "):
                 self.agent.sample_mode(itr)
                 samples, traj_infos = self.sampler.obtain_samples(itr)
+                if not self.agent.explore:
+                    samples = copy.deepcopy(samples)
+                    samples.env.done[-1] = True
+                    traj_infos = copy.deepcopy(traj_infos)
+                    while not self.agent.explore:
+                        # TODO: Make sampler function to simply move in environment
+                        self.sampler.obtain_samples(itr)
                 self.agent.train_mode(itr)
                 opt_info = self.algo.optimize_agent(itr, samples)
                 logger.log_itr_info(itr, opt_info)

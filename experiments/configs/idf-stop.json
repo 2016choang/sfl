@@ -1,5 +1,6 @@
 {
     "agent": {
+        "eps_init": 1,
         "eps_final": 1,
         "eps_eval": 1,
         "model_kwargs": {
@@ -20,24 +21,20 @@
         "learning_rate": 1e-3,
         "replay_size": 20000,
         "delta_clip": 1,
-        "min_steps_dsr_learn": 2000,
-        "idf_batch_size": 128,
-        "idf_learning_rate": 5e-4,
-        "idf_update_interval": 10000
+        "max_steps_idf_learn": 20000,
+        "min_steps_dsr_learn": 20000,
+        "idf_learning_rate": 5e-4
     },
     "env": {
-        "size": [25, 25],
-        "epsilon": 0.01,
-        "oracle": true, 
+        "size": [19, 19],
         "grayscale": false,
-        "reset_episodes": 5,
-        "reset_same": false
+        "reset_same": true
     },
     "runner": {
-        "log_interval_steps": 1e3,
-        "log_dsr_interval_steps": 1e3
+        "log_interval_steps": 1e4,
+        "log_dsr_interval_steps": 5e3
     },
-    "mode": "multiroom",
+    "mode": "image",
     "seed": 333,
     "tabular": false
 }

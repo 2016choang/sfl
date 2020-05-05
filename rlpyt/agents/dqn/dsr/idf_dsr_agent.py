@@ -59,10 +59,7 @@ class IDFDSRAgent(Mixin, DsrAgent):
     def step(self, observation, prev_action, prev_reward):
         # random exploration policy shortcut
         if self.distribution.epsilon >= 1.0:
-            if prev_action.shape:
-                q = torch.zeros(prev_action.shape[0], self.distribution.dim)
-            else:
-                q = torch.zeros(self.distribution.dim)
+            action = torch.randint_like(prev_action, high=self.distribution.dim)
         else:
             model_inputs = buffer_to(observation,
                 device=self.device)
@@ -76,8 +73,8 @@ class IDFDSRAgent(Mixin, DsrAgent):
                 device=self.device)
             q = self.model(model_inputs, mode='q')
             q = q.cpu()
-
-        action = self.distribution.sample(q)
+            action = self.distribution.sample(q)
+    
         agent_info = AgentInfo(a=action)
         return AgentStep(action=action, agent_info=agent_info)
 
@@ -112,41 +109,22 @@ class IDFDSRAgent(Mixin, DsrAgent):
         dsr = torch.zeros((h, w, 4, env.action_space.n, self.idf_model.feature_size), dtype=torch.float)
         dsr += np.nan
 
-        for room in env.rooms:
-            start_x, start_y = room.top
-            size_x, size_y = room.size
+        for pos in env.get_possible_pos():
+            x, y = pos
             for direction in range(4):
-                for x in range(start_x + 1, start_x + size_x - 1):
-                    for y in range(start_y + 1, start_y + size_y - 1):
-                        env.env.env.unwrapped.agent_pos = np.array([x, y])
-                        env.env.env.unwrapped.agent_dir = direction
-                        obs, _, _, _ = env.env.env.step(5)
-                        
-                        model_inputs = buffer_to(torch.Tensor(obs).unsqueeze(0),
-                            device=self.device)
+                env.unwrapped.agent_pos = np.array([x, y])
+                env.unwrapped.agent_dir = direction
+                obs, _, _, _ = env.get_current_state()
 
-                        features = self.idf_model(model_inputs, mode='encode')
+                model_inputs = buffer_to(torch.Tensor(obs).unsqueeze(0),
+                    device=self.device)
 
-                        model_inputs = buffer_to(features,
-                            device=self.device)
+                features = self.idf_model(model_inputs, mode='encode')
 
-                        dsr[x, y, direction] = self.model(model_inputs, mode='dsr')
+                model_inputs = buffer_to(features,
+                    device=self.device)
 
-                if room.exitDoorPos is not None:
-                    exit_door = np.array(room.exitDoorPos)
-                    env.env.env.unwrapped.agent_pos = exit_door
-                    env.env.env.unwrapped.agent_dir = direction
-                    obs, _, _, _ = env.env.env.step(5)
-
-                    model_inputs = buffer_to(torch.Tensor(obs).unsqueeze(0),
-                            device=self.device)
-
-                    features = self.idf_model(model_inputs, mode='encode')
-
-                    model_inputs = buffer_to(features,
-                        device=self.device)
-
-                    dsr[exit_door[0], exit_door[1], direction] = self.model(model_inputs, mode='dsr')
+                dsr[x, y, direction] = self.model(model_inputs, mode='dsr')
 
         return dsr
 
@@ -189,10 +167,8 @@ class IDFDSRAgent(Mixin, DsrAgent):
         
         dsr_matrix = dsr_matrix / np.linalg.norm(dsr_matrix, ord=2, axis=3, keepdims=True)
 
-        side_size = dsr_matrix.shape[0]
-
         env.unwrapped.agent_pos = np.array(subgoal)
-        obs = env.env.env.step(5)[0]
+        obs = env.get_current_state()[0]
         obs = torch.Tensor(obs).unsqueeze(0).to(self.device)
         features = self.idf_model(obs, mode='encode')
         features = features.squeeze().detach().cpu().numpy()

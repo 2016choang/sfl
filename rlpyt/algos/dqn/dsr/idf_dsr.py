@@ -21,6 +21,7 @@ class IDFDSR(DSR):
             self,
             idf_learning_rate=2.5e-4,
             idf_update_interval=312,  # 312 * 32 = 1e4 env steps.
+            max_steps_idf_learn=None,
             min_steps_dsr_learn=int(5e4),
             **kwargs):
         super().__init__(**kwargs)
@@ -33,6 +34,10 @@ class IDFDSR(DSR):
             world_size=1, rank=0):
         super().initialize(agent, n_itr, batch_spec, mid_batch_reset, examples,
             world_size, rank)
+        if self.max_steps_idf_learn is not None:
+            self.max_itr_idf_learn = int(self.max_steps_idf_learn // self.sampler_bs)
+        else:
+            self.max_itr_idf_learn = None
         self.min_itr_dsr_learn = int(self.min_steps_dsr_learn // self.sampler_bs)
 
     def optim_initialize(self, rank=0):
@@ -64,18 +69,19 @@ class IDFDSR(DSR):
 
         for _ in range(self.updates_per_optimize):
             samples_from_replay = self.replay_buffer.sample_batch(self.batch_size)
-            self.idf_optimizer.zero_grad()
+            if self.max_itr_idf_learn is None or itr < self.max_itr_idf_learn: 
+                self.idf_optimizer.zero_grad()
 
-            idf_loss, accuracy = self.idf_loss(samples_from_replay)
-            idf_loss.backward()
-            idf_grad_norm = torch.nn.utils.clip_grad_norm_(
-                self.agent.idf_parameters(), self.clip_grad_norm)
+                idf_loss, accuracy = self.idf_loss(samples_from_replay)
+                idf_loss.backward()
+                idf_grad_norm = torch.nn.utils.clip_grad_norm_(
+                    self.agent.idf_parameters(), self.clip_grad_norm)
 
-            self.idf_optimizer.step()
+                self.idf_optimizer.step()
 
-            opt_info.idfLoss.append(idf_loss.item())
-            opt_info.idfAccuracy.append(accuracy.item())
-            opt_info.idfGradNorm.append(idf_grad_norm)
+                opt_info.idfLoss.append(idf_loss.item())
+                opt_info.idfAccuracy.append(accuracy.item())
+                opt_info.idfGradNorm.append(idf_grad_norm)
 
             if itr >= self.min_itr_dsr_learn:
                 self.dsr_optimizer.zero_grad()
