@@ -482,10 +482,10 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         save_image('Landmarks reach rates', itr)
 
         if self.agent.start_end_dist_ratio:
-            logger.record_tabular_stat('Start/End Distance Ratio', np.average(self.agent.start_end_dist_ratio), itr)
+            logger.record_tabular_stat('StartEndDistanceRatio', np.average(self.agent.start_end_dist_ratio), itr)
 
-        logger.record_tabular_stat('Landmarks added', self.agent.landmarks.landmark_adds, itr)
-        logger.record_tabular_stat('Landmarks removed', self.agent.landmarks.landmark_removes, itr)
+        logger.record_tabular_stat('LandmarksAdded', self.agent.landmarks.landmark_adds, itr)
+        logger.record_tabular_stat('LandmarksRemoved', self.agent.landmarks.landmark_removes, itr)
 
         self.agent.reset_logging()
 
@@ -494,7 +494,7 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         plt.bar(np.arange(len(visitations)), visitations)
         plt.xlabel('Landmark')
         plt.ylabel('Visitations')
-        save_images('Landmark visitation counts', itr)
+        save_image('Landmark visitation counts', itr)
 
         env = self.sampler.collector.envs[0]
         landmarks_grid = env.visited.T.copy()

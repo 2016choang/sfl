@@ -300,8 +300,10 @@ class LandmarkAgent(IDFDSRAgent):
                     self.path_idx = 0
 
                     cur_x, cur_y = get_true_pos(observation.squeeze())
-                    landmark_x, landmark_y = self.landmarks.get_pos()[self.current_landmark]
+                    landmark_x, landmark_y = self.landmarks.get_pos()[self.goal_landmark]
                     self.start_distance = self.env_true_dist[cur_x, cur_y, landmark_x, landmark_y]
+                    if self.start_distance == 0:
+                        self.start_distance = 1
 
                 if self.landmark_steps < self.steps_per_landmark:
                     norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, keepdim=True) 
@@ -330,6 +332,10 @@ class LandmarkAgent(IDFDSRAgent):
                 else:
                     self.landmarks.visitations[self.current_landmark] += 1
                     if self.current_landmark == self.goal_landmark:
+                        cur_x, cur_y = get_true_pos(observation.squeeze())
+                        landmark_x, landmark_y = self.landmarks.get_pos()[self.current_landmark]
+                        ending_distance = self.env_true_dist[cur_x, cur_y, landmark_x, landmark_y]
+                        
                         self.start_end_dist_ratio.append(float(ending_distance / self.start_distance)) 
                         self.explore = True
                     else:

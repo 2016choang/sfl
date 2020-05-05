@@ -18,7 +18,7 @@
         "add_threshold": 0.75,
         "reach_threshold": 0.99,
         "max_landmarks": 10,
-        "steps_per_landmark": 20
+        "steps_per_landmark": 10
     },
     "algo": {
         "discount": 0.999,
