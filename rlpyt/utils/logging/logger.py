@@ -444,6 +444,8 @@ def record_tabular_misc_stat(key, values, itr=None, placement='back'):
         prefix = key
         suffix = ""
     if len(values) > 0:
+        if isinstance(values[0], torch.Tensor):
+            values = torch.stack(values, axis=0).detach().cpu().numpy()
         record_tabular(prefix + "Average" + suffix, np.average(values))
         record_tabular(prefix + "Std" + suffix, np.std(values))
         record_tabular(prefix + "Median" + suffix, np.median(values))
@@ -468,4 +470,6 @@ def record_tabular_stat(key, value, itr=None):
 def log_itr_info(itr, opt_info):
     for key, values in opt_info._asdict().items():
         if _tf_summary_writer is not None and values:
+            if isinstance(values[0], torch.Tensor):
+                values = torch.stack(values, axis=0).detach().cpu().numpy()
             _tf_summary_writer.add_scalar(key, np.average(values), itr)
