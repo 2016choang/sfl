@@ -205,7 +205,7 @@ class DSR(RlAlgorithm):
 
         # 3. combine current features + discounted target successor features
         disc_target_s_features = (self.discount ** self.n_step_return) * target_s_features
-        y = features + (1 - samples.done_n.float()).view(-1, 1) * disc_target_s_features
+        y = target_features + (1 - samples.done_n.float()).view(-1, 1) * disc_target_s_features
 
         delta = y - s_features
         losses = 0.5 * delta ** 2

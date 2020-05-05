@@ -30,6 +30,13 @@ class Landmarks(object):
         self.predecessors = None
         self.graph = None
 
+        self.landmark_adds = 0
+        self.landmark_removes = 0
+    
+    def reset_logging(self):
+        self.landmark_adds = 0
+        self.landmark_removes = 0
+
     def add_goal_landmark(self, observation, features, dsr):
         self.observations = torch.cat((self.observations, observation), dim=0)
         self.set_features(features, self.num_landmarks)
@@ -57,12 +64,15 @@ class Landmarks(object):
             self.set_dsr(dsr)
             self.visitations = np.array([0])
             self.num_landmarks += 1
+
+            self.landmark_adds += 1
         else:
             norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, keepdim=True)
             similarity = torch.matmul(self.norm_dsr, norm_dsr.T)  # cosine similarity of dsr
 
             if sum(similarity < self.threshold) >= max((self.num_landmarks // 2), 1):
-                observation = observation
+                self.landmark_adds += 1
+
                 if self.num_landmarks < self.max_landmarks:
                     self.observations = torch.cat((self.observations, observation), dim=0)
                     self.set_features(features, self.num_landmarks)
@@ -182,6 +192,8 @@ class Landmarks(object):
         save_idx = save_idx.detach().cpu().numpy()
         self.visitations = self.visitations[save_idx]
 
+        self.landmark_removes += (self.num_landmarks - sum(save_idx))
+
         self.num_landmarks = sum(save_idx)
 
 
@@ -207,7 +219,21 @@ class LandmarkAgent(IDFDSRAgent):
         self.true_path_progress = np.zeros(self.max_landmarks + 1)
         self.true_reach_freq = np.zeros(self.max_landmarks + 1)
         self.total_reach_freq = np.zeros(self.max_landmarks + 1)
+
+        self.start_end_dist_ratio = []
         super().__init__(**kwargs)
+
+    def reset_logging(self):
+        self.path_progress = np.zeros(self.max_landmarks + 1)
+        self.path_freq = np.zeros(self.max_landmarks + 1)
+        self.true_path_progress = np.zeros(self.max_landmarks + 1)
+        self.true_reach_freq = np.zeros(self.max_landmarks + 1)
+        self.total_reach_freq = np.zeros(self.max_landmarks + 1)
+
+        self.start_end_dist_ratio = []
+
+        if self.landmarks is not None:
+            self.landmarks.reset_logging()
 
     def set_env_true_dist(self, env):
         self.env_true_dist = env.get_true_distances()
@@ -273,6 +299,10 @@ class LandmarkAgent(IDFDSRAgent):
                     self.path_freq[:len(self.path)] += 1
                     self.path_idx = 0
 
+                    cur_x, cur_y = get_true_pos(observation.squeeze())
+                    landmark_x, landmark_y = self.landmarks.get_pos()[self.current_landmark]
+                    self.start_distance = self.env_true_dist[cur_x, cur_y, landmark_x, landmark_y]
+
                 if self.landmark_steps < self.steps_per_landmark:
                     norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, keepdim=True) 
                     subgoal_similarity = torch.matmul(self.landmarks.norm_dsr[self.current_landmark], norm_dsr.T)
@@ -283,12 +313,14 @@ class LandmarkAgent(IDFDSRAgent):
 
                         cur_x, cur_y = get_true_pos(observation.squeeze())
                         landmark_x, landmark_y = self.landmarks.get_pos()[self.current_landmark]
-                        
-                        if self.env_true_dist[cur_x, cur_y, landmark_x, landmark_y] <= self.steps_for_true_reach:
+                        ending_distance = self.env_true_dist[cur_x, cur_y, landmark_x, landmark_y]
+
+                        if ending_distance <= self.steps_for_true_reach:
                             self.true_path_progress[self.path_idx] += 1
                             self.true_reach_freq[self.path_idx] += 1
                             
                         if self.current_landmark == self.goal_landmark:
+                            self.start_end_dist_ratio.append(float(ending_distance / self.start_distance)) 
                             self.explore = True
                         else:
                             self.path_idx += 1
@@ -298,6 +330,7 @@ class LandmarkAgent(IDFDSRAgent):
                 else:
                     self.landmarks.visitations[self.current_landmark] += 1
                     if self.current_landmark == self.goal_landmark:
+                        self.start_end_dist_ratio.append(float(ending_distance / self.start_distance)) 
                         self.explore = True
                     else:
                         self.path_idx += 1
