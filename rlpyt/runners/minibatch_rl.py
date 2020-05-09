@@ -454,6 +454,22 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                 if eval_goal:
                     summary_writer = logger.get_tf_summary_writer()                   
                     summary_writer.add_text("Path to goal", ','.join(map(str, self.agent.path)), itr)
+                    logger.record_tabular_stat('EndDistanceToGoal', np.average(self.agent.eval_distances), itr)
+
+                    eval_env = self.sampler.eval_collector.envs[0]
+                    eval_grid = eval_env.visited.T.copy()
+
+                    figure = plt.figure(figsize=(7, 7))
+                    plt.imshow(eval_grid)
+                    for pos, landmarks in self.agent.eval_end_pos.items():
+                        plt.text(pos[0] -0.25, pos[1] + 0.25, ','.join(map(str, landmarks)), fontsize=6)
+                    circle = plt.Circle(tuple(eval_env.start_pos), 0.2, color='r')
+                    plt.gca().add_artist(circle)
+                    circle = plt.Circle(tuple(eval_env.goal_pos), 0.2, color='purple')
+                    plt.gca().add_artist(circle)
+                    plt.colorbar()
+                    save_image('Eval visitations and end positions', itr)
+
                     self.agent.remove_eval_goal()
 
 
@@ -461,7 +477,7 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
 
     @torch.no_grad()
     def log_landmarks(self, itr):
-        if self.agent.landmarks is None or self.agent.landmarks.observations is None:
+        if self.agent.landmarks is None or self.agent.landmarks.num_landmarks == 0:
             return
 
         figure = plt.figure(figsize=(7, 7))
@@ -473,19 +489,39 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         true_path_success = self.agent.true_path_progress / np.clip(self.agent.path_freq, 1, None)
         plt.bar(ind + width, true_path_success, width, label='True distance reach')
         
-        true_reach = self.agent.true_reach_freq / np.clip(self.agent.total_reach_freq, 1, None)
-        plt.bar(ind + 2 * width, true_reach, width, label='Similarity / true reach')
+        true_reach_ratio = self.agent.true_path_progress / np.clip(self.agent.path_progress, 1, None)
+        plt.bar(ind + 2 * width, true_reach_ratio, width, label='Similarity / true reach ratio')
 
         plt.xlabel('ith Landmark')
         plt.ylabel('Reach rate')
         plt.legend()
         save_image('Landmarks reach rates', itr)
 
-        if self.agent.start_end_dist_ratio:
-            logger.record_tabular_stat('StartEndDistanceRatio', np.average(self.agent.start_end_dist_ratio), itr)
+        figure = plt.figure(figsize=(7, 7))
+        end_start_dist_progress = self.agent.end_start_dist_progress
+        for i, progress in enumerate(end_start_dist_progress):
+            if progress:
+                end_start_dist_progress[i] = np.average(progress)
+            else:
+                end_start_dist_progress[i] = 0
+        
+        ind = np.arange(len(end_start_dist_progress))
+        plt.bar(ind, end_start_dist_progress)
+        plt.xlabel('ith Landmark')
+        plt.ylabel('End/Start Distance Ratio')
+        save_image('Landmarks end-start distance ratio', itr)
+
+        if self.agent.end_start_dist_ratio:
+            logger.record_tabular_stat('End-StartDistanceRatio', np.average(self.agent.end_start_dist_ratio), itr)
 
         logger.record_tabular_stat('LandmarksAdded', self.agent.landmarks.landmark_adds, itr)
         logger.record_tabular_stat('LandmarksRemoved', self.agent.landmarks.landmark_removes, itr)
+
+        if self.agent.num_paths:
+            logger.record_tabular_stat('CorrectStartLandmarkRatio', float(self.agent.correct_start_landmark / self.agent.num_paths), itr)
+
+        if self.agent.dist_ratio_start_landmark:
+            logger.record_tabular_stat('True-EstimateDistanceStartLandmarkRatio', np.average(self.agent.dist_ratio_start_landmark), itr)
 
         self.agent.reset_logging()
 
@@ -522,6 +558,8 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         save_image('Landmarks', itr)
 
         figure = plt.figure(figsize=(7, 7))
+        self.agent.generate_graph()
+
         G = self.agent.landmarks.graph
         pos = nx.circular_layout(G)
         nx.draw_networkx_nodes(G, pos, node_size=600)

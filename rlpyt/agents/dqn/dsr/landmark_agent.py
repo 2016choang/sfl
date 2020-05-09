@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 import networkx as nx
 import numpy as np
 from scipy.spatial import distance_matrix
@@ -70,7 +72,7 @@ class Landmarks(object):
             norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, keepdim=True)
             similarity = torch.matmul(self.norm_dsr, norm_dsr.T)  # cosine similarity of dsr
 
-            if sum(similarity < self.threshold) >= max((self.num_landmarks // 2), 1):
+            if sum(similarity < self.threshold) >= self.num_landmarks - 1:
                 self.landmark_adds += 1
 
                 if self.num_landmarks < self.max_landmarks:
@@ -82,14 +84,19 @@ class Landmarks(object):
 
                 else:
                     landmark_similarities = torch.matmul(self.norm_dsr, self.norm_dsr.T)
-                    replace_idx = torch.sum(landmark_similarities < self.threshold, axis=1).argmin().item()
+                    landmark_similarities[range(self.num_landmarks), range(self.num_landmarks)] = -2
+                    idx = landmark_similarities.argmax().item()
+                    a, b = idx // self.num_landmarks, idx % self.num_landmarks
+                    if similarity[a] > similarity[b]:
+                        replace_idx = a
+                    else:
+                        replace_idx = b
                     self.observations[replace_idx] = observation
                     self.set_features(features, replace_idx)
                     self.set_dsr(dsr, replace_idx)
                     self.visitations[replace_idx] = 0
 
     def set_features(self, features, idx=None):
-        features = features
         norm_features = features / torch.norm(features, p=2, dim=1, keepdim=True)
         if self.features is None or idx is None:
             self.features = features
@@ -123,6 +130,7 @@ class Landmarks(object):
         return pos
 
     def generate_true_graph(self, env_true_dist, steps_per_landmark):
+        # TODO: Hack to generate landmark graph based on true distances
         n_landmarks = len(self.norm_dsr)
         landmark_distances = np.zeros((n_landmarks, n_landmarks))
 
@@ -137,8 +145,11 @@ class Landmarks(object):
                     landmark_distances[s, t] = env_true_dist[s_x, s_y, t_x, t_y]
 
         try_distances = landmark_distances.copy()
-        non_edges = try_distances > steps_per_landmark
-        try_distances[try_distances > steps_per_landmark] = 0
+        non_edges = try_distances > (steps_per_landmark)
+        try_distances[try_distances > (steps_per_landmark)] = 0
+
+        # non_edges = try_distances > (steps_per_landmark / 2)
+        # try_distances[try_distances > (steps_per_landmark / 2)] = 0
 
         G = nx.from_numpy_array(try_distances)
         if not nx.is_connected(G):
@@ -176,12 +187,16 @@ class Landmarks(object):
         return self.graph
 
     def generate_path(self, source, target):
-        self.path = nx.shortest_path(self.graph, source, target, weight='weight')
+        max_length = 0
+        for path in nx.all_shortest_paths(self.graph, source, target, weight='weight'):
+            if len(path) > max_length:
+                self.path = path
+                max_length = len(path)
         return self.path
 
     def prune_landmarks(self):
         landmark_similarities = torch.matmul(self.norm_dsr, self.norm_dsr.T)
-        save_idx = torch.sum(landmark_similarities < self.threshold, axis=1) >= (self.num_landmarks // 2)
+        save_idx = torch.sum(landmark_similarities < self.threshold, axis=1) >= (self.num_landmarks - 1)
 
         self.observations = self.observations[save_idx]
         self.features = self.features[save_idx]
@@ -201,7 +216,7 @@ class LandmarkAgent(IDFDSRAgent):
 
     def __init__(
             self,
-            exploit_prob=0.01,
+            landmark_mode_interval=100,
             landmark_update_interval=int(5e3),
             add_threshold=0.75,
             reach_threshold=0.95,
@@ -209,28 +224,40 @@ class LandmarkAgent(IDFDSRAgent):
             steps_per_landmark=25,
             true_distance=False,
             steps_for_true_reach=2,
+            oracle=False,
             **kwargs):
         save__init__args(locals())
+        self.landmark_mode_steps = 0
         self.explore = True
         self.landmarks = None
         self.update = False
-        self.path_progress = np.zeros(self.max_landmarks + 1)
-        self.path_freq = np.zeros(self.max_landmarks + 1)
-        self.true_path_progress = np.zeros(self.max_landmarks + 1)
-        self.true_reach_freq = np.zeros(self.max_landmarks + 1)
-        self.total_reach_freq = np.zeros(self.max_landmarks + 1)
 
-        self.start_end_dist_ratio = []
+        self.correct_start_landmark = 0
+        self.num_paths = 0
+
+        self.dist_ratio_start_landmark = []
+
+        self.path_freq = np.zeros(self.max_landmarks + 1)
+        self.path_progress = np.zeros(self.max_landmarks + 1)
+        self.true_path_progress = np.zeros(self.max_landmarks + 1)
+
+        self.end_start_dist_progress = [[] for _ in range(self.max_landmarks + 1)]
+
+        self.end_start_dist_ratio = []
         super().__init__(**kwargs)
 
     def reset_logging(self):
-        self.path_progress = np.zeros(self.max_landmarks + 1)
-        self.path_freq = np.zeros(self.max_landmarks + 1)
-        self.true_path_progress = np.zeros(self.max_landmarks + 1)
-        self.true_reach_freq = np.zeros(self.max_landmarks + 1)
-        self.total_reach_freq = np.zeros(self.max_landmarks + 1)
+        self.correct_start_landmark = 0
+        self.num_paths = 0
 
-        self.start_end_dist_ratio = []
+        self.dist_ratio_start_landmark = []
+
+        self.path_freq = np.zeros(self.max_landmarks + 1)
+        self.path_progress = np.zeros(self.max_landmarks + 1)
+        self.true_path_progress = np.zeros(self.max_landmarks + 1)
+ 
+        self.end_start_dist_progress = [[] for _ in range(self.max_landmarks + 1)]
+        self.end_start_dist_ratio = []
 
         if self.landmarks is not None:
             self.landmarks.reset_logging()
@@ -255,14 +282,14 @@ class LandmarkAgent(IDFDSRAgent):
                 dsr = self.model(model_inputs, mode='dsr')
                 self.landmarks.set_dsr(dsr)
 
-                self.landmarks.prune_landmarks()
+                # self.landmarks.prune_landmarks()
 
                 self.explore = True
 
-    def exploit(self):
+    def landmark_mode(self):
         if self.landmarks is not None and self.landmarks.num_landmarks > 0 and self.explore and \
-                self._mode != 'eval' and np.random.random() < self.exploit_prob:
-                
+                self._mode != 'eval' and (self.landmark_mode_steps % self.landmark_mode_interval) == 0:
+
                 self.explore = False
                 self.landmark_steps = 0
                 self.current_landmark = None
@@ -270,6 +297,12 @@ class LandmarkAgent(IDFDSRAgent):
                 inverse_visitations = 1. / (self.landmarks.visitations + 1e-6)
                 landmark_probabilities = inverse_visitations / inverse_visitations.sum()
                 self.goal_landmark = np.random.choice(range(len(landmark_probabilities)), p=landmark_probabilities)
+
+    def generate_graph(self):
+        if self.true_distance:
+            self.landmarks.generate_true_graph(self.env_true_dist, self.steps_per_landmark)
+        else:
+            self.landmarks.generate_graph()
 
     @torch.no_grad()
     def step(self, observation, prev_action, prev_reward):
@@ -291,67 +324,141 @@ class LandmarkAgent(IDFDSRAgent):
                     norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, keepdim=True) 
                     landmark_similarity = torch.matmul(self.landmarks.norm_dsr, norm_dsr.T)
                     self.current_landmark = landmark_similarity.argmax().item()
-                    if self.true_distance:
-                        self.landmarks.generate_true_graph(self.env_true_dist, self.steps_per_landmark)
-                    else:
-                        self.landmarks.generate_graph()
-                    self.path = self.landmarks.generate_path(self.current_landmark, self.goal_landmark)
-                    self.path_freq[:len(self.path)] += 1
-                    self.path_idx = 0
 
                     cur_x, cur_y = get_true_pos(observation.squeeze())
+
+                    # check if correct starting landmark
+                    closest_landmark = None
+                    min_dist = None
+                    for i, pos in enumerate(self.landmarks.get_pos()):
+                        dist = self.env_true_dist[cur_x, cur_y, pos[0], pos[1]]
+                        if min_dist is None or dist < min_dist:
+                            min_dist = dist
+                            closest_landmark = i
+
+                        if i == self.current_landmark:
+                            chosen_landmark_dist = dist
+
+                    self.num_paths += 1
+                    if self.current_landmark == closest_landmark:
+                        self.correct_start_landmark += 1
+
+                    self.dist_ratio_start_landmark.append(float(min_dist / max(chosen_landmark_dist, 1)))
+
+                    # TODO: Hack to give the correct starting landmark
+                    self.current_landmark = closest_landmark
+
+                    self.generate_graph()
+                    self.path = self.landmarks.generate_path(self.current_landmark, self.goal_landmark)
+                    self.path_idx = 0
+
+                    if self._mode != 'eval':
+                        self.path_freq[:len(self.path)] += 1
+
                     landmark_x, landmark_y = self.landmarks.get_pos()[self.goal_landmark]
-                    self.start_distance = self.env_true_dist[cur_x, cur_y, landmark_x, landmark_y]
-                    if self.start_distance == 0:
-                        self.start_distance = 1
+                    self.total_start_distance = self.env_true_dist[cur_x, cur_y, landmark_x, landmark_y]
+                    if self.total_start_distance == 0:
+                        self.total_start_distance = 1
+                    
+                    self.start_distance = self.total_start_distance
 
-                if self.landmark_steps < self.steps_per_landmark:
-                    norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, keepdim=True) 
-                    subgoal_similarity = torch.matmul(self.landmarks.norm_dsr[self.current_landmark], norm_dsr.T)
-                    if subgoal_similarity > self.reach_threshold:
-                        self.landmarks.visitations[self.current_landmark] += 1
-                        self.path_progress[self.path_idx] += 1
-                        self.total_reach_freq[self.path_idx] += 1
-
+                # Loop until we find a landmark we are not "nearby"
+                find_next_landmark = True
+                while find_next_landmark:
+                    if self.landmark_steps <= self.steps_per_landmark:
+                        # norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, keepdim=True) 
+                        # subgoal_similarity = torch.matmul(self.landmarks.norm_dsr[self.current_landmark], norm_dsr.T)
+                        # if subgoal_similarity > self.reach_threshold:
+                        
+                        # TODO: Hack to check if landmark reached based on true manhattan distance
                         cur_x, cur_y = get_true_pos(observation.squeeze())
                         landmark_x, landmark_y = self.landmarks.get_pos()[self.current_landmark]
                         ending_distance = self.env_true_dist[cur_x, cur_y, landmark_x, landmark_y]
 
                         if ending_distance <= self.steps_for_true_reach:
-                            self.true_path_progress[self.path_idx] += 1
-                            self.true_reach_freq[self.path_idx] += 1
+                            self.landmarks.visitations[self.current_landmark] += 1
                             
+                            if self._mode == 'eval':
+                                self.eval_end_pos[(cur_x, cur_y)].append(self.current_landmark)
+                            else:
+                                # TODO: Bucket by starting distance instead
+                                self.end_start_dist_progress[self.path_idx].append(float(ending_distance / self.start_distance))
+
+                                self.path_progress[self.path_idx] += 1
+                                self.true_path_progress[self.path_idx] += 1
+
+                            if self.current_landmark == self.goal_landmark:
+                                self.explore = True
+                                if self._mode == 'eval':
+                                    self.eval_distances.append(ending_distance)
+                                else:
+                                    # TODO: Bucket by starting distance
+                                    self.end_start_dist_ratio.append(float(ending_distance / self.total_start_distance))
+                                find_next_landmark = False
+                            else:
+                                self.path_idx += 1
+                                self.current_landmark = self.path[self.path_idx]
+                                self.landmark_steps = 0
+                                landmark_x, landmark_y = self.landmarks.get_pos()[self.current_landmark]
+                                self.start_distance = self.env_true_dist[cur_x, cur_y, landmark_x, landmark_y]
+                                find_next_landmark = True
+                        else:
+                            find_next_landmark = False
+
+                    else:
+                        cur_x, cur_y = get_true_pos(observation.squeeze())
+                        landmark_x, landmark_y = self.landmarks.get_pos()[self.current_landmark]
+                        ending_distance = self.env_true_dist[cur_x, cur_y, landmark_x, landmark_y]
+
+                        if self._mode == 'eval':
+                            self.eval_end_pos[(cur_x, cur_y)].append(self.current_landmark)
+                        else:
+                            self.end_start_dist_progress[self.path_idx].append(float(ending_distance / self.start_distance))
+
                         if self.current_landmark == self.goal_landmark:
-                            self.start_end_dist_ratio.append(float(ending_distance / self.start_distance)) 
                             self.explore = True
+                            if self._mode == 'eval':
+                                self.eval_distances.append(ending_distance)
+                            else:
+                                self.end_start_dist_ratio.append(float(ending_distance / self.start_distance)) 
+                            find_next_landmark = False
                         else:
                             self.path_idx += 1
                             self.current_landmark = self.path[self.path_idx]
                             self.landmark_steps = 0
-
-                else:
-                    self.landmarks.visitations[self.current_landmark] += 1
-                    if self.current_landmark == self.goal_landmark:
-                        cur_x, cur_y = get_true_pos(observation.squeeze())
-                        landmark_x, landmark_y = self.landmarks.get_pos()[self.current_landmark]
-                        ending_distance = self.env_true_dist[cur_x, cur_y, landmark_x, landmark_y]
-                        
-                        self.start_end_dist_ratio.append(float(ending_distance / self.start_distance)) 
-                        self.explore = True
-                    else:
-                        self.path_idx += 1
-                        self.current_landmark = self.path[self.path_idx]
-                        self.landmark_steps = 0
+                            landmark_x, landmark_y = self.landmarks.get_pos()[self.current_landmark]
+                            self.start_distance = self.env_true_dist[cur_x, cur_y, landmark_x, landmark_y]
+                            find_next_landmark = True                            
 
         if self.explore:
             action = torch.randint_like(prev_action, high=self.distribution.dim)
+            if self._mode != 'eval':
+                self.landmark_mode_steps += 1
+        elif self.oracle and self._mode != 'eval':
+            cur_x, cur_y = get_true_pos(observation.squeeze())
+            landmark_x, landmark_y = self.landmarks.get_pos()[self.current_landmark]
+            new_pos = [[cur_x + 1, cur_y], [cur_x, cur_y + 1], [cur_x - 1, cur_y], [cur_x, cur_y - 1]]
+            min_dist = None
+            act = None
+            for a, pos in enumerate(new_pos):
+                new_x, new_y = pos
+                dist = self.env_true_dist[new_x, new_y, landmark_x, landmark_y]
+                if dist != -1:
+                    if min_dist is None or dist < min_dist:
+                        act = a
+                        min_dist = dist
+
+            action = torch.zeros_like(prev_action) + act
+            self.landmark_steps += 1
         else:
             subgoal_landmark_features = self.landmarks.norm_features[self.current_landmark]
             q_values = torch.matmul(dsr, subgoal_landmark_features).cpu()
+            # subgoal_landmark_dsr = self.landmarks.norm_dsr[self.current_landmark]
+            # q_values = torch.matmul(dsr, subgoal_landmark_dsr).cpu()
             action = self.distribution.sample(q_values)
             self.landmark_steps += 1
 
-        self.exploit()
+        self.landmark_mode()
 
         agent_info = AgentInfo(a=action)
         return AgentStep(action=action, agent_info=agent_info)
@@ -371,6 +478,8 @@ class LandmarkAgent(IDFDSRAgent):
 
             self.landmarks.add_goal_landmark(observation, features, dsr)
             self.first_reset = True
+            self.eval_distances = []
+            self.eval_end_pos = defaultdict(list)
             return True
         else:
             return False
@@ -383,6 +492,7 @@ class LandmarkAgent(IDFDSRAgent):
                 self.current_landmark = None
                 self.goal_landmark = self.landmarks.num_landmarks - 1
             else:
+                self.landmark_mode_steps = 0
                 self.explore = True
 
     def reset_one(self, idx):

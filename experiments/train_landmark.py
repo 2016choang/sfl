@@ -56,7 +56,7 @@ def build_and_train(config_file,
         max_decorrelation_steps=0,
         eval_n_envs=1,
         eval_max_steps=int(5e3),
-        eval_max_trajectories=5,
+        eval_max_trajectories=1,
     )    
 
     if checkpoint is not None:

@@ -1,0 +1,30 @@
+{
+    "agent": {
+        "eps_final": 1,
+        "eps_eval": 1,
+        "model_kwargs": {
+            "feature_size": 64,
+            "dsr_params": {
+                "fc_sizes": [512],
+                "nonlinearity": "relu"
+            }   
+        }
+    },
+    "algo": {
+        "discount": 0.99,
+        "batch_size": 32,
+        "min_steps_learn": 1000,
+        "learning_rate": 1e-3,
+        "replay_size": 20000,
+        "delta_clip": 1
+    },
+    "env": {
+        "size": [19, 19],
+        "grayscale": false,
+        "reset_episodes": 50,
+        "reset_same": false
+    },
+    "mode": "image",
+    "seed": 333,
+    "tabular": false
+}
