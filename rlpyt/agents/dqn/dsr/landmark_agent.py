@@ -369,69 +369,61 @@ class LandmarkAgent(IDFDSRAgent):
                 # Loop until we find a landmark we are not "nearby"
                 find_next_landmark = True
                 while find_next_landmark:
-                    if self.landmark_steps < self.steps_per_landmark:
-                        norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, keepdim=True) 
-                        subgoal_similarity = torch.matmul(self.landmarks.norm_dsr[self.current_landmark], norm_dsr.T)
-                        if subgoal_similarity > self.reach_threshold:
-                            self.path_progress[self.path_idx] += 1
+                    norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, keepdim=True) 
+                    subgoal_similarity = torch.matmul(self.landmarks.norm_dsr[self.current_landmark], norm_dsr.T)
+                    if subgoal_similarity > self.reach_threshold:
+                        self.path_progress[self.path_idx] += 1
+                    
+                    # TODO: Hack to check if landmark reached based on true manhattan distance
+                    cur_x, cur_y = get_true_pos(observation.squeeze())
+                    landmark_x, landmark_y = self.landmarks.get_pos()[self.current_landmark]
+                    ending_distance = self.env_true_dist[cur_x, cur_y, landmark_x, landmark_y]
+
+                    if ending_distance <= self.steps_for_true_reach:
+                        self.landmarks.visitations[self.current_landmark] += 1
                         
-                        # TODO: Hack to check if landmark reached based on true manhattan distance
-                        cur_x, cur_y = get_true_pos(observation.squeeze())
-                        landmark_x, landmark_y = self.landmarks.get_pos()[self.current_landmark]
-                        ending_distance = self.env_true_dist[cur_x, cur_y, landmark_x, landmark_y]
-
-                        if ending_distance <= self.steps_for_true_reach:
-                            self.landmarks.visitations[self.current_landmark] += 1
-                            
-                            if self._mode == 'eval':
-                                self.eval_end_pos[(cur_x, cur_y)].append(self.current_landmark)
-                            else:
-                                # TODO: Bucket by starting distance instead
-                                self.end_start_dist_progress[self.path_idx].append(float(ending_distance / self.start_distance))
-                                self.true_path_progress[self.path_idx] += 1
-
-                            if self.current_landmark == self.goal_landmark:
-                                self.explore = True
-                                if self._mode == 'eval':
-                                    self.eval_distances.append(ending_distance)
-                                else:
-                                    # TODO: Bucket by starting distance
-                                    self.end_start_dist_ratio.append(float(ending_distance / self.total_start_distance))
-                                find_next_landmark = False
-                            else:
-                                self.path_idx += 1
-                                self.current_landmark = self.path[self.path_idx]
-                                self.landmark_steps = 0
-                                landmark_x, landmark_y = self.landmarks.get_pos()[self.current_landmark]
-                                self.start_distance = self.env_true_dist[cur_x, cur_y, landmark_x, landmark_y]
-                                find_next_landmark = True
-                        else:
-                            find_next_landmark = False
-
-                    else:
-                        cur_x, cur_y = get_true_pos(observation.squeeze())
-                        landmark_x, landmark_y = self.landmarks.get_pos()[self.current_landmark]
-                        ending_distance = self.env_true_dist[cur_x, cur_y, landmark_x, landmark_y]
-
                         if self._mode == 'eval':
                             self.eval_end_pos[(cur_x, cur_y)].append(self.current_landmark)
                         else:
+                            # TODO: Bucket by starting distance instead
                             self.end_start_dist_progress[self.path_idx].append(float(ending_distance / self.start_distance))
+                            self.true_path_progress[self.path_idx] += 1
 
                         if self.current_landmark == self.goal_landmark:
                             self.explore = True
                             if self._mode == 'eval':
                                 self.eval_distances.append(ending_distance)
                             else:
-                                self.end_start_dist_ratio.append(float(ending_distance / self.start_distance)) 
+                                # TODO: Bucket by starting distance
+                                self.end_start_dist_ratio.append(float(ending_distance / self.total_start_distance))
                             find_next_landmark = False
                         else:
                             self.path_idx += 1
                             self.current_landmark = self.path[self.path_idx]
-                            self.landmark_steps = 0
                             landmark_x, landmark_y = self.landmarks.get_pos()[self.current_landmark]
                             self.start_distance = self.env_true_dist[cur_x, cur_y, landmark_x, landmark_y]
-                            find_next_landmark = True                            
+                            find_next_landmark = True
+                    else:
+                        find_next_landmark = False
+                
+                if not self.explore and self.landmark_steps == (self.landmarks.num_landmarks * self.steps_per_landmark):
+                    # TODO: Hack to check if landmark reached based on true manhattan distance
+                    cur_x, cur_y = get_true_pos(observation.squeeze())
+                    landmark_x, landmark_y = self.landmarks.get_pos()[self.current_landmark]
+                    ending_distance = self.env_true_dist[cur_x, cur_y, landmark_x, landmark_y]
+
+                    if self._mode == 'eval':
+                        self.eval_end_pos[(cur_x, cur_y)].append(self.current_landmark)
+                    else:
+                        # TODO: Bucket by starting distance instead
+                        self.end_start_dist_progress[self.path_idx].append(float(ending_distance / self.start_distance))
+
+                    self.explore = True
+                    if self._mode == 'eval':
+                        self.eval_distances.append(ending_distance)
+                    else:
+                        # TODO: Bucket by starting distance
+                        self.end_start_dist_ratio.append(float(ending_distance / self.total_start_distance))
 
         if self.explore:
             action = torch.randint_like(prev_action, high=self.distribution.dim)
