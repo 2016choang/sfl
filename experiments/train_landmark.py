@@ -15,6 +15,7 @@ import json
 import torch
 
 from rlpyt.samplers.serial.sampler import SerialSampler
+from rlpyt.samplers.serial.collectors import SerialLandmarksEvalCollector
 from rlpyt.envs.gym import make as gym_make
 from rlpyt.algos.dqn.dsr.dsr import DSR
 from rlpyt.algos.dqn.dsr.idf_dsr import IDFDSR
@@ -48,6 +49,7 @@ def build_and_train(config_file,
         device = torch.device('cpu')
 
     sampler = SerialSampler(
+        eval_CollectorCls=SerialLandmarksEvalCollector,
         EnvCls=gym_make,
         env_kwargs=dict(id=env_id, mode=mode, minigrid_config=config['env']),
         eval_env_kwargs=dict(id=env_id, mode=mode, minigrid_config=config['eval_env']),
@@ -56,7 +58,7 @@ def build_and_train(config_file,
         max_decorrelation_steps=0,
         eval_n_envs=1,
         eval_max_steps=int(5e3),
-        eval_max_trajectories=1,
+        eval_max_trajectories=10,
     )    
 
     if checkpoint is not None:

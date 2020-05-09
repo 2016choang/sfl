@@ -222,6 +222,7 @@ class LandmarkAgent(IDFDSRAgent):
             reach_threshold=0.95,
             max_landmarks=8,
             steps_per_landmark=25,
+            use_sf=False,
             true_distance=False,
             steps_for_true_reach=2,
             oracle=False,
@@ -294,7 +295,7 @@ class LandmarkAgent(IDFDSRAgent):
                 self.landmark_steps = 0
                 self.current_landmark = None
 
-                inverse_visitations = 1. / (self.landmarks.visitations + 1e-6)
+                inverse_visitations = 1. / np.clip(self.landmarks.visitations, 1, None)
                 landmark_probabilities = inverse_visitations / inverse_visitations.sum()
                 self.goal_landmark = np.random.choice(range(len(landmark_probabilities)), p=landmark_probabilities)
 
@@ -343,7 +344,10 @@ class LandmarkAgent(IDFDSRAgent):
                     if self.current_landmark == closest_landmark:
                         self.correct_start_landmark += 1
 
-                    self.dist_ratio_start_landmark.append(float(min_dist / max(chosen_landmark_dist, 1)))
+                    if chosen_landmark_dist != 0:
+                        self.dist_ratio_start_landmark.append(min_dist / chosen_landmark_dist)
+                    else:
+                        self.dist_ratio_start_landmark.append(1)
 
                     # TODO: Hack to give the correct starting landmark
                     self.current_landmark = closest_landmark
@@ -365,10 +369,11 @@ class LandmarkAgent(IDFDSRAgent):
                 # Loop until we find a landmark we are not "nearby"
                 find_next_landmark = True
                 while find_next_landmark:
-                    if self.landmark_steps <= self.steps_per_landmark:
-                        # norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, keepdim=True) 
-                        # subgoal_similarity = torch.matmul(self.landmarks.norm_dsr[self.current_landmark], norm_dsr.T)
-                        # if subgoal_similarity > self.reach_threshold:
+                    if self.landmark_steps < self.steps_per_landmark:
+                        norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, keepdim=True) 
+                        subgoal_similarity = torch.matmul(self.landmarks.norm_dsr[self.current_landmark], norm_dsr.T)
+                        if subgoal_similarity > self.reach_threshold:
+                            self.path_progress[self.path_idx] += 1
                         
                         # TODO: Hack to check if landmark reached based on true manhattan distance
                         cur_x, cur_y = get_true_pos(observation.squeeze())
@@ -383,8 +388,6 @@ class LandmarkAgent(IDFDSRAgent):
                             else:
                                 # TODO: Bucket by starting distance instead
                                 self.end_start_dist_progress[self.path_idx].append(float(ending_distance / self.start_distance))
-
-                                self.path_progress[self.path_idx] += 1
                                 self.true_path_progress[self.path_idx] += 1
 
                             if self.current_landmark == self.goal_landmark:
@@ -451,10 +454,12 @@ class LandmarkAgent(IDFDSRAgent):
             action = torch.zeros_like(prev_action) + act
             self.landmark_steps += 1
         else:
-            subgoal_landmark_features = self.landmarks.norm_features[self.current_landmark]
-            q_values = torch.matmul(dsr, subgoal_landmark_features).cpu()
-            # subgoal_landmark_dsr = self.landmarks.norm_dsr[self.current_landmark]
-            # q_values = torch.matmul(dsr, subgoal_landmark_dsr).cpu()
+            if self.use_sf:
+                subgoal_landmark_dsr = self.landmarks.norm_dsr[self.current_landmark]
+                q_values = torch.matmul(dsr, subgoal_landmark_dsr).cpu()
+            else:
+                subgoal_landmark_features = self.landmarks.norm_features[self.current_landmark]
+                q_values = torch.matmul(dsr, subgoal_landmark_features).cpu()
             action = self.distribution.sample(q_values)
             self.landmark_steps += 1
 

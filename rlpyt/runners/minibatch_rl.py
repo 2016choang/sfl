@@ -481,15 +481,15 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
             return
 
         figure = plt.figure(figsize=(7, 7))
-        path_success = self.agent.path_progress / np.clip(self.agent.path_freq, 1, None)
-        ind = np.arange(len(path_success))
+        similarity_path_success = self.agent.path_progress / np.clip(self.agent.path_freq, 1, None)
+        ind = np.arange(len(similarity_path_success))
         width = 0.2
-        plt.bar(ind, path_success, width, label='Similarity-based reach')
+        plt.bar(ind, similarity_path_success, width, label='Similarity reach')
         
         true_path_success = self.agent.true_path_progress / np.clip(self.agent.path_freq, 1, None)
         plt.bar(ind + width, true_path_success, width, label='True distance reach')
         
-        true_reach_ratio = self.agent.true_path_progress / np.clip(self.agent.path_progress, 1, None)
+        true_reach_ratio = self.agent.path_progress / np.clip(self.agent.true_path_progress, 1, None)
         plt.bar(ind + 2 * width, true_reach_ratio, width, label='Similarity / true reach ratio')
 
         plt.xlabel('ith Landmark')
