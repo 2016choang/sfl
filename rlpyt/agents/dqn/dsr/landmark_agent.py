@@ -1,10 +1,12 @@
 from collections import defaultdict
 import copy
+import itertools
 
 import networkx as nx
 import numpy as np
 from scipy.spatial import distance_matrix
 from scipy.sparse.csgraph import floyd_warshall
+from scipy.special import softmax
 from sklearn_extra.cluster import KMedoids
 import torch
 import torch.nn.functional as F
@@ -23,7 +25,7 @@ def get_true_pos(obs):
 
 class Landmarks(object):
 
-    def __init__(self, max_landmarks, threshold=0.75):
+    def __init__(self, max_landmarks, threshold=0.75, landmark_paths=None):
         save__init__args(locals())
         self.num_landmarks = 0
         self.observations = None 
@@ -197,11 +199,17 @@ class Landmarks(object):
         return self.graph
 
     def generate_path(self, source, target):
-        max_length = 0
-        for path in nx.all_shortest_paths(self.graph, source, target, weight='weight'):
-            if len(path) > max_length:
-                self.path = path
-                max_length = len(path)
+        if self.landmark_paths is not None:
+            paths = list(itertools.islice(nx.shortest_simple_paths(self.graph, source, target, weight='weight'), self.landmark_paths))
+            path_lengths = np.array([len(path) for path in paths])
+            self.path = np.random.choice(paths, p=softmax(-1 * path_lengths))
+            import pdb; pdb.set_trace()
+        else:
+            max_length = 0
+            for path in nx.all_shortest_paths(self.graph, source, target, weight='weight'):
+                if len(path) > max_length:
+                    self.path = path
+                    max_length = len(path)
         return self.path
 
     def prune_landmarks(self):
@@ -232,6 +240,7 @@ class LandmarkAgent(IDFDSRAgent):
             reach_threshold=0.95,
             max_landmarks=8,
             steps_per_landmark=25,
+            landmark_paths=None, 
             use_sf=False,
             use_soft_q=False,
             true_distance=False,
@@ -256,7 +265,7 @@ class LandmarkAgent(IDFDSRAgent):
 
     def set_oracle_landmarks(self, env):
         landmarks = env.get_oracle_landmarks()
-        self.oracle_landmarks = Landmarks(len(landmarks), self.add_threshold)
+        self.oracle_landmarks = Landmarks(len(landmarks), self.add_threshold, self.landmark_paths)
         for landmark in landmarks:
             observation = torchify_buffer(landmark).unsqueeze(0).float()
 
@@ -297,7 +306,7 @@ class LandmarkAgent(IDFDSRAgent):
             if self.use_oracle_landmarks:
                 self.landmarks = self.oracle_landmarks
             else:
-                self.landmarks = Landmarks(self.max_landmarks, self.add_threshold)
+                self.landmarks = Landmarks(self.max_landmarks, self.add_threshold, self.landmark_paths)
         elif self.landmarks.num_landmarks:
             if (itr + 1) % self.landmark_update_interval == 0:
                 observation = self.landmarks.observations

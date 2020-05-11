@@ -19,6 +19,7 @@
         "reach_threshold": 0.99,
         "max_landmarks": 3,
         "steps_per_landmark": 10,
+        "landmark_paths": 5,
         "true_distance": true,
         "steps_for_true_reach": 0,
         "use_oracle_landmarks": true,
