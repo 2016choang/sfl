@@ -141,7 +141,7 @@ class Landmarks(object):
             pos[i] = get_true_pos(obs)
         return pos
 
-    def generate_true_graph(self, env_true_dist, steps_per_landmark):
+    def generate_true_graph(self, env_true_dist, edge_threshold=None):
         # TODO: Hack to generate landmark graph based on true distances
         n_landmarks = len(self.norm_dsr)
         landmark_distances = np.zeros((n_landmarks, n_landmarks))
@@ -157,11 +157,9 @@ class Landmarks(object):
                     landmark_distances[s, t] = env_true_dist[s_x, s_y, t_x, t_y]
 
         try_distances = landmark_distances.copy()
-        # non_edges = try_distances > (steps_per_landmark)
-        # try_distances[try_distances > (steps_per_landmark)] = 0
-
-        non_edges = try_distances > 5
-        try_distances[try_distances > 5] = 0
+        if edge_threshold is not None:
+            non_edges = try_distances > edge_threshold
+            try_distances[try_distances > edge_threshold] = 0
 
         G = nx.from_numpy_array(try_distances)
         if not nx.is_connected(G):
@@ -240,6 +238,7 @@ class LandmarkAgent(IDFDSRAgent):
             reach_threshold=0.95,
             max_landmarks=8,
             steps_per_landmark=25,
+            edge_threshold=25,
             landmark_paths=None, 
             use_sf=False,
             use_soft_q=False,
@@ -263,6 +262,22 @@ class LandmarkAgent(IDFDSRAgent):
             global_B=global_B, env_ranks=env_ranks)
         self.soft_distribution = Categorical(dim=env_spaces.action.n)
 
+    def reset_logging(self):
+        self.correct_start_landmark = 0
+        self.num_paths = 0
+
+        self.dist_ratio_start_landmark = []
+
+        self.path_freq = np.zeros(self.max_landmarks + 1)
+        self.path_progress = np.zeros(self.max_landmarks + 1)
+        self.true_path_progress = np.zeros(self.max_landmarks + 1)
+ 
+        self.end_start_dist_progress = [[] for _ in range(self.max_landmarks + 1)]
+        self.end_start_dist_ratio = []
+
+        if self.landmarks is not None:
+            self.landmarks.reset_logging()
+
     def set_oracle_landmarks(self, env):
         landmarks = env.get_oracle_landmarks()
         self.oracle_landmarks = Landmarks(len(landmarks), self.add_threshold, self.landmark_paths)
@@ -281,22 +296,6 @@ class LandmarkAgent(IDFDSRAgent):
         
         self.max_landmarks = len(landmarks)
         self.reset_logging()
-
-    def reset_logging(self):
-        self.correct_start_landmark = 0
-        self.num_paths = 0
-
-        self.dist_ratio_start_landmark = []
-
-        self.path_freq = np.zeros(self.max_landmarks + 1)
-        self.path_progress = np.zeros(self.max_landmarks + 1)
-        self.true_path_progress = np.zeros(self.max_landmarks + 1)
- 
-        self.end_start_dist_progress = [[] for _ in range(self.max_landmarks + 1)]
-        self.end_start_dist_ratio = []
-
-        if self.landmarks is not None:
-            self.landmarks.reset_logging()
 
     def set_env_true_dist(self, env):
         self.env_true_dist = env.get_true_distances()
@@ -322,7 +321,6 @@ class LandmarkAgent(IDFDSRAgent):
                 self.landmarks.set_dsr(dsr)
 
                 # self.landmarks.prune_landmarks()
-
                 self.explore = True
 
     def landmark_mode(self):
@@ -339,7 +337,7 @@ class LandmarkAgent(IDFDSRAgent):
 
     def generate_graph(self):
         if self.true_distance:
-            self.landmarks.generate_true_graph(self.env_true_dist, self.steps_per_landmark)
+            self.landmarks.generate_true_graph(self.env_true_dist, self.steps_per_landmark, self.edge_threshold)
         else:
             self.landmarks.generate_graph()
 
