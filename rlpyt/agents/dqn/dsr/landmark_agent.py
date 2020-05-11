@@ -201,7 +201,6 @@ class Landmarks(object):
             paths = list(itertools.islice(nx.shortest_simple_paths(self.graph, source, target, weight='weight'), self.landmark_paths))
             path_lengths = np.array([len(path) for path in paths])
             self.path = np.random.choice(paths, p=softmax(-1 * path_lengths))
-            import pdb; pdb.set_trace()
         else:
             max_length = 0
             for path in nx.all_shortest_paths(self.graph, source, target, weight='weight'):
@@ -337,7 +336,7 @@ class LandmarkAgent(IDFDSRAgent):
 
     def generate_graph(self):
         if self.true_distance:
-            self.landmarks.generate_true_graph(self.env_true_dist, self.steps_per_landmark, self.edge_threshold)
+            self.landmarks.generate_true_graph(self.env_true_dist, self.edge_threshold)
         else:
             self.landmarks.generate_graph()
 

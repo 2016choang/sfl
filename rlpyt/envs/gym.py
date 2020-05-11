@@ -531,7 +531,7 @@ class MinigridMultiRoomLandmarkWrapper(Wrapper):
 
 class MinigridMultiRoomWrapper(Wrapper):
     
-    def __init__(self, env, num_rooms=10, size=(25, 25), grayscale=True, max_steps=500, terminate=False, reset_same=False, reset_episodes=1):
+    def __init__(self, env, num_rooms=10, size=(25, 25), grayscale=True, max_steps=500, terminate=False, start_pos=None, reset_same=False, reset_episodes=1):
         super().__init__(env)
         self.num_rooms = num_rooms
         self.env = env
@@ -544,7 +544,10 @@ class MinigridMultiRoomWrapper(Wrapper):
         self.terminate = terminate
 
         self.reset_same = reset_same
-        self.start_pos = None
+        if start_pos is not None:
+            self.start_pos = np.array(start_pos)
+        else:
+            self.start_pos = None
         self.reset_episodes = reset_episodes
         self.episodes = 0
 
@@ -849,10 +852,11 @@ def make(*args, info_example=None, mode=None, minigrid_config=None, **kwargs):
         if mode == 'multiroom':
             num_rooms = minigrid_config.get('num_rooms', 10)
             room_size = minigrid_config.get('room_size', 10)
+            start_pos = minigrid_config.get('start_pos', None)
             env = MultiRoomEnv(num_rooms, num_rooms, room_size)
             env.max_steps = max_steps
             env = RGBImgObsWrapper(ReseedWrapper(env))
-            env = MinigridMultiRoomWrapper(env, num_rooms=num_rooms, size=size, grayscale=grayscale, max_steps=max_steps, terminate=terminate, reset_same=reset_same, reset_episodes=reset_episodes)
+            env = MinigridMultiRoomWrapper(env, num_rooms=num_rooms, size=size, grayscale=grayscale, max_steps=max_steps, terminate=terminate, start_pos=start_pos, reset_same=reset_same, reset_episodes=reset_episodes)
             
             oracle = minigrid_config.get('oracle', False)
             if oracle:

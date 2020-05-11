@@ -459,6 +459,7 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
 
                     eval_env = self.sampler.eval_collector.envs[0]
                     eval_grid = eval_env.visited.T.copy()
+                    import pdb; pdb.set_trace()
 
                     figure = plt.figure(figsize=(7, 7))
                     plt.imshow(eval_grid)
