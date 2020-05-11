@@ -7,9 +7,11 @@ from scipy.spatial import distance_matrix
 from scipy.sparse.csgraph import floyd_warshall
 from sklearn_extra.cluster import KMedoids
 import torch
+import torch.nn.functional as F
 
 from rlpyt.agents.base import AgentStep
 from rlpyt.agents.dqn.dsr.idf_dsr_agent import IDFDSRAgent, AgentInfo
+from rlpyt.distributions.categorical import Categorical, DistInfo
 from rlpyt.utils.buffer import buffer_to, torchify_buffer
 from rlpyt.utils.collections import namedarraytuple
 from rlpyt.utils.quick_args import save__init__args
@@ -231,6 +233,7 @@ class LandmarkAgent(IDFDSRAgent):
             max_landmarks=8,
             steps_per_landmark=25,
             use_sf=False,
+            use_soft_q=False,
             true_distance=False,
             steps_for_true_reach=2,
             oracle=False,
@@ -244,6 +247,12 @@ class LandmarkAgent(IDFDSRAgent):
         self.update = False
         self.reset_logging()
         super().__init__(**kwargs)
+    
+    def initialize(self, env_spaces, share_memory=False,
+        global_B=1, env_ranks=None):
+        super().initialize(env_spaces, share_memory,
+            global_B=global_B, env_ranks=env_ranks)
+        self.soft_distribution = Categorical(dim=env_spaces.action.n)
 
     def set_oracle_landmarks(self, env):
         landmarks = env.get_oracle_landmarks()
@@ -487,7 +496,11 @@ class LandmarkAgent(IDFDSRAgent):
             else:
                 subgoal_landmark_features = self.landmarks.norm_features[self.current_landmark]
                 q_values = torch.matmul(dsr, subgoal_landmark_features).cpu()
-            action = self.distribution.sample(q_values)
+            if self.use_soft_q:
+                prob = F.softmax(q_values, dim=1)
+                action = self.soft_distribution.sample(DistInfo(prob=prob))
+            else:
+                action = self.distribution.sample(q_values)
             self.landmark_steps += 1
 
         self.landmark_mode()

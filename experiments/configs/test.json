@@ -21,7 +21,8 @@
         "steps_per_landmark": 10,
         "true_distance": true,
         "steps_for_true_reach": 0,
-        "use_oracle_landmarks": true
+        "use_oracle_landmarks": true,
+        "use_soft_q": true
     },
     "algo": {
         "discount": 0.99,
