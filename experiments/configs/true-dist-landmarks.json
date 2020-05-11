@@ -18,9 +18,10 @@
         "add_threshold": 0.75,
         "reach_threshold": 0.99,
         "max_landmarks": 10,
-        "steps_per_landmark": 10,
+        "steps_per_landmark": 15,
         "true_distance": true,
-        "steps_for_true_reach": 2
+        "steps_for_true_reach": 0,
+        "oracle_eval_landmarks": true
     },
     "algo": {
         "discount": 0.99,

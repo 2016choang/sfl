@@ -415,6 +415,7 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
             eval_traj_infos, eval_time = self.evaluate_agent(0)
             self.log_diagnostics(0, eval_traj_infos, eval_time)
         self.agent.set_env_true_dist(self.sampler.collector.envs[0])
+        self.agent.set_oracle_landmarks(self.sampler.eval_collector.envs[0])
         for itr in range(n_itr):
             with logger.prefix(f"itr #{itr} "):
                 self.agent.sample_mode(itr)
@@ -489,8 +490,8 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         true_path_success = self.agent.true_path_progress / np.clip(self.agent.path_freq, 1, None)
         plt.bar(ind + width, true_path_success, width, label='True distance reach')
         
-        true_reach_ratio = self.agent.path_progress / np.clip(self.agent.true_path_progress, 1, None)
-        plt.bar(ind + 2 * width, true_reach_ratio, width, label='Similarity / true reach ratio')
+        # true_reach_ratio = self.agent.path_progress / np.clip(self.agent.true_path_progress, 1, None)
+        # plt.bar(ind + 2 * width, true_reach_ratio, width, label='Similarity / true reach ratio')
 
         plt.xlabel('ith Landmark')
         plt.ylabel('Reach rate')
