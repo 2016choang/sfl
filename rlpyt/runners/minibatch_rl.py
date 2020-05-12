@@ -478,19 +478,20 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
 
     @torch.no_grad()
     def log_landmarks(self, itr):
+        # If no landmark info to log
         if self.agent.landmarks is None or self.agent.landmarks.num_landmarks == 0:
             return
 
         figure = plt.figure(figsize=(7, 7))
-        similarity_path_success = self.agent.path_progress / np.clip(self.agent.path_freq, 1, None)
-        ind = np.arange(len(similarity_path_success))
+        landmark_reach_percentage = self.agent.landmark_reaches / np.clip(self.agent.landmark_attempts, 1, None)
+        ind = np.arange(len(landmark_reach_percentage))
         width = 0.2
-        plt.bar(ind, similarity_path_success, width, label='Similarity reach')
+        plt.bar(ind, landmark_reach_percentage, width, label='Similarity reach')
         
-        true_path_success = self.agent.true_path_progress / np.clip(self.agent.path_freq, 1, None)
-        plt.bar(ind + width, true_path_success, width, label='True distance reach')
+        landmark_true_reach_percentage = self.agent.landmark_true_reaches / np.clip(self.agent.landmark_attempts, 1, None)
+        plt.bar(ind + width, landmark_true_reach_percentage, width, label='True distance reach')
         
-        # true_reach_ratio = self.agent.path_progress / np.clip(self.agent.true_path_progress, 1, None)
+        # true_reach_ratio = self.agent.landmark_reaches / np.clip(self.agent.landmark_true_reaches, 1, None)
         # plt.bar(ind + 2 * width, true_reach_ratio, width, label='Similarity / true reach ratio')
 
         plt.xlabel('ith Landmark')
@@ -499,27 +500,27 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         save_image('Landmarks reach rates', itr)
 
         figure = plt.figure(figsize=(7, 7))
-        end_start_dist_progress = self.agent.end_start_dist_progress
-        for i, progress in enumerate(end_start_dist_progress):
+        landmark_dist_completed = self.agent.landmark_dist_completed
+        for i, progress in enumerate(landmark_dist_completed):
             if progress:
-                end_start_dist_progress[i] = np.average(progress)
+                landmark_dist_completed[i] = np.average(progress)
             else:
-                end_start_dist_progress[i] = 0
+                landmark_dist_completed[i] = 0
         
-        ind = np.arange(len(end_start_dist_progress))
-        plt.bar(ind, end_start_dist_progress)
+        ind = np.arange(len(landmark_dist_completed))
+        plt.bar(ind, landmark_dist_completed)
         plt.xlabel('ith Landmark')
         plt.ylabel('End/Start Distance Ratio')
         save_image('Landmarks end-start distance ratio', itr)
 
-        if self.agent.end_start_dist_ratio:
-            logger.record_tabular_stat('End-StartDistanceRatio', np.average(self.agent.end_start_dist_ratio), itr)
+        if self.agent.goal_landmark_dist_completed:
+            logger.record_tabular_stat('End-StartDistanceRatio', np.average(self.agent.goal_landmark_dist_completed), itr)
 
         logger.record_tabular_stat('LandmarksAdded', self.agent.landmarks.landmark_adds, itr)
         logger.record_tabular_stat('LandmarksRemoved', self.agent.landmarks.landmark_removes, itr)
 
-        if self.agent.num_paths:
-            logger.record_tabular_stat('CorrectStartLandmarkRatio', float(self.agent.correct_start_landmark / self.agent.num_paths), itr)
+        if self.agent.total_landmark_paths:
+            logger.record_tabular_stat('CorrectStartLandmarkRatio', self.agent.correct_start_landmark / self.agent.total_landmark_paths, itr)
 
         if self.agent.dist_ratio_start_landmark:
             logger.record_tabular_stat('True-EstimateDistanceStartLandmarkRatio', np.average(self.agent.dist_ratio_start_landmark), itr)

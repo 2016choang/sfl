@@ -19,6 +19,7 @@ from rlpyt.utils.collections import namedarraytuple
 from rlpyt.utils.quick_args import save__init__args
 
 def get_true_pos(obs):
+    # Get true (x, y) position of agent from observation
     h, w = obs.shape[:2]
     idx = np.argmax(obs[:, :, 0] - obs[:, :, 2])
     return [idx % w, idx // w]  
@@ -45,6 +46,7 @@ class Landmarks(object):
         self.landmark_removes = 0
 
     def force_add_landmark(self, observation, features, dsr):
+        # Add landmark while ignoring similarity thresholds and max landmarks
         if self.num_landmarks == 0:
             self.observations = observation
             self.set_features(features)
@@ -59,6 +61,7 @@ class Landmarks(object):
             self.visitations = np.append(self.visitations, 0)
 
     def force_remove_landmark(self):
+        # Remove last landmark
         save_idx = range(self.num_landmarks - 1)
 
         self.observations = self.observations[save_idx]
@@ -72,6 +75,7 @@ class Landmarks(object):
         self.num_landmarks -= 1
 
     def add_landmark(self, observation, features, dsr):
+        # First landmark
         if self.num_landmarks == 0:
             self.observations = observation
             self.set_features(features)
@@ -82,11 +86,13 @@ class Landmarks(object):
             self.landmark_adds += 1
         else:
             norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, keepdim=True)
-            similarity = torch.matmul(self.norm_dsr, norm_dsr.T)  # cosine similarity of dsr
+            similarity = torch.matmul(self.norm_dsr, norm_dsr.T)
 
-            if sum(similarity < self.threshold) >= self.num_landmarks - 1:
+            # Candidate under similarity threshold w.r.t. existing landmarks
+            if sum(similarity < self.threshold) >= (self.num_landmarks - 1):
                 self.landmark_adds += 1
 
+                # Add landmark
                 if self.num_landmarks < self.max_landmarks:
                     self.observations = torch.cat((self.observations, observation), dim=0)
                     self.set_features(features, self.num_landmarks)
@@ -94,7 +100,9 @@ class Landmarks(object):
                     self.num_landmarks += 1
                     self.visitations = np.append(self.visitations, 0)
 
+                # Replace existing landmark
                 else:
+                    # Find two landmarks most similar to each other, select one most similar to candidate
                     landmark_similarities = torch.matmul(self.norm_dsr, self.norm_dsr.T)
                     landmark_similarities[range(self.num_landmarks), range(self.num_landmarks)] = -2
                     idx = landmark_similarities.argmax().item()
@@ -109,6 +117,7 @@ class Landmarks(object):
                     self.visitations[replace_idx] = 0
 
     def set_features(self, features, idx=None):
+        # Set/add features of new landmark at idx
         norm_features = features / torch.norm(features, p=2, dim=1, keepdim=True)
         if self.features is None or idx is None:
             self.features = features
@@ -121,6 +130,7 @@ class Landmarks(object):
             self.norm_features = torch.cat((self.norm_features, norm_features), dim=0)
 
     def set_dsr(self, dsr, idx=None):
+        # Set/add DSR of new landmark at idx 
         dsr = dsr.mean(dim=1)
         norm_dsr = dsr / torch.norm(dsr, p=2, dim=1, keepdim=True)
         if self.dsr is None or idx is None:
@@ -134,6 +144,7 @@ class Landmarks(object):
             self.norm_dsr = torch.cat((self.norm_dsr, norm_dsr), dim=0)
 
     def get_pos(self):
+        # Get true positions of landmarks
         observations = self.observations.detach().cpu().numpy()
         pos = np.zeros((len(observations), 2), dtype=int)
 
@@ -156,52 +167,59 @@ class Landmarks(object):
                 else:
                     landmark_distances[s, t] = env_true_dist[s_x, s_y, t_x, t_y]
 
+        # Remove edges with distance > edge threshold
         try_distances = landmark_distances.copy()
         if edge_threshold is not None:
             non_edges = try_distances > edge_threshold
             try_distances[try_distances > edge_threshold] = 0
 
+        # Augment G with edges until it is connected
         G = nx.from_numpy_array(try_distances)
         if not nx.is_connected(G):
             avail = {index: x for index, x in np.ndenumerate(landmark_distances) if non_edges[index]}
             for edge in nx.k_edge_augmentation(G, 1, avail):
                 try_distances[edge] = landmark_distances[edge]
             G = nx.from_numpy_array(try_distances)
-            # Should be connected now!
 
         self.graph = G
         return self.graph
         
     def generate_graph(self):
+        # Generate landmark graph using (1 - similarity) between DSR of landmarks as edge weights 
         n_landmarks = len(self.norm_dsr)
         similarities = torch.clamp(torch.matmul(self.norm_dsr, self.norm_dsr.T), min=-1.0, max=1.0)
         similarities = similarities.detach().cpu().numpy()
         similarities[range(n_landmarks), range(n_landmarks)] = -2
         max_idx = similarities.argmax(axis=1)
 
+        # Remove edges with similarity < edge threshold
         landmark_distances = 1.001 - similarities
         non_edges = similarities < self.threshold
         non_edges[range(n_landmarks), max_idx] = False
         landmark_distances[non_edges] = 0
 
+        # Augment G with edges until it is connected
         G = nx.from_numpy_array(landmark_distances)
-        
         if not nx.is_connected(G):
             avail = {index: 1.001 - x for index, x in np.ndenumerate(similarities) if non_edges[index]}
             for edge in nx.k_edge_augmentation(G, 1, avail):
                 landmark_distances[edge] = 1.001 - similarities[edge]
             G = nx.from_numpy_array(landmark_distances)
-            # Should be connected now!
 
         self.graph = G
         return self.graph
 
     def generate_path(self, source, target):
+        # Generate path from source to target in landmark graph
+        
+        # Select path with probability given by softmin of path lengths
         if self.landmark_paths is not None:
             paths = list(itertools.islice(nx.shortest_simple_paths(self.graph, source, target, weight='weight'), self.landmark_paths))
             path_lengths = np.array([len(path) for path in paths])
             path_choice = np.random.choice(list(range(len(paths))), p=softmax(-1 * path_lengths))
             self.path = paths[path_choice]
+        
+        # Select shortest path that has most number of actual nodes
         else:
             max_length = 0
             for path in nx.all_shortest_paths(self.graph, source, target, weight='weight'):
@@ -211,6 +229,7 @@ class Landmarks(object):
         return self.path
 
     def prune_landmarks(self):
+        # Prune landmarks that do not meet similarity requirement [NOT CURRENTLY USED]
         landmark_similarities = torch.matmul(self.norm_dsr, self.norm_dsr.T)
         save_idx = torch.sum(landmark_similarities < self.threshold, axis=1) >= (self.num_landmarks - 1)
 
@@ -224,7 +243,6 @@ class Landmarks(object):
         self.visitations = self.visitations[save_idx]
 
         self.landmark_removes += (self.num_landmarks - sum(save_idx))
-
         self.num_landmarks = sum(save_idx)
 
 
@@ -232,14 +250,14 @@ class LandmarkAgent(IDFDSRAgent):
 
     def __init__(
             self,
-            landmark_mode_interval=100,
             landmark_update_interval=int(5e3),
             add_threshold=0.75,
-            reach_threshold=0.95,
             max_landmarks=8,
-            steps_per_landmark=25,
             edge_threshold=25,
             landmark_paths=None, 
+            landmark_mode_interval=100,
+            steps_per_landmark=25,
+            reach_threshold=0.95,
             use_sf=False,
             use_soft_q=False,
             true_distance=False,
@@ -249,10 +267,9 @@ class LandmarkAgent(IDFDSRAgent):
             use_oracle_eval_landmarks=False,
             **kwargs):
         save__init__args(locals())
-        self.landmark_mode_steps = 0
         self.explore = True
         self.landmarks = None
-        self.update = False
+        self.landmark_mode_steps = 0
         self.reset_logging()
         super().__init__(**kwargs)
     
@@ -263,22 +280,29 @@ class LandmarkAgent(IDFDSRAgent):
         self.soft_distribution = Categorical(dim=env_spaces.action.n)
 
     def reset_logging(self):
+        # Percentage of times we select the correct start landmark
         self.correct_start_landmark = 0
-        self.num_paths = 0
+        self.total_landmark_paths = 0
 
+        # Distance to algo-chosen start landmark / correct start landmark
         self.dist_ratio_start_landmark = []
 
-        self.path_freq = np.zeros(self.max_landmarks + 1)
-        self.path_progress = np.zeros(self.max_landmarks + 1)
-        self.true_path_progress = np.zeros(self.max_landmarks + 1)
- 
-        self.end_start_dist_progress = [[] for _ in range(self.max_landmarks + 1)]
-        self.end_start_dist_ratio = []
+        # Percentage of times we reach the ith landmark
+        self.landmark_attempts = np.zeros(self.max_landmarks + 1)
+        self.landmark_reaches = np.zeros(self.max_landmarks + 1)
+        self.landmark_true_reaches = np.zeros(self.max_landmarks + 1)
+
+        # End / start distance to ith landmark
+        self.landmark_dist_completed = [[] for _ in range(self.max_landmarks + 1)]
+
+        # End / start distance to goal landmark
+        self.goal_landmark_dist_completed = []
 
         if self.landmarks is not None:
             self.landmarks.reset_logging()
 
     def set_oracle_landmarks(self, env):
+        # Set oracle landmarks hardcoded in environment
         landmarks = env.get_oracle_landmarks()
         self.oracle_landmarks = Landmarks(len(landmarks), self.add_threshold, self.landmark_paths)
         for landmark in landmarks:
@@ -298,14 +322,18 @@ class LandmarkAgent(IDFDSRAgent):
         self.reset_logging()
 
     def set_env_true_dist(self, env):
+        # Set map of true distances between any two points in environment
         self.env_true_dist = env.get_true_distances()
 
     def update_landmarks(self, itr):
+        # Create Landmarks object if it does not exist
         if self.landmarks is None:
             if self.use_oracle_landmarks:
                 self.landmarks = self.oracle_landmarks
             else:
                 self.landmarks = Landmarks(self.max_landmarks, self.add_threshold, self.landmark_paths)
+        
+        # Update features and DSR of existing landmarks
         elif self.landmarks.num_landmarks:
             if (itr + 1) % self.landmark_update_interval == 0:
                 observation = self.landmarks.observations
@@ -324,20 +352,25 @@ class LandmarkAgent(IDFDSRAgent):
                 self.explore = True
 
     def landmark_mode(self):
+        # Enter landmark mode during training every landmark_mode_interval steps
         if self.landmarks is not None and self.landmarks.num_landmarks > 0 and self.explore and \
-                self._mode != 'eval' and (self.landmark_mode_steps % self.landmark_mode_interval) == 0:
+            self._mode != 'eval' and (self.landmark_mode_steps % self.landmark_mode_interval) == 0:
 
                 self.explore = False
                 self.landmark_steps = 0
                 self.current_landmark = None
 
+                # Select goal landmark with probability given by inverse of visitation count
                 inverse_visitations = 1. / np.clip(self.landmarks.visitations, 1, None)
                 landmark_probabilities = inverse_visitations / inverse_visitations.sum()
                 self.goal_landmark = np.random.choice(range(len(landmark_probabilities)), p=landmark_probabilities)
 
     def generate_graph(self):
+        # Use true distance edges
         if self.true_distance:
             self.landmarks.generate_true_graph(self.env_true_dist, self.edge_threshold)
+
+        # Use DSR similarity edges
         else:
             self.landmarks.generate_graph()
 
@@ -351,20 +384,23 @@ class LandmarkAgent(IDFDSRAgent):
             model_inputs = buffer_to(features,
                 device=self.device)
             dsr = self.model(model_inputs, mode='dsr')
-            norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, keepdim=True) 
 
-            # only add landmarks in explore phase
+            # Add landmarks if in exploration mode during training
             if self.explore and self._mode != 'eval' and not self.use_oracle_landmarks:
                 self.landmarks.add_landmark(observation, features, dsr)
 
+            # Select current (subgoal) landmark
             if not self.explore:
+
+                # Select start landmark based on DSR similarity to current state
                 if self.current_landmark is None:
+                    norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, keepdim=True) 
                     landmark_similarity = torch.matmul(self.landmarks.norm_dsr, norm_dsr.T)
                     self.current_landmark = landmark_similarity.argmax().item()
 
                     cur_x, cur_y = get_true_pos(observation.squeeze())
 
-                    # check if correct starting landmark
+                    # Find correct start landmark based on true distances
                     closest_landmark = None
                     min_dist = None
                     for i, pos in enumerate(self.landmarks.get_pos()):
@@ -376,110 +412,150 @@ class LandmarkAgent(IDFDSRAgent):
                         if i == self.current_landmark:
                             chosen_landmark_dist = dist
 
-                    self.num_paths += 1
+                    # Log if selected landmark is correct
+                    self.total_landmark_paths += 1
                     if self.current_landmark == closest_landmark:
                         self.correct_start_landmark += 1
 
+                    # Log ratio of distance to selected landmark / correct landmark
                     if chosen_landmark_dist != 0:
                         self.dist_ratio_start_landmark.append(min_dist / chosen_landmark_dist)
                     else:
                         self.dist_ratio_start_landmark.append(1)
 
-                    # TODO: Hack to give the correct starting landmark
+                    # HACK: Use correct start landmark
                     self.current_landmark = closest_landmark
 
+                    # Generate landmark graph and path between start and goal landmarks
                     self.generate_graph()
                     self.path = self.landmarks.generate_path(self.current_landmark, self.goal_landmark)
                     self.path_idx = 0
 
+                    # Log that we attempted to reach each landmark in the path
                     if self._mode != 'eval':
-                        self.path_freq[:len(self.path)] += 1
+                        self.landmark_attempts[:len(self.path)] += 1
 
+                    # Starting distance to goal landmark
                     landmark_x, landmark_y = self.landmarks.get_pos()[self.goal_landmark]
-                    self.total_start_distance = self.env_true_dist[cur_x, cur_y, landmark_x, landmark_y]
-                    if self.total_start_distance == 0:
-                        self.total_start_distance = 1
+                    self.start_distance_to_goal = self.env_true_dist[cur_x, cur_y, landmark_x, landmark_y]
+                    if self.start_distance_to_goal == 0:
+                        self.start_distance_to_goal = 1
                     
-                    self.start_distance = self.total_start_distance
+                    self.start_distance_to_landmark = self.start_distance_to_goal
 
-                # Loop until we find a landmark we are not "nearby"
+                # Loop on landmarks in path until we find one we have not reached in our current state
                 find_next_landmark = True
                 while find_next_landmark:
+
+                    # If we still have steps remaining to try to reach the current landmark
                     if self.landmark_steps < self.steps_per_landmark:
 
+                        # Log if current landmark is reached based on similarity
                         norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, keepdim=True) 
-                        subgoal_similarity = torch.matmul(self.landmarks.norm_dsr[self.current_landmark], norm_dsr.T)
-                        if subgoal_similarity > self.reach_threshold and self._mode != 'eval':
-                            self.path_progress[self.path_idx] += 1
+                        landmark_similarity = torch.matmul(self.landmarks.norm_dsr[self.current_landmark], norm_dsr.T)
+                        if landmark_similarity > self.reach_threshold and self._mode != 'eval':
+                            self.landmark_reaches[self.path_idx] += 1
                         
-                        # TODO: Hack to check if landmark reached based on true manhattan distance
+                        # HACK: Check if current landmark is reached based on true distance
                         cur_x, cur_y = get_true_pos(observation.squeeze())
                         landmark_x, landmark_y = self.landmarks.get_pos()[self.current_landmark]
-                        ending_distance = self.env_true_dist[cur_x, cur_y, landmark_x, landmark_y]
+                        end_distance = self.env_true_dist[cur_x, cur_y, landmark_x, landmark_y]
 
+                        # If goal landmark, we must try to reach it perfectly
                         if self.current_landmark == self.goal_landmark:
                             reach_threshold = 0
+                        
+                        # Otherwise, try to reach the current landmark within a true distance threshold
                         else:
                             reach_threshold = self.steps_for_true_reach
 
-                        if ending_distance <= reach_threshold:
+                        # If we have reached the current landmark based on our criteria
+                        if end_distance <= reach_threshold:
+
+                            # Increment the current landmark's visitation count
                             self.landmarks.visitations[self.current_landmark] += 1
-                            
+
+                            # In training, log that landmark is truly reached andend/start distance to landmark ratio 
                             if self._mode != 'eval':
                                 # TODO: Bucket by starting distance instead
-                                self.end_start_dist_progress[self.path_idx].append(float(ending_distance / self.start_distance))
-                                self.true_path_progress[self.path_idx] += 1
+                                self.landmark_true_reaches[self.path_idx] += 1
+                                self.landmark_dist_completed[self.path_idx].append(float(end_distance / self.start_distance))
 
+                            # If current landmark is goal, exit landmark mode
                             if self.current_landmark == self.goal_landmark:
                                 self.explore = True
+                                
+                                # In eval, log end position trying to reach goal and distance away from goal
                                 if self._mode == 'eval':
                                     self.eval_end_pos[(cur_x, cur_y)].append(self.current_landmark)
-                                    self.eval_distances.append(ending_distance)
+                                    self.eval_distances.append(end_distance)
+                                
+                                # In train, log end/start distance to goal ratio
                                 else:
                                     # TODO: Bucket by starting distance
-                                    self.end_start_dist_ratio.append(float(ending_distance / self.total_start_distance))
+                                    self.goal_landmark_dist_completed.append(end_distance / self.start_distance_to_goal)
                                 find_next_landmark = False
+                            
+                            # Else, move to next landmark and set as new subgoal
                             else:
                                 self.path_idx += 1
                                 self.current_landmark = self.path[self.path_idx]
-                                landmark_x, landmark_y = self.landmarks.get_pos()[self.current_landmark]
-                                self.start_distance = self.env_true_dist[cur_x, cur_y, landmark_x, landmark_y]
-                                find_next_landmark = True
                                 self.landmark_steps = 0
+                                find_next_landmark = True
+
+                                landmark_x, landmark_y = self.landmarks.get_pos()[self.current_landmark]
+                                self.start_distance_to_landmark = self.env_true_dist[cur_x, cur_y, landmark_x, landmark_y]
+                        
+                        # Otherwise, we continue to use subgoal policy to try to reach current landmark
                         else:
                             find_next_landmark = False
                     
+                    # We have run out of steps trying to reach current landmark
                     else:
-                        # TODO: Hack to check if landmark reached based on true manhattan distance
+                        # HACK: Get true distance to current landmark
                         cur_x, cur_y = get_true_pos(observation.squeeze())
                         landmark_x, landmark_y = self.landmarks.get_pos()[self.current_landmark]
-                        ending_distance = self.env_true_dist[cur_x, cur_y, landmark_x, landmark_y]
+                        end_distance = self.env_true_dist[cur_x, cur_y, landmark_x, landmark_y]
+
+                        # In training, log end/start distance to landmark ratio
                         if self._mode != 'eval':
                             # TODO: Bucket by starting distance instead
-                            self.end_start_dist_progress[self.path_idx].append(float(ending_distance / self.start_distance))
+                            self.landmark_dist_completed[self.path_idx].append(end_distance / self.start_distance)
 
+                        # If current landmark is goal, exit landmark mode
                         if self.current_landmark == self.goal_landmark:
                             self.explore = True
+
+                            # In eval, log end position trying to reach goal and distance away from goal
                             if self._mode == 'eval':
                                 self.eval_end_pos[(cur_x, cur_y)].append(self.current_landmark)
-                                self.eval_distances.append(ending_distance)
+                                self.eval_distances.append(end_distance)
+
+                            # In train, log end/start distance to goal ratio
                             else:
                                 # TODO: Bucket by starting distance instead
-                                self.end_start_dist_ratio.append(float(ending_distance / self.total_start_distance))
+                                self.goal_landmark_dist_completed.append(end_distance / self.start_distance_to_goal)
                             find_next_landmark = False
-                            
+                        
+                        # Else, move on to next landmark and set as new goal
                         else:
                             self.path_idx += 1
                             self.current_landmark = self.path[self.path_idx]
-                            landmark_x, landmark_y = self.landmarks.get_pos()[self.current_landmark]
-                            self.start_distance = self.env_true_dist[cur_x, cur_y, landmark_x, landmark_y]
-                            find_next_landmark = True
                             self.landmark_steps = 0
+                            find_next_landmark = True
 
+                            landmark_x, landmark_y = self.landmarks.get_pos()[self.current_landmark]
+                            self.start_distance_to_landmark = self.env_true_dist[cur_x, cur_y, landmark_x, landmark_y]
+
+        # Exploration (random) policy
         if self.explore:
             action = torch.randint_like(prev_action, high=self.distribution.dim)
+
+            # In training, increment step counter used to track when to enter landmark mode
             if self._mode != 'eval':
                 self.landmark_mode_steps += 1
+
+        # Oracle landmark mode (in training only)
         elif self.oracle and self._mode != 'eval':
             cur_x, cur_y = get_true_pos(observation.squeeze())
             landmark_x, landmark_y = self.landmarks.get_pos()[self.current_landmark]
@@ -496,20 +572,32 @@ class LandmarkAgent(IDFDSRAgent):
 
             action = torch.zeros_like(prev_action) + act
             self.landmark_steps += 1
+        
+        # Q landmark mode
         else:
+            norm_dsr = dsr / torch.norm(dsr, p=2, dim=2, keepdim=True)
+
+            # Use SF-based subgoal Q 
             if self.use_sf:
                 subgoal_landmark_dsr = self.landmarks.norm_dsr[self.current_landmark]
                 q_values = torch.matmul(norm_dsr, subgoal_landmark_dsr).cpu()
+            
+            # Use feature-based subgoal Q
             else:
                 subgoal_landmark_features = self.landmarks.norm_features[self.current_landmark]
                 q_values = torch.matmul(norm_dsr, subgoal_landmark_features).cpu()
+            
+            # Select action based on softmax of Q as probabilities
             if self.use_soft_q:
                 prob = F.softmax(q_values, dim=1)
                 action = self.soft_distribution.sample(DistInfo(prob=prob))
+            
+            # Select action based on epsilon-greedy of Q
             else:
                 action = self.distribution.sample(q_values)
             self.landmark_steps += 1
 
+        # Try to enter landmark mode
         self.landmark_mode()
 
         agent_info = AgentInfo(a=action)
@@ -518,11 +606,16 @@ class LandmarkAgent(IDFDSRAgent):
     @torch.no_grad()
     def set_eval_goal(self, goal_obs):
         if self.landmarks and self.landmarks.num_landmarks > 0:
+            # Using oracle landmarks, which includes goal as landmark
             if self.use_oracle_landmarks:
                 pass
+            
+            # Using oracle landmarks in eval only, need to store training landmarks
             elif self.use_oracle_eval_landmarks:
                 self.landmarks_storage = self.landmarks
                 self.landmarks = self.oracle_landmarks
+            
+            # Add goal as landmark for eval only
             else:
                 observation = torchify_buffer(goal_obs).unsqueeze(0).float()
 
@@ -537,19 +630,22 @@ class LandmarkAgent(IDFDSRAgent):
                 self.landmarks.force_add_landmark(observation, features, dsr)
 
             self.first_reset = True
-            self.eval_distances = []
             self.eval_end_pos = defaultdict(list)
+            self.eval_distances = []
             return True
         else:
             return False
 
     def reset(self):
         if self.landmarks and self.landmarks.num_landmarks > 0:
+            # In eval, always use landmarks mode
             if self._mode == 'eval':
                 self.explore = False
                 self.landmark_steps = 0
                 self.current_landmark = None
                 self.goal_landmark = self.landmarks.num_landmarks - 1
+            
+            # In training, start in exploration mode
             else:
                 self.landmark_mode_steps = 0
                 self.explore = True
@@ -559,6 +655,7 @@ class LandmarkAgent(IDFDSRAgent):
 
     @torch.no_grad()
     def remove_eval_goal(self):
+        # Clean up evaluation mode
         if self.landmarks and self.landmarks.num_landmarks > 0:
             if self.use_oracle_landmarks:
                 pass
@@ -568,4 +665,6 @@ class LandmarkAgent(IDFDSRAgent):
                 self.landmarks.force_remove_landmark()
 
             self.eval_goal = False
+
+            # TODO: Re-continue landmark mode in training that was interrupted by evaluation
             self.explore = True
