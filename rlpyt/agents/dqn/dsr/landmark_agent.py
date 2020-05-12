@@ -343,22 +343,22 @@ class LandmarkAgent(IDFDSRAgent):
 
     @torch.no_grad()
     def step(self, observation, prev_action, prev_reward):
+        model_inputs = buffer_to(observation,
+            device=self.device)
+        features = self.idf_model(model_inputs, mode='encode')
+
+        model_inputs = buffer_to(features,
+            device=self.device)
+        dsr = self.model(model_inputs, mode='dsr')
+        norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, keepdim=True) 
+
         if self.landmarks is not None:
-            model_inputs = buffer_to(observation,
-                device=self.device)
-            features = self.idf_model(model_inputs, mode='encode')
-
-            model_inputs = buffer_to(features,
-                device=self.device)
-            dsr = self.model(model_inputs, mode='dsr')
-
             # only add landmarks in explore phase
             if self.explore and self._mode != 'eval' and not self.use_oracle_landmarks:
                 self.landmarks.add_landmark(observation, features, dsr)
 
             if not self.explore:
                 if self.current_landmark is None:
-                    norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, keepdim=True) 
                     landmark_similarity = torch.matmul(self.landmarks.norm_dsr, norm_dsr.T)
                     self.current_landmark = landmark_similarity.argmax().item()
 
@@ -499,10 +499,10 @@ class LandmarkAgent(IDFDSRAgent):
         else:
             if self.use_sf:
                 subgoal_landmark_dsr = self.landmarks.norm_dsr[self.current_landmark]
-                q_values = torch.matmul(dsr, subgoal_landmark_dsr).cpu()
+                q_values = torch.matmul(norm_dsr, subgoal_landmark_dsr).cpu()
             else:
                 subgoal_landmark_features = self.landmarks.norm_features[self.current_landmark]
-                q_values = torch.matmul(dsr, subgoal_landmark_features).cpu()
+                q_values = torch.matmul(norm_dsr, subgoal_landmark_features).cpu()
             if self.use_soft_q:
                 prob = F.softmax(q_values, dim=1)
                 action = self.soft_distribution.sample(DistInfo(prob=prob))
