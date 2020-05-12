@@ -19,13 +19,12 @@
         "reach_threshold": 0.99,
         "max_landmarks": 10,
         "steps_per_landmark": 15,
-        "edge_threshold": 10,
-        "landmark_paths": 5,
+        "edge_threshold": 5,
         "true_distance": true,
         "steps_for_true_reach": 0,
         "use_oracle_landmarks": true,
         "use_soft_q": false,
-        "use_sf": false
+        "use_sf": true
     },
     "algo": {
         "discount": 0.99,

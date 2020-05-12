@@ -343,16 +343,16 @@ class LandmarkAgent(IDFDSRAgent):
 
     @torch.no_grad()
     def step(self, observation, prev_action, prev_reward):
-        model_inputs = buffer_to(observation,
-            device=self.device)
-        features = self.idf_model(model_inputs, mode='encode')
-
-        model_inputs = buffer_to(features,
-            device=self.device)
-        dsr = self.model(model_inputs, mode='dsr')
-        norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, keepdim=True) 
-
         if self.landmarks is not None:
+            model_inputs = buffer_to(observation,
+                device=self.device)
+            features = self.idf_model(model_inputs, mode='encode')
+
+            model_inputs = buffer_to(features,
+                device=self.device)
+            dsr = self.model(model_inputs, mode='dsr')
+            norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, keepdim=True) 
+
             # only add landmarks in explore phase
             if self.explore and self._mode != 'eval' and not self.use_oracle_landmarks:
                 self.landmarks.add_landmark(observation, features, dsr)
