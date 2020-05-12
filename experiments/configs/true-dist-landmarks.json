@@ -1,8 +1,8 @@
 {
     "agent": {
-        "eps_init": 0.1,
-        "eps_final": 0.1,
-        "eps_eval": 0.1,
+        "eps_init": 0,
+        "eps_final": 0,
+        "eps_eval": 0,
         "model_kwargs": {
             "feature_size": 64,
             "dsr_params": {
@@ -39,7 +39,8 @@
     "env": {
         "size": [25, 25],
         "max_steps": 500,
-        "reset_same": true
+        "reset_episodes": 1,
+        "reset_same": false
     },
     "eval_env": {
         "size": [25, 25],

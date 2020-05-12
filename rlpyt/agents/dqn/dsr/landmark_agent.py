@@ -394,7 +394,7 @@ class LandmarkAgent(IDFDSRAgent):
 
                 # Select start landmark based on DSR similarity to current state
                 if self.current_landmark is None:
-                    norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, keepdim=True) 
+                    norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, keepdim=True)
                     landmark_similarity = torch.matmul(self.landmarks.norm_dsr, norm_dsr.T)
                     self.current_landmark = landmark_similarity.argmax().item()
 
