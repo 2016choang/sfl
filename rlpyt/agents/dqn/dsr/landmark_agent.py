@@ -200,7 +200,8 @@ class Landmarks(object):
         if self.landmark_paths is not None:
             paths = list(itertools.islice(nx.shortest_simple_paths(self.graph, source, target, weight='weight'), self.landmark_paths))
             path_lengths = np.array([len(path) for path in paths])
-            self.path = np.random.choice(paths, p=softmax(-1 * path_lengths))
+            path_choice = np.random.choice(list(range(len(paths))), p=softmax(-1 * path_lengths))
+            self.path = paths[path_choice]
         else:
             max_length = 0
             for path in nx.all_shortest_paths(self.graph, source, target, weight='weight'):

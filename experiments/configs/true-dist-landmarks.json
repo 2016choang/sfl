@@ -24,7 +24,8 @@
         "true_distance": true,
         "steps_for_true_reach": 0,
         "use_oracle_landmarks": true,
-        "use_soft_q": false
+        "use_soft_q": false,
+        "use_sf": false
     },
     "algo": {
         "discount": 0.99,
@@ -39,8 +40,7 @@
     "env": {
         "size": [25, 25],
         "max_steps": 500,
-        "reset_episodes": 1,
-        "reset_same": false
+        "reset_same": true
     },
     "eval_env": {
         "size": [25, 25],
