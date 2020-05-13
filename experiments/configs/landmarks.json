@@ -1,8 +1,8 @@
 {
     "agent": {
-        "eps_init": 0,
-        "eps_final": 0,
-        "eps_eval": 0,
+        "eps_init": 0.1,
+        "eps_final": 0.1,
+        "eps_eval": 0.1,
         "model_kwargs": {
             "feature_size": 64,
             "dsr_params": {
@@ -13,17 +13,22 @@
         "idf_model_kwargs": {
             "feature_size": 64
         },
-        "exploit_prob": 0.01,
+        "landmark_mode_interval": 100,
         "landmark_update_interval": 1000,
-        "add_threshold": 0.75,
+        "add_threshold": 0.60,
         "reach_threshold": 0.99,
-        "max_landmarks": 10,
-        "steps_per_landmark": 10,
+        "max_landmarks": 20,
+        "steps_per_landmark": 15,
+        "edge_sim_threshold": 0.60,
         "true_distance": false,
-        "steps_for_true_reach": 2
+        "steps_for_true_reach": 0,
+        "use_true_start": false,
+        "use_oracle_landmarks": false,
+        "use_soft_q": false,
+        "use_sf": true
     },
     "algo": {
-        "discount": 0.999,
+        "discount": 0.99,
         "batch_size": 128,
         "min_steps_learn": 1000,
         "learning_rate": 1e-3,
@@ -35,11 +40,13 @@
     "env": {
         "size": [25, 25],
         "max_steps": 500,
-        "reset_same": true
+        "reset_episodes": 1,
+        "reset_same": false
     },
     "eval_env": {
         "size": [25, 25],
         "max_steps": 500,
+        "start_pos": [7, 4],
         "reset_same": true,
         "terminate": true
     }, 
@@ -47,7 +54,7 @@
         "log_interval_steps": 1e4,
         "log_dsr_interval_steps": 5e3,
         "log_landmark_steps": 5e3,
-        "min_steps_landmark": 20000
+        "min_steps_landmark": 2e4
     },
     "mode": "multiroom",
     "seed": 333,

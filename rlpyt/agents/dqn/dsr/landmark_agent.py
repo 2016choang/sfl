@@ -184,18 +184,18 @@ class Landmarks(object):
         self.graph = G
         return self.graph
         
-    def generate_graph(self):
+    def generate_graph(self, edge_sim_threshold):
         # Generate landmark graph using (1 - similarity) between DSR of landmarks as edge weights 
         n_landmarks = len(self.norm_dsr)
         similarities = torch.clamp(torch.matmul(self.norm_dsr, self.norm_dsr.T), min=-1.0, max=1.0)
         similarities = similarities.detach().cpu().numpy()
-        similarities[range(n_landmarks), range(n_landmarks)] = -2
-        max_idx = similarities.argmax(axis=1)
+        # similarities[range(n_landmarks), range(n_landmarks)] = -2
+        # max_idx = similarities.argmax(axis=1)
 
-        # Remove edges with similarity < edge threshold
+        # Remove edges with similarity < edge sim threshold
         landmark_distances = 1.001 - similarities
-        non_edges = similarities < self.threshold
-        non_edges[range(n_landmarks), max_idx] = False
+        non_edges = similarities < edge_sim_threshold
+        # non_edges[range(n_landmarks), max_idx] = False
         landmark_distances[non_edges] = 0
 
         # Augment G with edges until it is connected
@@ -253,6 +253,7 @@ class LandmarkAgent(IDFDSRAgent):
             landmark_update_interval=int(5e3),
             add_threshold=0.75,
             max_landmarks=8,
+            edge_sim_threshold=0.8,
             edge_threshold=25,
             landmark_paths=None, 
             landmark_mode_interval=100,
@@ -373,7 +374,7 @@ class LandmarkAgent(IDFDSRAgent):
 
         # Use DSR similarity edges
         else:
-            self.landmarks.generate_graph()
+            self.landmarks.generate_graph(self.edge_sim_threshold)
 
     @torch.no_grad()
     def step(self, observation, prev_action, prev_reward):
