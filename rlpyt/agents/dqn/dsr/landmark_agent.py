@@ -479,7 +479,7 @@ class LandmarkAgent(IDFDSRAgent):
                             if self._mode != 'eval':
                                 # TODO: Bucket by starting distance instead
                                 self.landmark_true_reaches[self.path_idx] += 1
-                                self.landmark_dist_completed[self.path_idx].append(float(end_distance / self.start_distance))
+                                self.landmark_dist_completed[self.path_idx].append(end_distance / self.start_distance_to_landmark)
 
                             # If current landmark is goal, exit landmark mode
                             if self.current_landmark == self.goal_landmark:
@@ -520,7 +520,7 @@ class LandmarkAgent(IDFDSRAgent):
                         # In training, log end/start distance to landmark ratio
                         if self._mode != 'eval':
                             # TODO: Bucket by starting distance instead
-                            self.landmark_dist_completed[self.path_idx].append(end_distance / self.start_distance)
+                            self.landmark_dist_completed[self.path_idx].append(end_distance / self.start_distance_to_landmark)
 
                         # If current landmark is goal, exit landmark mode
                         if self.current_landmark == self.goal_landmark:

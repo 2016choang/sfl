@@ -482,20 +482,17 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         if self.agent.landmarks is None or self.agent.landmarks.num_landmarks == 0:
             return
 
-        figure = plt.figure(figsize=(7, 7))
-        landmark_reach_percentage = self.agent.landmark_reaches / np.clip(self.agent.landmark_attempts, 1, None)
-        ind = np.arange(len(landmark_reach_percentage))
-        width = 0.2
-        plt.bar(ind, landmark_reach_percentage, width, label='Similarity reach')
-        
-        landmark_true_reach_percentage = self.agent.landmark_true_reaches / np.clip(self.agent.landmark_attempts, 1, None)
-        plt.bar(ind + width, landmark_true_reach_percentage, width, label='True distance reach')
-        
-        # true_reach_ratio = self.agent.landmark_reaches / np.clip(self.agent.landmark_true_reaches, 1, None)
-        # plt.bar(ind + 2 * width, true_reach_ratio, width, label='Similarity / true reach ratio')
+        # landmark_reach_percentage = self.agent.landmark_reaches / np.clip(self.agent.landmark_attempts, 1, None)
+        # ind = np.arange(len(landmark_reach_percentage))
+        # plt.bar(ind, landmark_reach_percentage)
 
+        figure = plt.figure(figsize=(7, 7))
+        landmark_true_reach_percentage = self.agent.landmark_true_reaches / np.clip(self.agent.landmark_attempts, 1, None)
+        
+        ind = np.arange(len(landmark_true_reach_percentage))
+        plt.bar(ind, landmark_true_reach_percentage, label='True distance reach')
         plt.xlabel('ith Landmark')
-        plt.ylabel('Reach rate')
+        plt.ylabel('Reach Percentage')
         plt.legend()
         save_image('Landmarks reach rates', itr)
 

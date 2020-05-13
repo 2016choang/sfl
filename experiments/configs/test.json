@@ -1,8 +1,8 @@
 {
     "agent": {
-        "eps_init": 0,
-        "eps_final": 0,
-        "eps_eval": 0,
+        "eps_init": 0.1,
+        "eps_final": 0.1,
+        "eps_eval": 0.1,
         "model_kwargs": {
             "feature_size": 64,
             "dsr_params": {
@@ -23,8 +23,10 @@
         "landmark_paths": 5,
         "true_distance": true,
         "steps_for_true_reach": 0,
-        "use_oracle_landmarks": true,
-        "use_soft_q": false
+        "use_oracle_landmarks": false,
+        "use_oracle_eval_landmarks": true,
+        "use_soft_q": false,
+        "use_sf": true
     },
     "algo": {
         "discount": 0.99,

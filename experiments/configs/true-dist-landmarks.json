@@ -1,8 +1,8 @@
 {
     "agent": {
-        "eps_init": 0,
-        "eps_final": 0,
-        "eps_eval": 0,
+        "eps_init": 0.1,
+        "eps_final": 0.1,
+        "eps_eval": 0.1,
         "model_kwargs": {
             "feature_size": 64,
             "dsr_params": {
@@ -17,12 +17,13 @@
         "landmark_update_interval": 1000,
         "add_threshold": 0.75,
         "reach_threshold": 0.99,
-        "max_landmarks": 10,
+        "max_landmarks": 20,
         "steps_per_landmark": 15,
         "edge_threshold": 5,
         "true_distance": true,
         "steps_for_true_reach": 0,
-        "use_oracle_landmarks": true,
+        "use_oracle_landmarks": false,
+        "use_oracle_eval_landmarks": true,
         "use_soft_q": false,
         "use_sf": true
     },
