@@ -263,6 +263,7 @@ class LandmarkAgent(IDFDSRAgent):
             true_distance=False,
             steps_for_true_reach=2,
             oracle=False,
+            use_true_start=False,
             use_oracle_landmarks=False,
             use_oracle_eval_landmarks=False,
             **kwargs):
@@ -424,7 +425,8 @@ class LandmarkAgent(IDFDSRAgent):
                         self.dist_ratio_start_landmark.append(1)
 
                     # HACK: Use correct start landmark
-                    self.current_landmark = closest_landmark
+                    if self.use_true_start:
+                        self.current_landmark = closest_landmark
 
                     # Generate landmark graph and path between start and goal landmarks
                     self.generate_graph()
