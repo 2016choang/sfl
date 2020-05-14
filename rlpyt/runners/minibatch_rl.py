@@ -522,6 +522,11 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         if self.agent.dist_ratio_start_landmark:
             logger.record_tabular_stat('True-EstimateDistanceStartLandmarkRatio', np.average(self.agent.dist_ratio_start_landmark), itr)
 
+        if self.agent.landmarks.success_rates:
+            logger.record_tabular_stat('LandmarkSuccessRate', np.average(self.agent.landmarks.success_rates), itr)
+            logger.record_tabular_stat('NonZeroLandmarkSuccessRate', np.average(self.agent.landmarks.non_zero_success_rates), itr)
+            logger.record_tabular_stat('ZeroSuccessEdgeRatio', np.average(self.agent.landmarks.zero_success_edge_ratio), itr)
+
         self.agent.reset_logging()
 
         figure = plt.figure(figsize=(7, 7))
@@ -561,8 +566,19 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
 
         G = self.agent.landmarks.graph
         pos = nx.circular_layout(G)
+
+        non_zero_edges = {}
+        zero_edges = {}
+
+        for index, edge_info in dict(G.edges).items():
+            if index in self.agent.landmarks.zero_edge_indices:
+                zero_edges[index] = edge_info
+            else:
+                non_zero_edges[index] = edge_info
+        
         nx.draw_networkx_nodes(G, pos, node_size=600)
-        nx.draw_networkx_edges(G, pos, edgelist=G.edges, width=6)
+        nx.draw_networkx_edges(G, pos, edgelist=non_zero_edges, width=6, edge_color='black')
+        nx.draw_networkx_edges(G, pos, edgelist=zero_edges, width=6, edge_color='red')
 
         edge_labels = nx.get_edge_attributes(G, 'weight')
         for k, v in edge_labels.items():

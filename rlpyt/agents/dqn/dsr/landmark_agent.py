@@ -1,6 +1,7 @@
 from collections import defaultdict
 import copy
 import itertools
+from operator import itemgetter
 
 import networkx as nx
 import numpy as np
@@ -26,7 +27,7 @@ def get_true_pos(obs):
 
 class Landmarks(object):
 
-    def __init__(self, max_landmarks, threshold=0.75, landmark_paths=None):
+    def __init__(self, max_landmarks, threshold=0.75, landmark_paths=None, affinity_decay=0.9):
         save__init__args(locals())
         self.num_landmarks = 0
         self.observations = None 
@@ -38,12 +39,20 @@ class Landmarks(object):
         self.predecessors = None
         self.graph = None
 
-        self.landmark_adds = 0
-        self.landmark_removes = 0
+        self.successes = None
+        self.attempts = None
+
+        self.last_landmark = None
+
+        self.reset_logging()        
     
     def reset_logging(self):
         self.landmark_adds = 0
         self.landmark_removes = 0
+
+        self.success_rates = []
+        self.non_zero_success_rates = []
+        self.zero_success_edge_ratio = []    
 
     def force_add_landmark(self, observation, features, dsr):
         # Add landmark while ignoring similarity thresholds and max landmarks
@@ -53,12 +62,21 @@ class Landmarks(object):
             self.set_dsr(dsr)
             self.visitations = np.array([0])
             self.num_landmarks += 1
+            self.successes = np.array([[0]])
+            self.attempts = np.array([[0]])
+
         else:
             self.observations = torch.cat((self.observations, observation), dim=0)
             self.set_features(features, self.num_landmarks)
             self.set_dsr(dsr, self.num_landmarks)
-            self.num_landmarks += 1
             self.visitations = np.append(self.visitations, 0)
+            
+            self.successes = np.append(self.successes, np.zeros((self.num_landmarks, 1)), axis=1)
+            self.successes = np.append(self.successes, np.zeros((1, self.num_landmarks + 1)), axis=0)
+            self.attempts = np.append(self.attempts, np.zeros((self.num_landmarks, 1)), axis=1)
+            self.attempts = np.append(self.attempts, np.zeros((1, self.num_landmarks + 1)), axis=0)
+           
+            self.num_landmarks += 1
 
     def force_remove_landmark(self):
         # Remove last landmark
@@ -73,6 +91,8 @@ class Landmarks(object):
         self.visitations = self.visitations[save_idx]
 
         self.num_landmarks -= 1
+        self.successes = self.successes[:self.num_landmarks, :self.num_landmarks]
+        self.attempts = self.attempts[:self.num_landmarks, :self.num_landmarks]
 
     def add_landmark(self, observation, features, dsr):
         # First landmark
@@ -81,12 +101,16 @@ class Landmarks(object):
             self.set_features(features)
             self.set_dsr(dsr)
             self.visitations = np.array([0])
-            self.num_landmarks += 1
-
+            self.successes = np.array([[0]])
+            self.attempts = np.array([[0]])
             self.landmark_adds += 1
+            self.last_landmark = self.num_landmarks
+
+            self.num_landmarks += 1
         else:
             norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, keepdim=True)
             similarity = torch.matmul(self.norm_dsr, norm_dsr.T)
+            current_landmark = similarity.argmax().item()
 
             # Candidate under similarity threshold w.r.t. existing landmarks
             if sum(similarity < self.threshold) >= (self.num_landmarks - 1):
@@ -97,6 +121,13 @@ class Landmarks(object):
                     self.observations = torch.cat((self.observations, observation), dim=0)
                     self.set_features(features, self.num_landmarks)
                     self.set_dsr(dsr, self.num_landmarks)
+                    
+                    self.successes = np.append(self.successes, np.zeros((self.num_landmarks, 1)), axis=1)
+                    self.successes = np.append(self.successes, np.zeros((1, self.num_landmarks + 1)), axis=0)
+                    self.attempts = np.append(self.attempts, np.zeros((self.num_landmarks, 1)), axis=1)
+                    self.attempts = np.append(self.attempts, np.zeros((1, self.num_landmarks + 1)), axis=0)
+
+                    current_landmark = self.num_landmarks
                     self.num_landmarks += 1
                     self.visitations = np.append(self.visitations, 0)
 
@@ -115,6 +146,26 @@ class Landmarks(object):
                     self.set_features(features, replace_idx)
                     self.set_dsr(dsr, replace_idx)
                     self.visitations[replace_idx] = 0
+
+                    current_landmark = replace_idx
+
+                    self.successes[replace_idx, :] = 0
+                    self.successes[:, replace_idx] = 0
+                    self.attempts[replace_idx, :] = 0
+                    self.attempts[:, replace_idx] = 0
+            
+            # Record landmark transitions found during exploration mode as successes w/o attempts
+            # TODO: Still in the works!
+            # if self.last_landmark is not None and self.last_landmark != current_landmark:
+                # self.successes[self.last_landmark, current_landmark] += 1
+                # self.successes[current_landmark, self.last_landmark] += 1
+
+                # new_successes = max(1, self.attempts[self.last_landmark, current_landmark])
+                # self.successes[self.last_landmark, current_landmark] = new_successes
+                # self.successes[current_landmark, self.last_landmark] = new_successes
+                
+            
+            self.last_landmark = current_landmark
 
     def set_features(self, features, idx=None):
         # Set/add features of new landmark at idx
@@ -184,27 +235,52 @@ class Landmarks(object):
         self.graph = G
         return self.graph
         
-    def generate_graph(self, edge_sim_threshold):
+    def generate_graph(self, edge_threshold):
         # Generate landmark graph using (1 - similarity) between DSR of landmarks as edge weights 
-        n_landmarks = len(self.norm_dsr)
         similarities = torch.clamp(torch.matmul(self.norm_dsr, self.norm_dsr.T), min=-1.0, max=1.0)
         similarities = similarities.detach().cpu().numpy()
-        # similarities[range(n_landmarks), range(n_landmarks)] = -2
-        # max_idx = similarities.argmax(axis=1)
 
-        # Remove edges with similarity < edge sim threshold
-        landmark_distances = 1.001 - similarities
-        non_edges = similarities < edge_sim_threshold
-        # non_edges[range(n_landmarks), max_idx] = False
+        edge_success_rate = self.successes / np.clip(self.attempts, 1, None)
+
+        # Remove edges with success rate > edge threshold
+        non_edges = np.logical_not(edge_success_rate > edge_threshold)
+        
+        # landmark_distances = 1.001 - similarities
+        landmark_distances = 1.001 - edge_success_rate
         landmark_distances[non_edges] = 0
 
         # Augment G with edges until it is connected
+        # Edges are sorted by success rate, then similarity
+
+        self.success_rates.append(np.mean(edge_success_rate))
+        self.non_zero_success_rates.append(np.mean(edge_success_rate[edge_success_rate > 0]))
+
+        total_edges = max((np.sum(edge_success_rate > edge_threshold) - self.num_landmarks) // 2, 0)
+        zero_edges = 0
+
+        self.zero_edge_indices = set()
+
         G = nx.from_numpy_array(landmark_distances)
         if not nx.is_connected(G):
-            avail = {index: 1.001 - x for index, x in np.ndenumerate(similarities) if non_edges[index]}
-            for edge in nx.k_edge_augmentation(G, 1, avail):
-                landmark_distances[edge] = 1.001 - similarities[edge]
-            G = nx.from_numpy_array(landmark_distances)
+            avail = []
+            for index, x in np.ndenumerate(similarities):
+                if non_edges[index]:
+                    avail.append((edge_success_rate[index], x, *index))
+            avail = sorted(avail, key=itemgetter(0, 1), reverse=True)
+
+            for success_rate, similarity, u, v in avail:
+                landmark_distances[(u, v)] = 1.001 - success_rate
+                G = nx.from_numpy_array(landmark_distances)
+
+                total_edges += 1
+                if success_rate == 0:
+                    zero_edges += 1
+                    self.zero_edge_indices.add((u, v))
+
+                if nx.is_connected(G):
+                    break
+
+        self.zero_success_edge_ratio.append(zero_edges / max(total_edges, 1))
 
         self.graph = G
         return self.graph
@@ -227,6 +303,10 @@ class Landmarks(object):
                     self.path = path
                     max_length = len(path)
         return self.path
+
+    def update_affinity(self):
+        self.successes *= self.affinity_decay
+        self.attempts *= self.affinity_decay
 
     def prune_landmarks(self):
         # Prune landmarks that do not meet similarity requirement [NOT CURRENTLY USED]
@@ -253,8 +333,8 @@ class LandmarkAgent(IDFDSRAgent):
             landmark_update_interval=int(5e3),
             add_threshold=0.75,
             max_landmarks=8,
-            edge_sim_threshold=0.8,
-            edge_threshold=25,
+            edge_threshold=0,
+            affinity_decay=0.9,
             landmark_paths=None, 
             landmark_mode_interval=100,
             steps_per_landmark=25,
@@ -350,6 +430,8 @@ class LandmarkAgent(IDFDSRAgent):
                 dsr = self.model(model_inputs, mode='dsr')
                 self.landmarks.set_dsr(dsr)
 
+                self.landmarks.update_affinity()
+
                 # self.landmarks.prune_landmarks()
                 self.explore = True
 
@@ -374,7 +456,7 @@ class LandmarkAgent(IDFDSRAgent):
 
         # Use DSR similarity edges
         else:
-            self.landmarks.generate_graph(self.edge_sim_threshold)
+            self.landmarks.generate_graph(self.edge_threshold)
 
     @torch.no_grad()
     def step(self, observation, prev_action, prev_reward):
@@ -478,11 +560,19 @@ class LandmarkAgent(IDFDSRAgent):
                             # Increment the current landmark's visitation count
                             self.landmarks.visitations[self.current_landmark] += 1
 
-                            # In training, log that landmark is truly reached andend/start distance to landmark ratio 
+                            # In training, log that landmark is truly reached and end/start distance to landmark ratio 
                             if self._mode != 'eval':
                                 # TODO: Bucket by starting distance instead
                                 self.landmark_true_reaches[self.path_idx] += 1
                                 self.landmark_dist_completed[self.path_idx].append(end_distance / self.start_distance_to_landmark)
+
+                                # Update landmark transition success rates
+                                if self.path_idx > 0:
+                                    last_landmark = self.path[self.path_idx - 1]
+                                    self.landmarks.successes[last_landmark, self.current_landmark] += 1
+                                    self.landmarks.successes[self.current_landmark, last_landmark] += 1
+                                    self.landmarks.attempts[last_landmark, self.current_landmark] += 1
+                                    self.landmarks.attempts[self.current_landmark, last_landmark] += 1
 
                             # If current landmark is goal, exit landmark mode
                             if self.current_landmark == self.goal_landmark:
@@ -524,6 +614,13 @@ class LandmarkAgent(IDFDSRAgent):
                         if self._mode != 'eval':
                             # TODO: Bucket by starting distance instead
                             self.landmark_dist_completed[self.path_idx].append(end_distance / self.start_distance_to_landmark)
+
+                            if self.path_idx > 0:
+                                last_landmark = self.path[self.path_idx - 1]
+                                self.landmarks.successes[last_landmark, self.current_landmark] += 1
+                                self.landmarks.successes[self.current_landmark, last_landmark] += 1
+                                self.landmarks.attempts[last_landmark, self.current_landmark] += 1
+                                self.landmarks.attempts[self.current_landmark, last_landmark] += 1
 
                         # If current landmark is goal, exit landmark mode
                         if self.current_landmark == self.goal_landmark:
