@@ -432,14 +432,15 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                 logger.log_itr_info(itr, opt_info)
                 self.store_diagnostics(itr, traj_infos, opt_info)
                 
-                eval_goal = False
                 if (itr + 1) >= self.min_steps_landmark:
+                    if self.agent.landmarks is None:
+                        goal_obs = self.sampler.eval_collector.envs[0].get_goal_state()
+                        self.agent.create_landmarks(goal_obs)
                     self.agent.update_landmarks(itr)
 
+                landmarks_eval = False
                 if (itr + 1) % self.log_interval_itrs == 0:
-                    goal_obs = self.sampler.eval_collector.envs[0].get_goal_state()
-                    eval_goal = self.agent.set_eval_goal(goal_obs)  # Might be agent in sampler.
-
+                    landmarks_eval = self.agent.enter_eval_mode()
                     eval_traj_infos, eval_time = self.evaluate_agent(itr)
                     self.log_diagnostics(itr, eval_traj_infos, eval_time)
                     self.algo.update_scheduler(self._opt_infos)
@@ -452,7 +453,7 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                     self.log_landmarks(itr)
                     plt.close('all')
 
-                if eval_goal:
+                if landmarks_eval:
                     summary_writer = logger.get_tf_summary_writer()                   
                     summary_writer.add_text("Path to goal", ','.join(map(str, self.agent.path)), itr)
                     logger.record_tabular_stat('EndDistanceToGoal', np.average(self.agent.eval_distances), itr)
@@ -471,7 +472,7 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                     plt.colorbar()
                     save_image('Eval visitations and end positions', itr)
 
-                    self.agent.remove_eval_goal()
+                    self.agent.exit_eval_mode()
 
 
         self.shutdown()
@@ -571,7 +572,7 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         zero_edges = {}
 
         for index, edge_info in dict(G.edges).items():
-            if index in self.agent.landmarks.zero_edge_indices:
+            if self.agent.landmarks.zero_edge_indices is not None and self.index in self.agent.landmarks.zero_edge_indices:
                 zero_edges[index] = edge_info
             else:
                 non_zero_edges[index] = edge_info

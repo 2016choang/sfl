@@ -41,7 +41,8 @@
         "size": [25, 25],
         "max_steps": 500,
         "reset_episodes": 1,
-        "reset_same": false
+        "reset_same": false,
+        "terminate": true
     },
     "eval_env": {
         "size": [25, 25],
