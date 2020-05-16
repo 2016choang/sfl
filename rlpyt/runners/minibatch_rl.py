@@ -572,7 +572,7 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         zero_edges = {}
 
         for index, edge_info in dict(G.edges).items():
-            if self.agent.landmarks.zero_edge_indices is not None and self.index in self.agent.landmarks.zero_edge_indices:
+            if self.agent.landmarks.zero_edge_indices is not None and index in self.agent.landmarks.zero_edge_indices:
                 zero_edges[index] = edge_info
             else:
                 non_zero_edges[index] = edge_info

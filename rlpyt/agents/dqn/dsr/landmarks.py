@@ -124,10 +124,12 @@ class Landmarks(object):
                 # Replace existing landmark
                 else:
                     # Find two landmarks most similar to each other, select one most similar to candidate
-                    landmark_similarities = torch.matmul(self.norm_dsr[1:], self.norm_dsr.T)
-                    landmark_similarities[range(1, self.num_landmarks), range(1, self.num_landmarks)] = -2
+                    landmark_similarities = torch.matmul(self.norm_dsr, self.norm_dsr.T)
+                    landmark_similarities[0, :] = -2
+                    landmark_similarities[:, 0] = -2
+                    landmark_similarities[range(self.num_landmarks), range(self.num_landmarks)] = -2
                     idx = landmark_similarities.argmax().item()
-                    a, b = (idx // self.num_landmarks + 1), (idx % self.num_landmarks) + 1
+                    a, b = (idx // self.num_landmarks), (idx % self.num_landmarks)
                     if similarity[a] > similarity[b]:
                         replace_idx = a
                     else:
@@ -144,15 +146,18 @@ class Landmarks(object):
                     self.attempts[replace_idx, :] = 0
                     self.attempts[:, replace_idx] = 0
             
-            # Record landmark transitions found during exploration mode as successes w/o attempts
+            # Record landmark transitions found during exploration mode
             # TODO: Still in the works!
-            # if self.last_landmark is not None and self.last_landmark != current_landmark:
-                # self.successes[self.last_landmark, current_landmark] += 1
-                # self.successes[current_landmark, self.last_landmark] += 1
-
-                # new_successes = max(1, self.attempts[self.last_landmark, current_landmark])
-                # self.successes[self.last_landmark, current_landmark] = new_successes
-                # self.successes[current_landmark, self.last_landmark] = new_successes
+            if self.last_landmark is not None and self.last_landmark != current_landmark:
+                if self.attempts[self.last_landmark, current_landmark]:
+                    new_successes = (self.successes[self.last_landmark, current_landmark] + self.attempts[self.last_landmark, current_landmark]) / 2
+                    self.successes[self.last_landmark, current_landmark] = new_successes
+                    self.successes[current_landmark, self.last_landmark] = new_successes
+                else:
+                    self.successes[self.last_landmark, current_landmark] = 1
+                    self.successes[current_landmark, self.last_landmark] = 1
+                    self.attempts[self.last_landmark, current_landmark] = 1
+                    self.attempts[current_landmark, self.last_landmark] = 1
             
             self.last_landmark = current_landmark
 
@@ -234,8 +239,8 @@ class Landmarks(object):
         # Remove edges with success rate > edge threshold
         non_edges = np.logical_not(edge_success_rate > edge_threshold)
         
-        # landmark_distances = 1.001 - similarities
-        landmark_distances = 1.001 - edge_success_rate
+        landmark_distances = 1.001 - similarities
+        # landmark_distances = 1.001 - edge_success_rate
         landmark_distances[non_edges] = 0
 
         # Logging edge success rates
@@ -258,7 +263,8 @@ class Landmarks(object):
             avail = sorted(avail, key=itemgetter(0, 1), reverse=True)
 
             for success_rate, similarity, u, v in avail:
-                landmark_distances[(u, v)] = 1.001 - success_rate
+                landmark_distances[(u, v)] = 1.001 - similarity
+                # landmark_distances[(u, v)] = 1.001 - success_rate
                 G = nx.from_numpy_array(landmark_distances)
 
                 total_edges += 1

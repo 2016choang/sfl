@@ -100,6 +100,7 @@ class LandmarkAgent(IDFDSRAgent):
         # Set map of true distances between any two points in environment
         self.env_true_dist = env.get_true_distances()
 
+    @torch.no_grad()
     def create_landmarks(self, goal_obs):
         # Create Landmarks object
         if self.use_oracle_landmarks:
@@ -118,6 +119,7 @@ class LandmarkAgent(IDFDSRAgent):
 
             self.landmarks.add_landmark(observation, features, dsr)
 
+    @torch.no_grad()
     def update_landmarks(self, itr):
         # Update features and DSR of existing landmarks
         if self.landmarks.num_landmarks:
@@ -321,8 +323,6 @@ class LandmarkAgent(IDFDSRAgent):
 
                             if self.path_idx > 0:
                                 last_landmark = self.path[self.path_idx - 1]
-                                self.landmarks.successes[last_landmark, self.current_landmark] += 1
-                                self.landmarks.successes[self.current_landmark, last_landmark] += 1
                                 self.landmarks.attempts[last_landmark, self.current_landmark] += 1
                                 self.landmarks.attempts[self.current_landmark, last_landmark] += 1
 
