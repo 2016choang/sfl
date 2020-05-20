@@ -148,16 +148,16 @@ class Landmarks(object):
             
             # Record landmark transitions found during exploration mode
             # TODO: Still in the works!
-            if self.last_landmark is not None and self.last_landmark != current_landmark:
-                if self.attempts[self.last_landmark, current_landmark]:
-                    new_successes = (self.successes[self.last_landmark, current_landmark] + self.attempts[self.last_landmark, current_landmark]) / 2
-                    self.successes[self.last_landmark, current_landmark] = new_successes
-                    self.successes[current_landmark, self.last_landmark] = new_successes
-                else:
-                    self.successes[self.last_landmark, current_landmark] = 1
-                    self.successes[current_landmark, self.last_landmark] = 1
-                    self.attempts[self.last_landmark, current_landmark] = 1
-                    self.attempts[current_landmark, self.last_landmark] = 1
+            # if self.last_landmark is not None and self.last_landmark != current_landmark:
+            #     if self.attempts[self.last_landmark, current_landmark]:
+            #         new_successes = (self.successes[self.last_landmark, current_landmark] + self.attempts[self.last_landmark, current_landmark]) / 2
+            #         self.successes[self.last_landmark, current_landmark] = new_successes
+            #         self.successes[current_landmark, self.last_landmark] = new_successes
+            #     else:
+            #         self.successes[self.last_landmark, current_landmark] = 1
+            #         self.successes[current_landmark, self.last_landmark] = 1
+            #         self.attempts[self.last_landmark, current_landmark] = 1
+            #         self.attempts[current_landmark, self.last_landmark] = 1
             
             self.last_landmark = current_landmark
 
@@ -229,16 +229,22 @@ class Landmarks(object):
         self.graph = G
         return self.graph
         
-    def generate_graph(self, edge_threshold):
+    def generate_graph(self, edge_threshold, mode):
         # Generate landmark graph using (1 - similarity) between DSR of landmarks as edge weights 
         similarities = torch.clamp(torch.matmul(self.norm_dsr, self.norm_dsr.T), min=-1.0, max=1.0)
         similarities = similarities.detach().cpu().numpy()
 
         edge_success_rate = self.successes / np.clip(self.attempts, 1, None)
 
-        # Remove edges with success rate > edge threshold
+        # Remove edges with success rate <= edge threshold
         non_edges = np.logical_not(edge_success_rate > edge_threshold)
-        
+
+        if mode != 'eval':
+            non_zero_attempts = self.attempts[self.attempts > 0]
+            attempt_threshold = max(non_zero_attempts.mean() - non_zero_attempts.std(), 1)
+            low_attempt_edges = self.attempts < attempt_threshold
+            non_edges[low_attempt_edges] = False            
+
         landmark_distances = 1.001 - similarities
         # landmark_distances = 1.001 - edge_success_rate
         landmark_distances[non_edges] = 0
@@ -263,7 +269,12 @@ class Landmarks(object):
             avail = sorted(avail, key=itemgetter(0, 1), reverse=True)
 
             for success_rate, similarity, u, v in avail:
-                landmark_distances[(u, v)] = 1.001 - similarity
+                dist = 1.001 - similarity
+                if success_rate == 0:
+                    dist = (self.max_landmarks * 3) + dist
+                
+                landmark_distances[(u, v)] = dist
+                
                 # landmark_distances[(u, v)] = 1.001 - success_rate
                 G = nx.from_numpy_array(landmark_distances)
 
@@ -280,14 +291,31 @@ class Landmarks(object):
         self.graph = G
         return self.graph
 
-    def generate_path(self, source, target):
+    def get_true_edges(self, nodes, weight):
+        w = 0
+        for i, node in enumerate(nodes[1:]):
+            prev = nodes[i]
+            if self.graph[prev][node][weight] < (self.max_landmarks * 3):
+                w += 1
+        return w 
+
+    def generate_path(self, source, target, mode):
         # Generate path from source to target in landmark graph
         
         # Select path with probability given by softmin of path lengths
         if self.landmark_paths is not None:
             paths = list(itertools.islice(nx.shortest_simple_paths(self.graph, source, target, weight='weight'), self.landmark_paths))
+            if mode == 'eval':
+                true_edges = np.array([self.get_true_edges(path, 'weight') for path in paths])
+                max_true_edges = max(true_edges)
+                paths = [path for i, path in enumerate(paths) if true_edges[i] == max_true_edges]
+                self.eval_paths = paths
+
             path_lengths = np.array([len(path) for path in paths])
-            path_choice = np.random.choice(list(range(len(paths))), p=softmax(-1 * path_lengths))
+            path_p = softmax(path_lengths)
+            if mode == 'eval':
+                self.eval_paths_p = path_p
+            path_choice = np.random.choice(list(range(len(paths))), p=path_p)
             self.path = paths[path_choice]
         
         # Select shortest path that has most number of actual nodes

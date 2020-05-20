@@ -93,7 +93,7 @@ class LandmarkAgent(IDFDSRAgent):
 
             self.oracle_landmarks.force_add_landmark(observation, features, dsr)
         
-        self.max_landmarks = len(landmarks)
+        self.oracle_max_landmarks = len(landmarks)
         self.reset_logging()
 
     def set_env_true_dist(self, env):
@@ -105,6 +105,7 @@ class LandmarkAgent(IDFDSRAgent):
         # Create Landmarks object
         if self.use_oracle_landmarks:
             self.landmarks = self.oracle_landmarks
+            self.max_landmarks = self.oracle_max_landmarks
         else:
             self.landmarks = Landmarks(self.max_landmarks, self.add_threshold, self.landmark_paths)
             observation = torchify_buffer(goal_obs).unsqueeze(0).float()
@@ -149,6 +150,7 @@ class LandmarkAgent(IDFDSRAgent):
                 self.explore = False
                 self.landmark_steps = 0
                 self.current_landmark = None
+                self.last_landmark = None
 
                 # Select goal landmark with probability given by inverse of visitation count
                 inverse_visitations = 1. / np.clip(self.landmarks.visitations, 1, None)
@@ -162,7 +164,7 @@ class LandmarkAgent(IDFDSRAgent):
 
         # Use DSR similarity edges
         else:
-            self.landmarks.generate_graph(self.edge_threshold)
+            self.landmarks.generate_graph(self.edge_threshold, self._mode)
 
     @torch.no_grad()
     def step(self, observation, prev_action, prev_reward):
@@ -219,7 +221,7 @@ class LandmarkAgent(IDFDSRAgent):
 
                     # Generate landmark graph and path between start and goal landmarks
                     self.generate_graph()
-                    self.path = self.landmarks.generate_path(self.current_landmark, self.goal_landmark)
+                    self.path = self.landmarks.generate_path(self.current_landmark, self.goal_landmark, self._mode)
                     self.path_idx = 0
 
                     # Log that we attempted to reach each landmark in the path
@@ -273,12 +275,11 @@ class LandmarkAgent(IDFDSRAgent):
                                 self.landmark_dist_completed[self.path_idx].append(end_distance / self.start_distance_to_landmark)
 
                                 # Update landmark transition success rates
-                                if self.path_idx > 0:
-                                    last_landmark = self.path[self.path_idx - 1]
-                                    self.landmarks.successes[last_landmark, self.current_landmark] += 1
-                                    self.landmarks.successes[self.current_landmark, last_landmark] += 1
-                                    self.landmarks.attempts[last_landmark, self.current_landmark] += 1
-                                    self.landmarks.attempts[self.current_landmark, last_landmark] += 1
+                                if self.last_landmark:
+                                    self.landmarks.successes[self.last_landmark, self.current_landmark] += 1
+                                    self.landmarks.successes[self.current_landmark, self.last_landmark] += 1
+                                    self.landmarks.attempts[self.last_landmark, self.current_landmark] += 1
+                                    self.landmarks.attempts[self.current_landmark, self.last_landmark] += 1
 
                             # If current landmark is goal, exit landmark mode
                             if self.current_landmark == self.goal_landmark:
@@ -297,6 +298,7 @@ class LandmarkAgent(IDFDSRAgent):
                             
                             # Else, move to next landmark and set as new subgoal
                             else:
+                                self.last_landmark = self.current_landmark
                                 self.path_idx += 1
                                 self.current_landmark = self.path[self.path_idx]
                                 self.landmark_steps = 0
@@ -321,10 +323,9 @@ class LandmarkAgent(IDFDSRAgent):
                             # TODO: Bucket by starting distance instead
                             self.landmark_dist_completed[self.path_idx].append(end_distance / self.start_distance_to_landmark)
 
-                            if self.path_idx > 0:
-                                last_landmark = self.path[self.path_idx - 1]
-                                self.landmarks.attempts[last_landmark, self.current_landmark] += 1
-                                self.landmarks.attempts[self.current_landmark, last_landmark] += 1
+                            if self.last_landmark:
+                                self.landmarks.attempts[self.last_landmark, self.current_landmark] += 1
+                                self.landmarks.attempts[self.current_landmark, self.last_landmark] += 1
 
                         # If current landmark is goal, exit landmark mode
                         if self.current_landmark == self.goal_landmark:
@@ -343,6 +344,7 @@ class LandmarkAgent(IDFDSRAgent):
                         
                         # Else, move on to next landmark and set as new goal
                         else:
+                            self.last_landmark = None
                             self.path_idx += 1
                             self.current_landmark = self.path[self.path_idx]
                             self.landmark_steps = 0

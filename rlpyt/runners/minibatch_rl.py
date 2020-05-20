@@ -7,6 +7,7 @@ import torch
 import math
 import numpy as np
 import os
+from scipy.special import softmax
 from scipy.stats import entropy
 
 import matplotlib.pyplot as plt
@@ -454,8 +455,10 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                     plt.close('all')
 
                 if landmarks_eval:
-                    summary_writer = logger.get_tf_summary_writer()                   
-                    summary_writer.add_text("Path to goal", ','.join(map(str, self.agent.path)), itr)
+                    summary_writer = logger.get_tf_summary_writer()
+                    eval_path_str = '\n'.join(','.join(map(str, path)) + ' ({:.3f})'.format(self.agent.landmarks.eval_paths_p[i]) for i, path in enumerate(self.agent.landmarks.eval_paths))
+                    summary_writer.add_text("Path to goal", eval_path_str, itr)
+                    # summary_writer.add_text("Path to goal", ','.join(map(str, self.agent.path)), itr)
                     logger.record_tabular_stat('EndDistanceToGoal', np.average(self.agent.eval_distances), itr)
 
                     eval_env = self.sampler.eval_collector.envs[0]

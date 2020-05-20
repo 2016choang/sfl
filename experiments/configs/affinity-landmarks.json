@@ -19,7 +19,7 @@
         "reach_threshold": 0.99,
         "max_landmarks": 20,
         "steps_per_landmark": 15,
-        "edge_threshold": 0.90,
+        "edge_threshold": 0,
         "landmark_paths": 5,
         "affinity_decay": 0.9,
         "true_distance": false,
