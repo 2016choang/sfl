@@ -15,11 +15,11 @@
         },
         "landmark_mode_interval": 100,
         "landmark_update_interval": 1000,
-        "add_threshold": 0.60,
+        "add_threshold": 0.75,
         "reach_threshold": 0.99,
-        "max_landmarks": 20,
-        "steps_per_landmark": 15,
-        "edge_threshold": 0.1,
+        "max_landmarks": 5,
+        "steps_per_landmark": 10,
+        "edge_threshold": 0.01,
         "landmark_paths": 5,
         "affinity_decay": 0.9,
         "true_distance": false,
@@ -31,13 +31,11 @@
     },
     "algo": {
         "discount": 0.99,
-        "batch_size": 128,
-        "min_steps_learn": 1000,
+        "batch_size": 32,
+        "min_steps_learn": 200,
         "learning_rate": 1e-3,
         "replay_size": 20000,
-        "delta_clip": 1,
-        "min_steps_dsr_learn": 10000,
-        "idf_learning_rate": 5e-4
+        "delta_clip": 1
     },
     "env": {
         "size": [25, 25],
@@ -52,12 +50,12 @@
         "start_pos": [7, 4],
         "reset_same": true,
         "terminate": true
-    }, 
+    },
     "runner": {
-        "log_interval_steps": 1e4,
-        "log_dsr_interval_steps": 5e3,
-        "log_landmark_steps": 5e3,
-        "min_steps_landmark": 2e4
+        "log_interval_steps": 400,
+        "log_dsr_interval_steps": 400,
+        "log_landmark_steps": 400,
+        "min_steps_landmark": 300
     },
     "mode": "multiroom",
     "seed": 333,

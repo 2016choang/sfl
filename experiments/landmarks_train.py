@@ -19,6 +19,7 @@ from rlpyt.samplers.serial.collectors import SerialLandmarksEvalCollector
 from rlpyt.envs.gym import make as gym_make
 from rlpyt.algos.dqn.dsr.dsr import DSR
 from rlpyt.algos.dqn.dsr.idf_dsr import IDFDSR
+from rlpyt.algos.dqn.dsr.tc_dsr import TCDSR
 from rlpyt.agents.dqn.dsr.landmark_agent import LandmarkAgent
 from rlpyt.runners.minibatch_rl import MinibatchLandmarkDSREval
 from rlpyt.utils.logging.context import logger_context
@@ -71,7 +72,8 @@ def build_and_train(config_file,
 
     agent = LandmarkAgent(initial_model_state_dict=model_checkpoint, 
                           initial_idf_model_state_dict=idf_model_checkpoint, **config['agent'])
-    algo = IDFDSR(**config['algo'])
+    # algo = IDFDSR(**config['algo'])
+    algo = TCDSR(**config['algo'])
     runner = MinibatchLandmarkDSREval(
         algo=algo,
         agent=agent,
