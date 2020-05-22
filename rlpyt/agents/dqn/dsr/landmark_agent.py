@@ -11,7 +11,8 @@ import torch
 import torch.nn.functional as F
 
 from rlpyt.agents.base import AgentStep
-from rlpyt.agents.dqn.dsr.idf_dsr_agent import IDFDSRAgent, AgentInfo
+from rlpyt.agents.dqn.dsr.dsr_agent import AgentInfo
+from rlpyt.agents.dqn.dsr.feature_dsr_agent import FeatureDSRAgent
 from rlpyt.agents.dqn.dsr.landmarks import get_true_pos, Landmarks
 from rlpyt.distributions.categorical import Categorical, DistInfo
 from rlpyt.utils.buffer import buffer_to, torchify_buffer
@@ -19,7 +20,7 @@ from rlpyt.utils.collections import namedarraytuple
 from rlpyt.utils.quick_args import save__init__args
 
 
-class LandmarkAgent(IDFDSRAgent):
+class LandmarkAgent(FeatureDSRAgent):
 
     def __init__(
             self,
@@ -85,7 +86,7 @@ class LandmarkAgent(IDFDSRAgent):
 
             model_inputs = buffer_to(observation,
                     device=self.device)
-            features = self.idf_model(model_inputs, mode='encode')
+            features = self.feature_model(model_inputs, mode='encode')
 
             model_inputs = buffer_to(features,
                     device=self.device)
@@ -112,7 +113,7 @@ class LandmarkAgent(IDFDSRAgent):
 
             model_inputs = buffer_to(observation,
                     device=self.device)
-            features = self.idf_model(model_inputs, mode='encode')
+            features = self.feature_model(model_inputs, mode='encode')
 
             model_inputs = buffer_to(features,
                     device=self.device)
@@ -129,7 +130,7 @@ class LandmarkAgent(IDFDSRAgent):
 
                 model_inputs = buffer_to(observation,
                     device=self.device)
-                features = self.idf_model(model_inputs, mode='encode')
+                features = self.feature_model(model_inputs, mode='encode')
                 self.landmarks.set_features(features)
 
                 model_inputs = buffer_to(features,
@@ -171,7 +172,7 @@ class LandmarkAgent(IDFDSRAgent):
         if self.landmarks is not None:
             model_inputs = buffer_to(observation,
                 device=self.device)
-            features = self.idf_model(model_inputs, mode='encode')
+            features = self.feature_model(model_inputs, mode='encode')
 
             model_inputs = buffer_to(features,
                 device=self.device)
