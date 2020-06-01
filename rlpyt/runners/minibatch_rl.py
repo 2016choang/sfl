@@ -1,18 +1,19 @@
 import copy
 from collections import deque, defaultdict
 import io
+import os
 import psutil
 import time
-import torch
 import math
-import numpy as np
-import os
-from scipy.special import softmax
-from scipy.stats import entropy
 
+from matplotlib import cm
 import matplotlib.pyplot as plt
 import networkx as nx
+import numpy as np
 import PIL.Image
+from scipy.special import softmax
+from scipy.stats import entropy
+import torch
 from torchvision.transforms import ToTensor
 
 from rlpyt.runners.base import BaseRunner
@@ -337,38 +338,82 @@ class MinibatchDSREval(MinibatchRlEval):
         #     logger.record_tabular_stat('Landmark Threshold', self.agent.landmarks.threshold, itr)
 
     def log_dsr(self, itr):
+        # 1. Render actual environemnt
         env = self.sampler.collector.envs[0]
-        
         figure = plt.figure(figsize=(7, 7))
         plt.imshow(env.render(8))
         save_image('Environment', itr)
+        plt.close()
 
+        # 2. Heatmap of state vistations during training
         figure = plt.figure(figsize=(7, 7))
         plt.imshow(env.visited.T)
         circle = plt.Circle(tuple(env.start_pos), 0.2, color='r')
         plt.gca().add_artist(circle)
-        # circle = plt.Circle(tuple(env.goal_pos), 0.2, color='purple')
-        # plt.gca().add_artist(circle)
         plt.colorbar()
         save_image('State Visitation Heatmap', itr)
+        plt.close()
 
+        # Retrieve feature and successor feature representations for all states
         env_kwargs = self.sampler.env_kwargs
         env_kwargs['minigrid_config']['epsilon'] = 0.0
         dsr_env = self.sampler.EnvCls(**env_kwargs)
         dsr_env.reset()
 
-        dsr = self.agent.get_dsr(dsr_env)
+        features, dsr = self.agent.get_representations(dsr_env)
+        torch.save(features, os.path.join(logger.get_snapshot_dir(), 'features_itr_{}.pt'.format(itr)))
         torch.save(dsr, os.path.join(logger.get_snapshot_dir(), 'dsr_itr_{}.pt'.format(itr)))
         subgoal = tuple(env.start_pos)
 
+        # 3. Distance visualization in feature space
         figure = plt.figure(figsize=(7, 7))
-        dsr_heatmap = self.agent.get_dsr_heatmap(dsr, subgoal=subgoal)
+        feature_heatmap = self.agent.get_representation_heatmap(features, subgoal=subgoal, mean_axes=2)
+        plt.imshow(feature_heatmap.T)
+        circle = plt.Circle(subgoal, 0.2, color='r')
+        plt.gca().add_artist(circle)
+        plt.colorbar()
+        save_image('Cosine Similarity in Feature Space', itr)
+        plt.close()
+
+        # 4. T-SNE Visualization of features
+        feature_tsne, rooms = self.agent.get_tsne(dsr_env, features, mean_axes=2)
+        colors = [cm.jet(x) for x in np.linspace(0.0, 1.0, len(dsr_env.rooms) + 1)]
+        
+        figure = plt.figure(figsize=(7, 7))
+        tsne_data = feature_tsne[rooms == 0]
+        plt.scatter(tsne_data[:, 0], tsne_data[:, 1], label='Doorway', marker='*', color=colors[0])
+        for i in range(1, len(dsr_env.rooms) + 1):
+            tsne_data = feature_tsne[rooms == i]
+            plt.scatter(tsne_data[:, 0], tsne_data[:, 1], label='Room ' + str(i), color=colors[i])
+        plt.legend()
+        save_image('T-SNE Embeddings of Features', itr)
+        plt.close()
+
+        # 5. Distance visualization in SF space
+        figure = plt.figure(figsize=(7, 7))
+        dsr_heatmap = self.agent.get_representation_heatmap(dsr, subgoal=subgoal)
         plt.imshow(dsr_heatmap.T)
         circle = plt.Circle(subgoal, 0.2, color='r')
         plt.gca().add_artist(circle)
         plt.colorbar()
         save_image('Cosine Similarity in SF Space', itr)
+        plt.close()
 
+        # 6. T-SNE Visualization of SF
+        dsr_tsne, rooms = self.agent.get_tsne(dsr_env, dsr, mean_axes=2)
+        colors = [cm.jet(x) for x in np.linspace(0.0, 1.0, len(dsr_env.rooms) + 1)]
+        
+        figure = plt.figure(figsize=(7, 7))
+        tsne_data = dsr_tsne[rooms == 0]
+        plt.scatter(tsne_data[:, 0], tsne_data[:, 1], label='Doorway', marker='*', color=colors[0])
+        for i in range(1, len(env.rooms) + 1):
+            tsne_data = dsr_tsne[rooms == i]
+            plt.scatter(tsne_data[:, 0], tsne_data[:, 1], label='Room ' + str(i), color=colors[i])
+        plt.legend()
+        save_image('T-SNE Embeddings of SF', itr)
+        plt.close()
+
+        # 7. Visualization of Q-values (SF-based)
         figure = plt.figure(figsize=(7, 7))
         q_values = self.agent.get_q_values(dsr_env, dsr, subgoal=subgoal)
         plt.imshow(q_values.max(axis=2).T)
@@ -400,6 +445,7 @@ class MinibatchDSREval(MinibatchRlEval):
                     plt.arrow(x - dx, y - dy, dx, dy, head_width=0.3, head_length=0.3, fc='k', ec='k')
         plt.colorbar()
         save_image('Subgoal Policy', itr)
+        plt.close()
 
 
 class MinibatchLandmarkDSREval(MinibatchDSREval):
@@ -421,13 +467,15 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
             with logger.prefix(f"itr #{itr} "):
                 self.agent.sample_mode(itr)
                 samples, traj_infos = self.sampler.obtain_samples(itr)
+                self.algo.append_feature_samples(samples)
                 if not self.agent.explore:
                     samples = copy.deepcopy(samples)
                     samples.env.done[-1] = True
                     traj_infos = copy.deepcopy(traj_infos)
                     while not self.agent.explore:
                         # TODO: Make sampler function to simply move in environment
-                        self.sampler.obtain_samples(itr)
+                        landmark_samples, _ = self.sampler.obtain_samples(itr)
+                        self.algo.append_feature_samples(landmark_samples)
                 self.agent.train_mode(itr)
                 opt_info = self.algo.optimize_agent(itr, samples)
                 logger.log_itr_info(itr, opt_info)
@@ -591,6 +639,10 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         nx.draw_networkx_edge_labels(G, pos, font_size=10, font_family='sans-serif', edge_labels=edge_labels)
         plt.axis('off')
         save_image('Landmarks graph', itr)
+
+        summary_writer = logger.get_tf_summary_writer()
+        goal_neighbors = ', '.join('({}, {:.3f})'.format(node, data['weight']) for node, data in G[0].items())
+        summary_writer.add_text("Goal neighbors", goal_neighbors, itr)
 
     def evaluate_agent(self, itr):
         if itr > 0:

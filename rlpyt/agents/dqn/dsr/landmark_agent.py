@@ -12,7 +12,7 @@ import torch.nn.functional as F
 
 from rlpyt.agents.base import AgentStep
 from rlpyt.agents.dqn.dsr.dsr_agent import AgentInfo
-from rlpyt.agents.dqn.dsr.feature_dsr_agent import FeatureDSRAgent
+from rlpyt.agents.dqn.dsr.feature_dsr_agent import FeatureDSRAgent, IDFDSRAgent, TCFDSRAgent
 from rlpyt.agents.dqn.dsr.landmarks import get_true_pos, Landmarks
 from rlpyt.distributions.categorical import Categorical, DistInfo
 from rlpyt.utils.buffer import buffer_to, torchify_buffer
@@ -28,6 +28,7 @@ class LandmarkAgent(FeatureDSRAgent):
             add_threshold=0.75,
             max_landmarks=8,
             edge_threshold=0,
+            use_affinity=True,
             affinity_decay=0.9,
             landmark_paths=None, 
             landmark_mode_interval=100,
@@ -80,7 +81,8 @@ class LandmarkAgent(FeatureDSRAgent):
     def set_oracle_landmarks(self, env):
         # Set oracle landmarks hardcoded in environment
         landmarks = env.get_oracle_landmarks()
-        self.oracle_landmarks = Landmarks(len(landmarks), self.add_threshold, self.landmark_paths)
+        self.oracle_landmarks = Landmarks(len(landmarks), self.add_threshold, self.landmark_paths,
+                                          self.use_affinity, self.affinity_decay)
         for landmark in landmarks:
             observation = torchify_buffer(landmark).unsqueeze(0).float()
 
@@ -108,7 +110,8 @@ class LandmarkAgent(FeatureDSRAgent):
             self.landmarks = self.oracle_landmarks
             self.max_landmarks = self.oracle_max_landmarks
         else:
-            self.landmarks = Landmarks(self.max_landmarks, self.add_threshold, self.landmark_paths)
+            self.landmarks = Landmarks(self.max_landmarks, self.add_threshold, self.landmark_paths,
+                                       self.use_affinity, self.affinity_decay)
             observation = torchify_buffer(goal_obs).unsqueeze(0).float()
 
             model_inputs = buffer_to(observation,
@@ -169,6 +172,9 @@ class LandmarkAgent(FeatureDSRAgent):
 
     @torch.no_grad()
     def step(self, observation, prev_action, prev_reward):
+        # Try to enter landmark mode
+        self.landmark_mode()
+
         if self.landmarks is not None:
             model_inputs = buffer_to(observation,
                 device=self.device)
@@ -404,9 +410,6 @@ class LandmarkAgent(FeatureDSRAgent):
                 action = self.distribution.sample(q_values)
             self.landmark_steps += 1
 
-        # Try to enter landmark mode
-        self.landmark_mode()
-
         agent_info = AgentInfo(a=action)
         return AgentStep(action=action, agent_info=agent_info)
 
@@ -457,3 +460,15 @@ class LandmarkAgent(FeatureDSRAgent):
 
             # TODO: Re-continue landmark mode in training that was interrupted by evaluation
             self.explore = True
+
+class LandmarkIDFAgent(LandmarkAgent, IDFDSRAgent):
+
+    def __init__(self, **kwargs):
+        LandmarkAgent.__init__(self, **kwargs)
+        IDFDSRAgent.__init__(self)
+
+class LandmarkTCFAgent(LandmarkAgent, TCFDSRAgent):
+
+    def __init__(self, **kwargs):
+        LandmarkAgent.__init__(self, **kwargs)
+        TCFDSRAgent.__init__(self)

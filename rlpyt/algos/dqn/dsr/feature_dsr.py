@@ -55,12 +55,19 @@ class FeatureDSR(DSR):
         """If carrying multiple optimizers, overwrite to return dict state_dicts."""
         return {'dsr': self.dsr_optimizer.state_dict(),
                 'feature': self.feature_optimizer.state_dict()}
-
+    
+    def append_feature_samples(self, samples=None):
+        if samples is not None and self.feature_replay_buffer is not None:
+            samples_to_buffer = self.samples_to_buffer(samples)
+            self.feature_replay_buffer.append_samples(samples_to_buffer)
+        
     def optimize_agent(self, itr, samples=None, sampler_itr=None):
         itr = itr if sampler_itr is None else sampler_itr  # Async uses sampler_itr.
         if samples is not None:
             samples_to_buffer = self.samples_to_buffer(samples)
             self.replay_buffer.append_samples(samples_to_buffer)
+            # if self.feature_replay_buffer is not None:
+            #     self.feature_replay_buffer.append_samples(samples_to_buffer)
         opt_info = self.opt_info_class(*([] for _ in range(len(self.opt_info_class._fields))))
         if itr < self.min_itr_learn:
             return opt_info
@@ -84,7 +91,7 @@ class FeatureDSR(DSR):
 
                 opt_info.featureLoss.append(feature_loss.item())
                 opt_info.featureGradNorm.append(feature_grad_norm)
-                for key, value in feature_opt_info:
+                for key, value in feature_opt_info.items():
                     getattr(opt_info, key).append(value)
 
             if itr >= self.min_itr_dsr_learn:
@@ -111,6 +118,7 @@ class FeatureDSR(DSR):
     def feature_loss(self, samples_from_replay):
         raise NotImplementedError
 
+
 IDFOptInfo = namedtuple("IDFOptInfo", ["idfAccuracy"] + list(FeatureOptInfo._fields))
 
 class IDFDSR(FeatureDSR):
@@ -132,9 +140,10 @@ class IDFDSR(FeatureDSR):
             feature_opt_info = {'idfAccuracy': accuracy.item()}
         return loss, feature_opt_info
 
-TCOptInfo = namedtuple("TCOptInfo", ["posDistance", "negDistance"] + list(FeatureOptInfo._fields))
 
-class TCDSR(FeatureDSR):
+TCFOptInfo = namedtuple("TCFOptInfo", ["posDistance", "negDistance"] + list(FeatureOptInfo._fields))
+
+class TCFDSR(FeatureDSR):
     """Time Contrastive Features DSR."""
 
     def __init__(
@@ -144,8 +153,9 @@ class TCDSR(FeatureDSR):
         neg_far_threshold=30,
         margin=2.0,
         **kwargs):
+        save__init__args(locals())
         super().__init__(**kwargs)
-        self.opt_info_class = TCOptInfo
+        self.opt_info_class = TCFOptInfo
         self.opt_info_fields = tuple(f for f in self.opt_info_class._fields)
 
     def initialize_replay_buffer(self, examples, batch_spec, async_=False):

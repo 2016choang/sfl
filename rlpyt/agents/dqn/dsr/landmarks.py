@@ -17,7 +17,7 @@ def get_true_pos(obs):
 
 class Landmarks(object):
 
-    def __init__(self, max_landmarks, threshold=0.75, landmark_paths=None, affinity_decay=0.9):
+    def __init__(self, max_landmarks, threshold=0.75, landmark_paths=None, use_affinity=True, affinity_decay=0.9):
         save__init__args(locals())
         self.num_landmarks = 0
         self.observations = None 
@@ -236,17 +236,21 @@ class Landmarks(object):
 
         edge_success_rate = self.successes / np.clip(self.attempts, 1, None)
 
-        # Remove edges with success rate <= edge threshold
-        non_edges = np.logical_not(edge_success_rate > edge_threshold)
-
-        if mode != 'eval':
-            non_zero_attempts = self.attempts[self.attempts > 0]
-            attempt_threshold = max(non_zero_attempts.mean() - non_zero_attempts.std(), 1)
-            low_attempt_edges = self.attempts < attempt_threshold
-            non_edges[low_attempt_edges] = False            
-
         landmark_distances = 1.001 - similarities
         # landmark_distances = 1.001 - edge_success_rate
+
+        if self.use_affinity:
+            # Remove edges with success rate <= edge threshold
+            non_edges = np.logical_not(edge_success_rate > edge_threshold)
+
+            if mode != 'eval':
+                non_zero_attempts = self.attempts[self.attempts > 0]
+                attempt_threshold = max(non_zero_attempts.mean() - non_zero_attempts.std(), 1)
+                low_attempt_edges = self.attempts < attempt_threshold
+                non_edges[low_attempt_edges] = False            
+        else:
+            non_edges = similarities < edge_threshold
+
         landmark_distances[non_edges] = 0
 
         # Logging edge success rates
@@ -270,12 +274,12 @@ class Landmarks(object):
 
             for success_rate, similarity, u, v in avail:
                 dist = 1.001 - similarity
-                if success_rate == 0:
+                if self.use_affinity and success_rate == 0:
                     dist = (self.max_landmarks * 3) + dist
                 
                 landmark_distances[(u, v)] = dist
-                
                 # landmark_distances[(u, v)] = 1.001 - success_rate
+                
                 G = nx.from_numpy_array(landmark_distances)
 
                 total_edges += 1
@@ -305,15 +309,15 @@ class Landmarks(object):
         # Select path with probability given by softmin of path lengths
         if self.landmark_paths is not None:
             paths = list(itertools.islice(nx.shortest_simple_paths(self.graph, source, target, weight='weight'), self.landmark_paths))
-            if mode == 'eval':
+            if mode != 'eval':
                 true_edges = np.array([self.get_true_edges(path, 'weight') for path in paths])
                 max_true_edges = max(true_edges)
                 paths = [path for i, path in enumerate(paths) if true_edges[i] == max_true_edges]
-                self.eval_paths = paths
 
             path_lengths = np.array([len(path) for path in paths])
             path_p = softmax(path_lengths)
             if mode == 'eval':
+                self.eval_paths = paths
                 self.eval_paths_p = path_p
             path_choice = np.random.choice(list(range(len(paths))), p=path_p)
             self.path = paths[path_choice]
@@ -325,6 +329,8 @@ class Landmarks(object):
                 if len(path) > max_length:
                     self.path = path
                     max_length = len(path)
+            self.eval_paths = [self.path]
+            self.eval_paths_p = np.array([1])
         return self.path
 
     def update_affinity(self):

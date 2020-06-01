@@ -62,6 +62,11 @@ class UniformTripletReplayBuffer(BaseReplayBuffer):
         else:
             idxs = np.arange(t, t + T)
         self.samples[idxs] = samples
+        if self.episode_start >= t:
+            bounds = [self.episode_start - self.T, t]
+        else:
+            bounds = [self.episode_start, t]
+        self.episode_bounds[idxs] = bounds 
 
         for done_idx in idxs[samples.done.flatten().detach().numpy()]:
             if self.episode_start >= done_idx + 1:
@@ -82,14 +87,14 @@ class UniformTripletReplayBuffer(BaseReplayBuffer):
         high = self.T if self._buffer_full else t - self.neg_far_threshold
         low = 0 if self._buffer_full else self.neg_far_threshold
         anchor_idxs = np.random.randint(low=low, high=high, size=(batch_B,))
-        anchor_idxs[anchor_idxs >= t] += t # min for invalid high t.
+        # anchor_idxs[anchor_idxs >= t] += t # min for invalid high t.
         anchor_idxs = anchor_idxs % self.T
 
         pos_low = np.maximum(anchor_idxs - self.pos_threshold, self.episode_bounds[anchor_idxs][:, 0])
         pos_high = np.minimum(anchor_idxs + self.pos_threshold + 1, self.episode_bounds[anchor_idxs][:, 1])
         pos_idxs = np.random.randint(low=pos_low, high=pos_high, size=(batch_B,))
-        pos_idxs = pos_idxs % self.T
-        pos_idxs[pos_idxs >= t] += t
+        # pos_idxs = pos_idxs % self.T
+        # pos_idxs[pos_idxs >= t] += t
         pos_idxs = pos_idxs % self.T
 
         left_neg_low = np.maximum(anchor_idxs - self.neg_far_threshold, self.episode_bounds[anchor_idxs][:, 0])
@@ -108,12 +113,15 @@ class UniformTripletReplayBuffer(BaseReplayBuffer):
         right_range = right_neg_high - right_neg_low
         right_range[invalid] = 0
 
-        prob = left_range / np.clip(left_range + right_range, a_min=0, a_max=None)
+        prob = left_range / np.clip(left_range + right_range, a_min=1, a_max=None)
         uniform = np.random.rand(*prob.shape)
         neg_idxs = np.where(uniform < prob, left_neg_idxs, right_neg_idxs)
+        # neg_idxs = neg_idxs % self.T
+        # neg_idxs[neg_idxs >= t] += t
         neg_idxs = neg_idxs % self.T
-        neg_idxs[neg_idxs >= t] += t
-        neg_idxs = neg_idxs % self.T
+
+        # if self._buffer_full and t > 10:
+            # import pdb; pdb.set_trace()
 
         B_idxs = np.random.randint(low=0, high=self.B, size=(batch_B,))
 
@@ -122,7 +130,6 @@ class UniformTripletReplayBuffer(BaseReplayBuffer):
             pos=self.extract_observation(pos_idxs, B_idxs),
             neg=self.extract_observation(neg_idxs, B_idxs)
         )
-
         return torchify_buffer(batch)
 
     def extract_observation(self, T_idxs, B_idxs):

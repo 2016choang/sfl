@@ -11,7 +11,9 @@
             }   
         },
         "feature_model_kwargs": {
-            "feature_size": 64
+            "feature_size": 64,
+            "norm_output": true,
+            "alpha": 10.0
         },
         "landmark_mode_interval": 100,
         "landmark_update_interval": 1000,
@@ -19,31 +21,33 @@
         "reach_threshold": 0.99,
         "max_landmarks": 20,
         "steps_per_landmark": 15,
-        "edge_threshold": 0.05,
-        "landmark_paths": 5,
-        "affinity_decay": 0.9,
-        "true_distance": false,
+        "true_distance": true,
         "steps_for_true_reach": 0,
         "use_true_start": false,
+        "oracle": false,
         "use_oracle_landmarks": false,
         "use_soft_q": false,
         "use_sf": true
     },
     "algo": {
         "discount": 0.99,
-        "batch_size": 128,
+        "batch_size": 256,
         "min_steps_learn": 1000,
         "learning_rate": 1e-3,
         "replay_size": 20000,
         "delta_clip": 1,
         "min_steps_dsr_learn": 10000,
-        "feature_learning_rate": 5e-4
+        "feature_learning_rate": 1e-3,
+        "pos_threshold": 3,
+        "neg_close_threshold": 15,
+        "neg_far_threshold": 30,
+        "margin": 2.0
     },
     "env": {
         "size": [25, 25],
         "max_steps": 500,
         "reset_episodes": 1,
-        "reset_same": true,
+        "reset_same": false,
         "terminate": true
     },
     "eval_env": {
@@ -62,5 +66,5 @@
     "mode": "multiroom",
     "seed": 333,
     "tabular": false,
-    "feature": "IDF"
+    "feature": "TCF"
 }

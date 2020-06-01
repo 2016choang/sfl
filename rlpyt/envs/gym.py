@@ -397,6 +397,9 @@ class MinigridMultiRoomLandmarkWrapper(Wrapper):
     def get_oracle_landmarks(self):
         self.reset()
         states = []
+        self.env.unwrapped.agent_pos = np.array([16, 19])
+        states.append(self.get_current_state()[0])
+
         for room in self.env.rooms:
             x = room.top[0] + (room.size[0] - 1) // 2
             y = room.top[1] + (room.size[1] - 1) // 2
@@ -407,9 +410,6 @@ class MinigridMultiRoomLandmarkWrapper(Wrapper):
                 self.env.unwrapped.agent_pos = np.array(room.exitDoorPos)
                 states.append(self.env.get_current_state()[0])
         
-        self.env.unwrapped.agent_pos = np.array([16, 19])
-        states.append(self.get_current_state()[0])
-
         return states
 
     def get_current_state(self):

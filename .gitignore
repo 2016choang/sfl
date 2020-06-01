@@ -1,6 +1,7 @@
 
 # To store all experiment data locally only.
-/data/  
+/data/
+/playground/data
 # For quick local testing.
 /scratch/ 
 
