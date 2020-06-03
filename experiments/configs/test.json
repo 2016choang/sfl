@@ -46,14 +46,18 @@
         "margin": 2.0
     },
     "env": {
-        "size": [25, 25],
+        "size": [28, 28],
+        "tile_size": 4,
+        "partial": true,
         "max_steps": 500,
         "reset_episodes": 1,
         "reset_same": true,
         "terminate": true
     },
     "eval_env": {
-        "size": [25, 25],
+        "size": [28, 28],
+        "tile_size": 4,
+        "partial": true,
         "max_steps": 500,
         "start_pos": [7, 4],
         "reset_same": true,

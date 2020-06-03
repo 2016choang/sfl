@@ -25,12 +25,15 @@ class TCFModel(torch.nn.Module):
         self.norm_output = norm_output
         self.alpha = alpha
 
-        conv_embedding_size = 32 * 10 * 10
+        embedding_c = 32
+        embedding_s = ((h - 3) // 2) + 1 - 3 + 1
+
+        conv_embedding_size = embedding_c * embedding_s * embedding_s
 
         self.encoder = nn.Sequential(
             nn.Conv2d(c, 32, (3, 3), stride=2),
             nn.ReLU(),
-            nn.Conv2d(32, 32, (3, 3), stride=1),
+            nn.Conv2d(32, embedding_c, (3, 3), stride=1),
             nn.ReLU(),
             nn.Flatten(),
             nn.Linear(conv_embedding_size, self.feature_size)

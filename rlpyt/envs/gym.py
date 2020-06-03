@@ -2,7 +2,7 @@ from collections import namedtuple
 import random
 
 import gym
-from gym_minigrid.wrappers import FullyObsWrapper, ImgObsWrapper, RGBImgObsWrapper, ReseedWrapper
+from gym_minigrid.wrappers import FullyObsWrapper, ImgObsWrapper, RGBImgObsWrapper, ReseedWrapper, RGBImgPartialObsWrapper
 from gym_minigrid.envs.multiroom import MultiRoomEnv
 from gym import Wrapper
 from gym.spaces import Box, Discrete, Dict
@@ -391,24 +391,26 @@ class MinigridMultiRoomLandmarkWrapper(Wrapper):
 
         self.observation_space = env.observation_space
         self.action_space = Discrete(4)
+        # TODO: Hard-coded state next to goal state for now!
+        self.landmark_goal_pos = np.array([16, 19])
 
         self.visited = np.zeros((self.env.grid.height, self.env.grid.width), dtype=int)
 
     def get_oracle_landmarks(self):
         self.reset()
         states = []
-        self.env.unwrapped.agent_pos = np.array([16, 19])
-        states.append(self.get_current_state()[0])
+        self.env.unwrapped.agent_pos = self.landmark_goal_pos
+        states.append((self.get_current_state()[0], self.env.unwrapped.agent_pos))
 
         for room in self.env.rooms:
             x = room.top[0] + (room.size[0] - 1) // 2
             y = room.top[1] + (room.size[1] - 1) // 2
             self.env.unwrapped.agent_pos = np.array([x, y])
-            states.append(self.env.get_current_state()[0])
+            states.append((self.env.get_current_state()[0], self.env.unwrapped.agent_pos))
             
             if room.exitDoorPos is not None:
                 self.env.unwrapped.agent_pos = np.array(room.exitDoorPos)
-                states.append(self.env.get_current_state()[0])
+                states.append((self.env.get_current_state()[0], self.env.unwrapped.agent_pos))
         
         return states
 
@@ -421,10 +423,10 @@ class MinigridMultiRoomLandmarkWrapper(Wrapper):
 
         # self.env.unwrapped.agent_pos = self.env.unwrapped.goal_pos
         # TODO: Hard-coded state next to goal state for now!
-        self.env.unwrapped.agent_pos = np.array([16, 19])
+        self.env.unwrapped.agent_pos = self.landmark_goal_pos
         obs = self.get_current_state()[0]
         self.reset_episode()
-        return obs
+        return (obs, self.landmark_goal_pos)
 
     def get_true_distances(self):
         h, w = self.env.grid.height, self.env.grid.width
@@ -848,6 +850,7 @@ def make(*args, info_example=None, mode=None, minigrid_config=None, **kwargs):
         reset_episodes = minigrid_config.get('reset_episodes', 1)
     
         max_steps = minigrid_config.get('max_steps', 500)
+        seed = minigrid_config.get('seed', 0)
 
         if mode == 'multiroom':
             num_rooms = minigrid_config.get('num_rooms', 10)
@@ -855,7 +858,12 @@ def make(*args, info_example=None, mode=None, minigrid_config=None, **kwargs):
             start_pos = minigrid_config.get('start_pos', None)
             env = MultiRoomEnv(num_rooms, num_rooms, room_size)
             env.max_steps = max_steps
-            env = RGBImgObsWrapper(ReseedWrapper(env))
+            
+            if minigrid_config.get('partial', False):
+                tile_size = minigrid_config.get('tile_size', 1)
+                env = RGBImgPartialObsWrapper(ReseedWrapper(env, seeds=[seed]), tile_size=tile_size)
+            else:
+                env = RGBImgObsWrapper(ReseedWrapper(env, seeds=[seed]))
             env = MinigridMultiRoomWrapper(env, num_rooms=num_rooms, size=size, grayscale=grayscale, max_steps=max_steps, terminate=terminate, start_pos=start_pos, reset_same=reset_same, reset_episodes=reset_episodes)
             
             oracle = minigrid_config.get('oracle', False)

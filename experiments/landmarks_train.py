@@ -1,4 +1,3 @@
-
 """
 Runs one instance of the environment and optimizes using the Soft Actor
 Critic algorithm. Can use a GPU for the agent (applies to both sample and
@@ -16,6 +15,7 @@ import torch
 
 from rlpyt.samplers.serial.sampler import SerialSampler
 from rlpyt.samplers.serial.collectors import SerialLandmarksEvalCollector
+from rlpyt.samplers.parallel.cpu.collectors import CpuLandmarksCollector
 from rlpyt.envs.gym import make as gym_make
 from rlpyt.algos.dqn.dsr.dsr import DSR
 from rlpyt.algos.dqn.dsr.feature_dsr import IDFDSR, TCFDSR
@@ -49,6 +49,7 @@ def build_and_train(config_file,
         device = torch.device('cpu')
 
     sampler = SerialSampler(
+        CollectorCls=CpuLandmarksCollector,
         eval_CollectorCls=SerialLandmarksEvalCollector,
         EnvCls=gym_make,
         env_kwargs=dict(id=env_id, mode=mode, minigrid_config=config['env']),

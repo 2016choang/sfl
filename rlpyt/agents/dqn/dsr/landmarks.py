@@ -9,12 +9,6 @@ import torch
 from rlpyt.utils.quick_args import save__init__args
 
 
-def get_true_pos(obs):
-    # Get true (x, y) position of agent from observation
-    h, w = obs.shape[:2]
-    idx = np.argmax(obs[:, :, 0] - obs[:, :, 2])
-    return [idx % w, idx // w]  
-
 class Landmarks(object):
 
     def __init__(self, max_landmarks, threshold=0.75, landmark_paths=None, use_affinity=True, affinity_decay=0.9):
@@ -26,6 +20,8 @@ class Landmarks(object):
         self.dsr = None
         self.norm_dsr = None
         self.visitations = None
+        self.positions = None
+
         self.predecessors = None
         self.graph = None
 
@@ -44,12 +40,13 @@ class Landmarks(object):
         self.non_zero_success_rates = []
         self.zero_success_edge_ratio = []    
 
-    def force_add_landmark(self, observation, features, dsr):
+    def force_add_landmark(self, observation, features, dsr, position):
         # Add landmark while ignoring similarity thresholds and max landmarks
         if self.num_landmarks == 0:
             self.observations = observation
             self.set_features(features)
             self.set_dsr(dsr)
+            self.positions = np.expand_dims(position, 0)
             self.visitations = np.array([0])
             self.num_landmarks += 1
             self.successes = np.array([[0]])
@@ -59,8 +56,9 @@ class Landmarks(object):
             self.observations = torch.cat((self.observations, observation), dim=0)
             self.set_features(features, self.num_landmarks)
             self.set_dsr(dsr, self.num_landmarks)
+            self.positions = np.append(self.positions, np.expand_dims(position, 0), axis=0)            
             self.visitations = np.append(self.visitations, 0)
-            
+
             self.successes = np.append(self.successes, np.zeros((self.num_landmarks, 1)), axis=1)
             self.successes = np.append(self.successes, np.zeros((1, self.num_landmarks + 1)), axis=0)
             self.attempts = np.append(self.attempts, np.zeros((self.num_landmarks, 1)), axis=1)
@@ -77,19 +75,21 @@ class Landmarks(object):
         self.norm_features = self.norm_features[save_idx]
         self.dsr = self.dsr[save_idx]
         self.norm_dsr = self.norm_dsr[save_idx]
-        
+
+        self.positions = self.positions[save_idx]
         self.visitations = self.visitations[save_idx]
 
         self.num_landmarks -= 1
         self.successes = self.successes[:self.num_landmarks, :self.num_landmarks]
         self.attempts = self.attempts[:self.num_landmarks, :self.num_landmarks]
 
-    def add_landmark(self, observation, features, dsr):
+    def add_landmark(self, observation, features, dsr, position):
         # First landmark
         if self.num_landmarks == 0:
             self.observations = observation
             self.set_features(features)
             self.set_dsr(dsr)
+            self.positions = np.expand_dims(position, 0)
             self.visitations = np.array([0])
             self.successes = np.array([[0]])
             self.attempts = np.array([[0]])
@@ -111,6 +111,7 @@ class Landmarks(object):
                     self.observations = torch.cat((self.observations, observation), dim=0)
                     self.set_features(features, self.num_landmarks)
                     self.set_dsr(dsr, self.num_landmarks)
+                    self.positions = np.append(self.positions, np.expand_dims(position, 0), axis=0)            
                     
                     self.successes = np.append(self.successes, np.zeros((self.num_landmarks, 1)), axis=1)
                     self.successes = np.append(self.successes, np.zeros((1, self.num_landmarks + 1)), axis=0)
@@ -137,6 +138,7 @@ class Landmarks(object):
                     self.observations[replace_idx] = observation
                     self.set_features(features, replace_idx)
                     self.set_dsr(dsr, replace_idx)
+                    self.positions[replace_idx] = np.expand_dims(position, 0)
                     self.visitations[replace_idx] = 0
 
                     current_landmark = replace_idx
@@ -188,25 +190,15 @@ class Landmarks(object):
             self.dsr = torch.cat((self.dsr, dsr), dim=0)
             self.norm_dsr = torch.cat((self.norm_dsr, norm_dsr), dim=0)
 
-    def get_pos(self):
-        # Get true positions of landmarks
-        observations = self.observations.detach().cpu().numpy()
-        pos = np.zeros((len(observations), 2), dtype=int)
-
-        for i, obs in enumerate(observations):
-            pos[i] = get_true_pos(obs)
-        return pos
-
     def generate_true_graph(self, env_true_dist, edge_threshold=None):
         # TODO: Hack to generate landmark graph based on true distances
         n_landmarks = len(self.norm_dsr)
         landmark_distances = np.zeros((n_landmarks, n_landmarks))
 
-        landmark_pos = self.get_pos()
         for s in range(n_landmarks):
-            s_x, s_y = landmark_pos[s]
+            s_x, s_y = self.positions[s]
             for t in range(n_landmarks):
-                t_x, t_y = landmark_pos[t]
+                t_x, t_y = self.positions[t]
                 if s_x == t_x and s_y == t_y:
                     landmark_distances[s, t] = 1
                 else:
@@ -341,17 +333,27 @@ class Landmarks(object):
 
     def prune_landmarks(self):
         # Prune landmarks that do not meet similarity requirement [NOT CURRENTLY USED]
-        landmark_similarities = torch.matmul(self.norm_dsr, self.norm_dsr.T)
-        save_idx = torch.sum(landmark_similarities < self.threshold, axis=1) >= (self.num_landmarks - 1)
+        # landmark_similarities = torch.matmul(self.norm_dsr, self.norm_dsr.T)
+        # save_idx = torch.sum(landmark_similarities < self.threshold, axis=1) >= (self.num_landmarks - 1)
+
+        seen_positions = set()
+        save_idx = []
+        for i, position in enumerate(map(tuple, self.positions)):
+            if position not in seen_positions:
+                seen_positions.add(position)
+                save_idx.append(i)
+        save_idx = np.array(save_idx)
 
         self.observations = self.observations[save_idx]
         self.features = self.features[save_idx]
         self.norm_features = self.norm_features[save_idx]
         self.dsr = self.dsr[save_idx]
         self.norm_dsr = self.norm_dsr[save_idx]
+        self.positions = self.positions[save_idx]
         
-        save_idx = save_idx.detach().cpu().numpy()
         self.visitations = self.visitations[save_idx]
+        self.successes = self.successes[save_idx[:, None], save_idx]
+        self.attempts = self.attempts[save_idx[:, None], save_idx]
 
-        self.landmark_removes += (self.num_landmarks - sum(save_idx))
-        self.num_landmarks = sum(save_idx)
+        self.landmark_removes += (self.num_landmarks - len(save_idx))
+        self.num_landmarks = len(save_idx)

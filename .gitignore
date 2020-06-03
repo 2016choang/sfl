@@ -126,3 +126,6 @@ playground/gym-results/
 
 # auxiliary data
 experiments/aux-data/
+
+# misc
+nohup.out

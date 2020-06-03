@@ -13,7 +13,7 @@ import torch.nn.functional as F
 from rlpyt.agents.base import AgentStep
 from rlpyt.agents.dqn.dsr.dsr_agent import AgentInfo
 from rlpyt.agents.dqn.dsr.feature_dsr_agent import FeatureDSRAgent, IDFDSRAgent, TCFDSRAgent
-from rlpyt.agents.dqn.dsr.landmarks import get_true_pos, Landmarks
+from rlpyt.agents.dqn.dsr.landmarks import Landmarks
 from rlpyt.distributions.categorical import Categorical, DistInfo
 from rlpyt.utils.buffer import buffer_to, torchify_buffer
 from rlpyt.utils.collections import namedarraytuple
@@ -83,8 +83,8 @@ class LandmarkAgent(FeatureDSRAgent):
         landmarks = env.get_oracle_landmarks()
         self.oracle_landmarks = Landmarks(len(landmarks), self.add_threshold, self.landmark_paths,
                                           self.use_affinity, self.affinity_decay)
-        for landmark in landmarks:
-            observation = torchify_buffer(landmark).unsqueeze(0).float()
+        for landmark_obs, landmark_pos in landmarks:
+            observation = torchify_buffer(landmark_obs).unsqueeze(0).float()
 
             model_inputs = buffer_to(observation,
                     device=self.device)
@@ -94,7 +94,7 @@ class LandmarkAgent(FeatureDSRAgent):
                     device=self.device)
             dsr = self.model(model_inputs, mode='dsr')
 
-            self.oracle_landmarks.force_add_landmark(observation, features, dsr)
+            self.oracle_landmarks.force_add_landmark(observation, features, dsr, landmark_pos)
         
         self.oracle_max_landmarks = len(landmarks)
         self.reset_logging()
@@ -104,12 +104,13 @@ class LandmarkAgent(FeatureDSRAgent):
         self.env_true_dist = env.get_true_distances()
 
     @torch.no_grad()
-    def create_landmarks(self, goal_obs):
+    def create_landmarks(self, goal):
         # Create Landmarks object
         if self.use_oracle_landmarks:
             self.landmarks = self.oracle_landmarks
             self.max_landmarks = self.oracle_max_landmarks
         else:
+            goal_obs, goal_pos = goal
             self.landmarks = Landmarks(self.max_landmarks, self.add_threshold, self.landmark_paths,
                                        self.use_affinity, self.affinity_decay)
             observation = torchify_buffer(goal_obs).unsqueeze(0).float()
@@ -122,7 +123,7 @@ class LandmarkAgent(FeatureDSRAgent):
                     device=self.device)
             dsr = self.model(model_inputs, mode='dsr')
 
-            self.landmarks.add_landmark(observation, features, dsr)
+            self.landmarks.add_landmark(observation, features, dsr, goal_pos)
 
     @torch.no_grad()
     def update_landmarks(self, itr):
@@ -143,7 +144,7 @@ class LandmarkAgent(FeatureDSRAgent):
 
                 self.landmarks.update_affinity()
 
-                # self.landmarks.prune_landmarks()
+                self.landmarks.prune_landmarks()
                 self.explore = True
 
     def landmark_mode(self):
@@ -171,9 +172,13 @@ class LandmarkAgent(FeatureDSRAgent):
             self.landmarks.generate_graph(self.edge_threshold, self._mode)
 
     @torch.no_grad()
-    def step(self, observation, prev_action, prev_reward):
+    def step(self, observation, prev_action, prev_reward, position=None):
         # Try to enter landmark mode
         self.landmark_mode()
+
+        # TODO: Hack, we are currently only using one environment right now
+        if position:
+            position = position[0]
 
         if self.landmarks is not None:
             model_inputs = buffer_to(observation,
@@ -186,7 +191,7 @@ class LandmarkAgent(FeatureDSRAgent):
 
             # Add landmarks if in exploration mode during training
             if self.explore and self._mode != 'eval' and not self.use_oracle_landmarks:
-                self.landmarks.add_landmark(observation, features, dsr)
+                self.landmarks.add_landmark(observation, features, dsr, position)
 
             # Select current (subgoal) landmark
             if not self.explore:
@@ -197,12 +202,12 @@ class LandmarkAgent(FeatureDSRAgent):
                     landmark_similarity = torch.matmul(self.landmarks.norm_dsr, norm_dsr.T)
                     self.current_landmark = landmark_similarity.argmax().item()
 
-                    cur_x, cur_y = get_true_pos(observation.squeeze())
+                    cur_x, cur_y = position
 
                     # Find correct start landmark based on true distances
                     closest_landmark = None
                     min_dist = None
-                    for i, pos in enumerate(self.landmarks.get_pos()):
+                    for i, pos in enumerate(self.landmarks.positions):
                         dist = self.env_true_dist[cur_x, cur_y, pos[0], pos[1]]
                         if min_dist is None or dist < min_dist:
                             min_dist = dist
@@ -236,7 +241,7 @@ class LandmarkAgent(FeatureDSRAgent):
                         self.landmark_attempts[:len(self.path)] += 1
 
                     # Starting distance to goal landmark
-                    landmark_x, landmark_y = self.landmarks.get_pos()[self.goal_landmark]
+                    landmark_x, landmark_y = self.landmarks.positions[self.goal_landmark]
                     self.start_distance_to_goal = self.env_true_dist[cur_x, cur_y, landmark_x, landmark_y]
                     if self.start_distance_to_goal == 0:
                         self.start_distance_to_goal = 1
@@ -257,8 +262,8 @@ class LandmarkAgent(FeatureDSRAgent):
                             self.landmark_reaches[self.path_idx] += 1
                         
                         # HACK: Check if current landmark is reached based on true distance
-                        cur_x, cur_y = get_true_pos(observation.squeeze())
-                        landmark_x, landmark_y = self.landmarks.get_pos()[self.current_landmark]
+                        cur_x, cur_y = position
+                        landmark_x, landmark_y = self.landmarks.positions[self.current_landmark]
                         end_distance = self.env_true_dist[cur_x, cur_y, landmark_x, landmark_y]
 
                         # If goal landmark, we must try to reach it perfectly
@@ -311,7 +316,7 @@ class LandmarkAgent(FeatureDSRAgent):
                                 self.landmark_steps = 0
                                 find_next_landmark = True
 
-                                landmark_x, landmark_y = self.landmarks.get_pos()[self.current_landmark]
+                                landmark_x, landmark_y = self.landmarks.positions[self.current_landmark]
                                 self.start_distance_to_landmark = self.env_true_dist[cur_x, cur_y, landmark_x, landmark_y]
                         
                         # Otherwise, we continue to use subgoal policy to try to reach current landmark
@@ -320,9 +325,8 @@ class LandmarkAgent(FeatureDSRAgent):
                     
                     # We have run out of steps trying to reach current landmark
                     else:
-                        # HACK: Get true distance to current landmark
-                        cur_x, cur_y = get_true_pos(observation.squeeze())
-                        landmark_x, landmark_y = self.landmarks.get_pos()[self.current_landmark]
+                        cur_x, cur_y = position 
+                        landmark_x, landmark_y = self.landmarks.positions[self.current_landmark]
                         end_distance = self.env_true_dist[cur_x, cur_y, landmark_x, landmark_y]
 
                         # In training, log end/start distance to landmark ratio
@@ -357,7 +361,7 @@ class LandmarkAgent(FeatureDSRAgent):
                             self.landmark_steps = 0
                             find_next_landmark = True
 
-                            landmark_x, landmark_y = self.landmarks.get_pos()[self.current_landmark]
+                            landmark_x, landmark_y = self.landmarks.positions[self.current_landmark]
                             self.start_distance_to_landmark = self.env_true_dist[cur_x, cur_y, landmark_x, landmark_y]
 
         # Exploration (random) policy
@@ -370,8 +374,8 @@ class LandmarkAgent(FeatureDSRAgent):
 
         # Oracle landmark mode (in training only)
         elif self.oracle and self._mode != 'eval':
-            cur_x, cur_y = get_true_pos(observation.squeeze())
-            landmark_x, landmark_y = self.landmarks.get_pos()[self.current_landmark]
+            cur_x, cur_y = position 
+            landmark_x, landmark_y = self.landmarks.positions[self.current_landmark]
             new_pos = [[cur_x + 1, cur_y], [cur_x, cur_y + 1], [cur_x - 1, cur_y], [cur_x, cur_y - 1]]
             min_dist = None
             act = None

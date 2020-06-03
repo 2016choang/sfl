@@ -483,8 +483,8 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                 
                 if (itr + 1) >= self.min_steps_landmark:
                     if self.agent.landmarks is None:
-                        goal_obs = self.sampler.eval_collector.envs[0].get_goal_state()
-                        self.agent.create_landmarks(goal_obs)
+                        goal = self.sampler.eval_collector.envs[0].get_goal_state()
+                        self.agent.create_landmarks(goal)
                     self.agent.update_landmarks(itr)
 
                 landmarks_eval = False
@@ -595,12 +595,9 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         
         node_labels = defaultdict(list)
 
-        for i, observation in enumerate(self.agent.landmarks.observations):
-            diff = observation[:, :, 0] - observation[:, :, 2]
-            idx = diff.argmax().detach().cpu().numpy()
-            pos = (idx // 25, idx % 25)
-            node_labels[pos].append(i)
-            landmarks_grid[pos] += 1
+        for i, position in enumerate(map(tuple, self.agent.landmarks.positions)):
+            node_labels[position[1], position[0]].append(i)
+            landmarks_grid[position[1], position[0]] += 1
 
         figure = plt.figure(figsize=(7, 7))
         plt.imshow(landmarks_grid)
