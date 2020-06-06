@@ -386,13 +386,18 @@ class MinigridMultiRoomOracleWrapper(Wrapper):
 class MinigridMultiRoomLandmarkWrapper(Wrapper):
     # 0 -- right, 1 -- down, 2 -- left, 3 -- up
 
-    def __init__(self, env):
+    def __init__(self, env, use_doors=False):
         self.env = env
+        self.use_doors = use_doors
 
         self.observation_space = env.observation_space
-        self.action_space = Discrete(4)
+        
+        if self.use_doors:
+            self.action_space = Discrete(5)
+        else:
+            self.action_space = Discrete(4)
         # TODO: Hard-coded state next to goal state for now!
-        self.landmark_goal_pos = np.array([16, 19])
+        self.landmark_goal_pos = np.array([13, 4])
 
         self.visited = np.zeros((self.env.grid.height, self.env.grid.width), dtype=int)
 
@@ -489,40 +494,41 @@ class MinigridMultiRoomLandmarkWrapper(Wrapper):
 
     def reset(self, **kwargs):
         self.env.reset()
-        org_dir = self.env.unwrapped.agent_dir
-        org_pos = self.env.unwrapped.agent_pos.copy()
+        if not self.use_doors:
+            org_dir = self.env.unwrapped.agent_dir
+            org_pos = self.env.unwrapped.agent_pos.copy()
 
-        self.exit_door_directions = []
-        for room in self.env.rooms[:-1]:
-            top_left = np.array(room.top)
-            bot_right = top_left + room.size - 1
+            self.exit_door_directions = []
+            for room in self.env.rooms[:-1]:
+                top_left = np.array(room.top)
+                bot_right = top_left + room.size - 1
 
-            exit_door = np.array(room.exitDoorPos)
-            open_door_pos = exit_door.copy()
+                exit_door = np.array(room.exitDoorPos)
+                open_door_pos = exit_door.copy()
 
-            if exit_door[0] == top_left[0]:
-                exit_door_direction = 2
-                open_door_pos[0] += 1
-            elif exit_door[0] == bot_right[0]:
-                exit_door_direction = 0
-                open_door_pos[0] -= 1
-            elif exit_door[1] == top_left[1]:
-                exit_door_direction = 3
-                open_door_pos[1] += 1
-            elif exit_door[1] == bot_right[1]:
-                exit_door_direction = 1
-                open_door_pos[1] -= 1
-            else:
-                raise RuntimeError
+                if exit_door[0] == top_left[0]:
+                    exit_door_direction = 2
+                    open_door_pos[0] += 1
+                elif exit_door[0] == bot_right[0]:
+                    exit_door_direction = 0
+                    open_door_pos[0] -= 1
+                elif exit_door[1] == top_left[1]:
+                    exit_door_direction = 3
+                    open_door_pos[1] += 1
+                elif exit_door[1] == bot_right[1]:
+                    exit_door_direction = 1
+                    open_door_pos[1] -= 1
+                else:
+                    raise RuntimeError
 
-            self.env.env.unwrapped.agent_pos = open_door_pos
-            self.env.env.unwrapped.agent_dir = exit_door_direction
-            self.env.step(4)
+                self.env.env.unwrapped.agent_pos = open_door_pos
+                self.env.env.unwrapped.agent_dir = exit_door_direction
+                self.env.step(4)
 
-            self.exit_door_directions.append(exit_door_direction)
+                self.exit_door_directions.append(exit_door_direction)
 
-        self.env.unwrapped.agent_dir = org_dir
-        self.env.unwrapped.agent_pos = org_pos
+            self.env.unwrapped.agent_dir = org_dir
+            self.env.unwrapped.agent_pos = org_pos
         
         self.visited[tuple(self.env.unwrapped.agent_pos)] += 1
 
@@ -871,7 +877,8 @@ def make(*args, info_example=None, mode=None, minigrid_config=None, **kwargs):
                 epsilon = minigrid_config.get('epsilon', 0.05)
                 env = MinigridMultiRoomOracleWrapper(env, epsilon=epsilon)
             else:
-                env = MinigridMultiRoomLandmarkWrapper(env)
+                use_doors = minigrid_config.get('use_doors', False)
+                env = MinigridMultiRoomLandmarkWrapper(env, use_doors)
             return GymEnvWrapper(env)
         else:
             env = gym.make(*args, **kwargs)

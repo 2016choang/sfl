@@ -528,6 +528,10 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
 
         self.shutdown()
 
+    def log_diagnostics(self, itr, eval_traj_infos, eval_time):
+        super().log_diagnostics(itr, eval_traj_infos, eval_time)
+        logger.record_tabular_stat('EnvSteps', self.sampler.collector.env_steps, itr)
+
     @torch.no_grad()
     def log_landmarks(self, itr):
         # If no landmark info to log

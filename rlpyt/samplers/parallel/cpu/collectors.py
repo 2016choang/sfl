@@ -63,6 +63,7 @@ class CpuLandmarksCollector(DecorrelatingStartCollector):
     mid_batch_reset = True
 
     def start_envs(self, max_decorrelation_steps=0):
+        self.env_steps = 0
         agent_inputs = super().start_envs(max_decorrelation_steps)
         self.env_positions = []
         for env in self.envs:
@@ -87,6 +88,7 @@ class CpuLandmarksCollector(DecorrelatingStartCollector):
             for b, env in enumerate(self.envs):
                 # Environment inputs and outputs are numpy arrays.
                 o, r, d, env_info = env.step(action[b])
+                self.env_steps += 1
                 self.env_positions[b] = env.agent_pos
                 traj_infos[b].step(observation[b], action[b], r, d, agent_info[b],
                     env_info)

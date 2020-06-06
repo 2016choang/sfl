@@ -173,9 +173,6 @@ class LandmarkAgent(FeatureDSRAgent):
 
     @torch.no_grad()
     def step(self, observation, prev_action, prev_reward, position=None):
-        # Try to enter landmark mode
-        self.landmark_mode()
-
         # TODO: Hack, we are currently only using one environment right now
         if position:
             position = position[0]
@@ -413,6 +410,9 @@ class LandmarkAgent(FeatureDSRAgent):
             else:
                 action = self.distribution.sample(q_values)
             self.landmark_steps += 1
+
+        # Try to enter landmark mode
+        self.landmark_mode()
 
         agent_info = AgentInfo(a=action)
         return AgentStep(action=action, agent_info=agent_info)
