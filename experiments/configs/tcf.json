@@ -21,7 +21,7 @@
         "reach_threshold": 0.99,
         "max_landmarks": 20,
         "steps_per_landmark": 15,
-        "edge_threshold": 0.05,
+        "edge_threshold": 0.01,
         "landmark_paths": 5,
         "affinity_decay": 0.9,
         "true_distance": false,
@@ -35,35 +35,35 @@
         "discount": 0.99,
         "batch_size": 256,
         "min_steps_learn": 1000,
-        "learning_rate": 1e-3,
+        "learning_rate": 1e-4,
         "replay_size": 20000,
         "delta_clip": 1,
-        "min_steps_dsr_learn": 10000,
-        "feature_learning_rate": 1e-3,
+        "min_steps_dsr_learn": 20000,
+        "feature_learning_rate": 1e-4,
         "pos_threshold": 3,
         "neg_close_threshold": 15,
         "neg_far_threshold": 30,
         "margin": 2.0
     },
     "env": {
-        "size": [32, 32],
-        "max_steps": 500,
+        "size": [25, 25],
+        "max_steps": 1000,
         "reset_episodes": 1,
         "reset_same": true,
-        "terminate": true
+        "terminate": false
     },
     "eval_env": {
-        "size": [32, 32],
-        "max_steps": 500,
+        "size": [25, 25],
+        "max_steps": 1000,
         "start_pos": [7, 4],
         "reset_same": true,
         "terminate": true
     }, 
     "runner": {
         "log_interval_steps": 1e4,
-        "log_dsr_interval_steps": 5e3,
-        "log_landmark_steps": 5e3,
-        "min_steps_landmark": 2e4
+        "log_dsr_interval_steps": 1e4,
+        "log_landmark_steps": 1e4,
+        "min_steps_landmark": 4e4
     },
     "mode": "multiroom",
     "seed": 333,

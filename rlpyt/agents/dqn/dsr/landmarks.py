@@ -227,8 +227,14 @@ class Landmarks(object):
         similarities = similarities.detach().cpu().numpy()
 
         edge_success_rate = self.successes / np.clip(self.attempts, 1, None)
+        non_zero_success = edge_success_rate[edge_success_rate > 0]
+        if non_zero_success.size == 0:
+            zero_success_dist = 1e-3
+        else:
+            zero_success_dist = non_zero_success.min()
 
-        landmark_distances = 1.001 - similarities
+        landmark_distances = edge_success_rate.copy()
+        # landmark_distances = 1.001 - similarities
         # landmark_distances = 1.001 - edge_success_rate
 
         if self.use_affinity:
@@ -240,10 +246,13 @@ class Landmarks(object):
                 attempt_threshold = max(non_zero_attempts.mean() - non_zero_attempts.std(), 1)
                 low_attempt_edges = self.attempts < attempt_threshold
                 non_edges[low_attempt_edges] = False            
+                landmark_distances[low_attempt_edges] = np.clip(landmark_distances[low_attempt_edges], a_min=zero_success_dist, a_max=None)
         else:
             non_edges = similarities < edge_threshold
 
         landmark_distances[non_edges] = 0
+        landmark_distances[landmark_distances == 1] = 1 - 1e-6
+        landmark_distances[landmark_distances != 0] = -1 * np.log(landmark_distances[landmark_distances != 0])
 
         # Logging edge success rates
         no_diagonal_edge_success_rate = edge_success_rate[~np.eye(self.num_landmarks, dtype=bool)]
@@ -265,9 +274,9 @@ class Landmarks(object):
             avail = sorted(avail, key=itemgetter(0, 1), reverse=True)
 
             for success_rate, similarity, u, v in avail:
-                dist = 1.001 - similarity
+                dist = -1 * np.log(success_rate)
                 if self.use_affinity and success_rate == 0:
-                    dist = (self.max_landmarks * 3) + dist
+                    dist = -1 * np.log(zero_success_dist * 1e-2)
                 
                 landmark_distances[(u, v)] = dist
                 # landmark_distances[(u, v)] = 1.001 - success_rate
@@ -281,7 +290,7 @@ class Landmarks(object):
 
                 if nx.is_connected(G):
                     break
-
+        
         self.zero_success_edge_ratio.append(zero_edges / max(total_edges, 1))
 
         self.graph = G
@@ -295,6 +304,13 @@ class Landmarks(object):
                 w += 1
         return w 
 
+    def get_path_weight(self, nodes, weight):
+        w = 0
+        for i, node in enumerate(nodes[1:]):
+            prev = nodes[i]
+            w += self.graph[prev][node][weight]
+        return w
+
     def generate_path(self, source, target, mode):
         # Generate path from source to target in landmark graph
         
@@ -302,12 +318,17 @@ class Landmarks(object):
         if self.landmark_paths is not None:
             paths = list(itertools.islice(nx.shortest_simple_paths(self.graph, source, target, weight='weight'), self.landmark_paths))
             if mode != 'eval':
-                true_edges = np.array([self.get_true_edges(path, 'weight') for path in paths])
-                max_true_edges = max(true_edges)
-                paths = [path for i, path in enumerate(paths) if true_edges[i] == max_true_edges]
+                path_weights = np.arange(1, len(paths) + 1)
+            else:
+                path_weights = np.array([self.get_path_weight(path, 'weight') for path in paths])
 
-            path_lengths = np.array([len(path) for path in paths])
-            path_p = softmax(path_lengths)
+            # if mode == 'eval':
+            #     true_edges = np.array([self.get_true_edges(path, 'weight') for path in paths])
+            #     max_true_edges = max(true_edges)
+            #     paths = [path for i, path in enumerate(paths) if true_edges[i] == max_true_edges]
+
+            path_p = softmax(-1 * path_weights)
+
             if mode == 'eval':
                 self.eval_paths = paths
                 self.eval_paths_p = path_p

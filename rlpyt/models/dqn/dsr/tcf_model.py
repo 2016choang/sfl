@@ -15,7 +15,8 @@ class TCFModel(torch.nn.Module):
             output_size,
             feature_size=64,
             norm_output=True,
-            alpha=10.0
+            alpha=10.0,
+            simple_encoder=False
             ):
         super().__init__()
         h, w, c = image_shape
@@ -30,14 +31,22 @@ class TCFModel(torch.nn.Module):
 
         conv_embedding_size = embedding_c * embedding_s * embedding_s
 
-        self.encoder = nn.Sequential(
-            nn.Conv2d(c, 32, (3, 3), stride=2),
-            nn.ReLU(),
-            nn.Conv2d(32, embedding_c, (3, 3), stride=1),
-            nn.ReLU(),
-            nn.Flatten(),
-            nn.Linear(conv_embedding_size, self.feature_size)
-        )
+        if simple_encoder:
+            self.encoder = nn.Sequential(
+                nn.Flatten(),
+                nn.Linear(h * w * c, 128),
+                nn.ReLU(),
+                nn.Linear(128, feature_size)
+            )
+        else:
+            self.encoder = nn.Sequential(
+                nn.Conv2d(c, 32, (3, 3), stride=2),
+                nn.ReLU(),
+                nn.Conv2d(32, embedding_c, (3, 3), stride=1),
+                nn.ReLU(),
+                nn.Flatten(),
+                nn.Linear(conv_embedding_size, self.feature_size)
+            )
 
     def forward(self, obs, next_obs=None, mode='encode'):
         x = obs.type(torch.float)

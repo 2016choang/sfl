@@ -143,13 +143,14 @@ class FeatureDSRAgent(Mixin, DsrAgent):
 
         embeddings = TSNE(n_components=2).fit_transform(valid_representations)
 
-        rooms = np.zeros((25, 25))
-        for i, room in enumerate(env.rooms, 1):
-            start_x, start_y = room.top
-            size_x, size_y = room.size
-            for x in range(start_x + 1, start_x + size_x - 1):
-                for y in range(start_y + 1, start_y + size_y - 1):
-                    rooms[x, y] = i
+        rooms = np.zeros((h, w))
+        if hasattr(env, 'rooms'):
+            for i, room in enumerate(env.rooms, 1):
+                start_x, start_y = room.top
+                size_x, size_y = room.size
+                for x in range(start_x + 1, start_x + size_x - 1):
+                    for y in range(start_y + 1, start_y + size_y - 1):
+                        rooms[x, y] = i
         rooms = rooms.reshape(h * w)[~walls]
         return embeddings, rooms
 

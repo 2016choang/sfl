@@ -64,6 +64,7 @@ class CpuLandmarksCollector(DecorrelatingStartCollector):
 
     def start_envs(self, max_decorrelation_steps=0):
         self.env_steps = 0
+        self.env_episodes = 0
         agent_inputs = super().start_envs(max_decorrelation_steps)
         self.env_positions = []
         for env in self.envs:
@@ -99,6 +100,7 @@ class CpuLandmarksCollector(DecorrelatingStartCollector):
                     self.env_positions[b] = env.agent_pos
                 if d:
                     self.agent.reset_one(idx=b)
+                    self.env_episodes += 1
                 observation[b] = o
                 reward[b] = r
                 env_buf.done[t, b] = d

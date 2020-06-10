@@ -91,7 +91,12 @@ class UniformTripletReplayBuffer(BaseReplayBuffer):
         anchor_idxs = anchor_idxs % self.T
 
         pos_low = np.maximum(anchor_idxs - self.pos_threshold, self.episode_bounds[anchor_idxs][:, 0])
-        pos_high = np.minimum(anchor_idxs + self.pos_threshold + 1, self.episode_bounds[anchor_idxs][:, 1])
+        upper_bounds = self.episode_bounds[anchor_idxs][:, 1]
+        invalid_bounds = anchor_idxs >= upper_bounds
+        upper_bounds[invalid_bounds] += self.T
+        pos_high = np.minimum(anchor_idxs + self.pos_threshold + 1, upper_bounds)
+        upper_bounds[invalid_bounds] -= self.T
+
         pos_idxs = np.random.randint(low=pos_low, high=pos_high, size=(batch_B,))
         # pos_idxs = pos_idxs % self.T
         # pos_idxs[pos_idxs >= t] += t

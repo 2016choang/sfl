@@ -364,6 +364,7 @@ class MinibatchDSREval(MinibatchRlEval):
         torch.save(features, os.path.join(logger.get_snapshot_dir(), 'features_itr_{}.pt'.format(itr)))
         torch.save(dsr, os.path.join(logger.get_snapshot_dir(), 'dsr_itr_{}.pt'.format(itr)))
         subgoal = tuple(env.start_pos)
+        subgoal = (9, 3)
 
         # 3. Distance visualization in feature space
         figure = plt.figure(figsize=(7, 7))
@@ -376,13 +377,15 @@ class MinibatchDSREval(MinibatchRlEval):
         plt.close()
 
         # 4. T-SNE Visualization of features
+        num_rooms = len(dsr_env.rooms) + 1 if hasattr(dsr_env, 'rooms') else 1
+
         feature_tsne, rooms = self.agent.get_tsne(dsr_env, features, mean_axes=2)
-        colors = [cm.jet(x) for x in np.linspace(0.0, 1.0, len(dsr_env.rooms) + 1)]
+        colors = [cm.jet(x) for x in np.linspace(0.0, 1.0, num_rooms)]
         
         figure = plt.figure(figsize=(7, 7))
         tsne_data = feature_tsne[rooms == 0]
         plt.scatter(tsne_data[:, 0], tsne_data[:, 1], label='Doorway', marker='*', color=colors[0])
-        for i in range(1, len(dsr_env.rooms) + 1):
+        for i in range(1, num_rooms):
             tsne_data = feature_tsne[rooms == i]
             plt.scatter(tsne_data[:, 0], tsne_data[:, 1], label='Room ' + str(i), color=colors[i])
         plt.legend()
@@ -401,12 +404,12 @@ class MinibatchDSREval(MinibatchRlEval):
 
         # 6. T-SNE Visualization of SF
         dsr_tsne, rooms = self.agent.get_tsne(dsr_env, dsr, mean_axes=2)
-        colors = [cm.jet(x) for x in np.linspace(0.0, 1.0, len(dsr_env.rooms) + 1)]
+        colors = [cm.jet(x) for x in np.linspace(0.0, 1.0, num_rooms)]
         
         figure = plt.figure(figsize=(7, 7))
         tsne_data = dsr_tsne[rooms == 0]
         plt.scatter(tsne_data[:, 0], tsne_data[:, 1], label='Doorway', marker='*', color=colors[0])
-        for i in range(1, len(env.rooms) + 1):
+        for i in range(1, num_rooms):
             tsne_data = dsr_tsne[rooms == i]
             plt.scatter(tsne_data[:, 0], tsne_data[:, 1], label='Room ' + str(i), color=colors[i])
         plt.legend()
@@ -531,6 +534,7 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
     def log_diagnostics(self, itr, eval_traj_infos, eval_time):
         super().log_diagnostics(itr, eval_traj_infos, eval_time)
         logger.record_tabular_stat('EnvSteps', self.sampler.collector.env_steps, itr)
+        logger.record_tabular_stat('EnvEpisodes', self.sampler.collector.env_episodes, itr)
 
     @torch.no_grad()
     def log_landmarks(self, itr):

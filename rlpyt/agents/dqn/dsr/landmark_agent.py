@@ -188,7 +188,7 @@ class LandmarkAgent(FeatureDSRAgent):
 
             # Add landmarks if in exploration mode during training
             if self.explore and self._mode != 'eval' and not self.use_oracle_landmarks:
-                self.landmarks.add_landmark(observation, features, dsr, position)
+                self.landmarks.add_landmark(observation.float(), features, dsr, position)
 
             # Select current (subgoal) landmark
             if not self.explore:
