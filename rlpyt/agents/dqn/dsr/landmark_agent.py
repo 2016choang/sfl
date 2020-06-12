@@ -37,7 +37,6 @@ class LandmarkAgent(FeatureDSRAgent):
             use_sf=False,
             use_soft_q=False,
             true_distance=False,
-            steps_for_true_reach=2,
             oracle=False,
             use_true_start=False,
             use_oracle_landmarks=False,
@@ -46,6 +45,7 @@ class LandmarkAgent(FeatureDSRAgent):
         save__init__args(locals())
         self.explore = True
         self.landmarks = None
+        self.last_action = None
         self.landmark_mode_steps = 0
         self.reset_logging()
         super().__init__(**kwargs)
@@ -140,7 +140,8 @@ class LandmarkAgent(FeatureDSRAgent):
                 model_inputs = buffer_to(features,
                     device=self.device)
                 dsr = self.model(model_inputs, mode='dsr')
-                self.landmarks.set_dsr(dsr)
+                for i, a_dsr, action in zip(range(self.landmarks.num_landmarks), dsr, self.landmarks.actions):
+                    self.landmarks.set_dsr(a_dsr.reshape(1, *a_dsr.shape), i, action)
 
                 self.landmarks.update_affinity()
 
@@ -156,6 +157,7 @@ class LandmarkAgent(FeatureDSRAgent):
                 self.landmark_steps = 0
                 self.current_landmark = None
                 self.last_landmark = None
+                self.last_action = None
 
                 # Select goal landmark with probability given by inverse of visitation count
                 inverse_visitations = 1. / np.clip(self.landmarks.visitations, 1, None)
@@ -188,7 +190,8 @@ class LandmarkAgent(FeatureDSRAgent):
 
             # Add landmarks if in exploration mode during training
             if self.explore and self._mode != 'eval' and not self.use_oracle_landmarks:
-                self.landmarks.add_landmark(observation.float(), features, dsr, position)
+                for action in range(self.distribution.dim):
+                    self.landmarks.add_landmark(observation.float(), features, dsr, position, action)
 
             # Select current (subgoal) landmark
             if not self.explore:
@@ -252,30 +255,38 @@ class LandmarkAgent(FeatureDSRAgent):
                     # If we still have steps remaining to try to reach the current landmark
                     if self.landmark_steps < self.steps_per_landmark:
 
-                        # Log if current landmark is reached based on similarity
-                        norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, keepdim=True) 
+                        action = self.landmarks.actions[self.current_landmark]
+                        if action != -1:
+                            norm_dsr = dsr[:, action]
+                        else:
+                            norm_dsr = dsr.mean(dim=1)
+                        norm_dsr = norm_dsr / torch.norm(norm_dsr, p=2, keepdim=True) 
                         landmark_similarity = torch.matmul(self.landmarks.norm_dsr[self.current_landmark], norm_dsr.T)
-                        if landmark_similarity > self.reach_threshold and self._mode != 'eval':
-                            self.landmark_reaches[self.path_idx] += 1
                         
-                        # HACK: Check if current landmark is reached based on true distance
-                        cur_x, cur_y = position
-                        landmark_x, landmark_y = self.landmarks.positions[self.current_landmark]
-                        end_distance = self.env_true_dist[cur_x, cur_y, landmark_x, landmark_y]
-
                         # If goal landmark, we must try to reach it perfectly
                         if self.current_landmark == self.goal_landmark:
-                            reach_threshold = 0
+                            reach_threshold = 1.0
                         
                         # Otherwise, try to reach the current landmark within a true distance threshold
                         else:
-                            reach_threshold = self.steps_for_true_reach
+                            reach_threshold = self.reach_threshold
 
                         # If we have reached the current landmark based on our criteria
-                        if end_distance <= reach_threshold:
+                        if landmark_similarity >= reach_threshold:
+
+                            if action != -1:
+                                self.last_action = action
+
+                            # Log if current landmark is reached based on similarity
+                            if self._mode != 'eval':
+                                self.landmark_reaches[self.path_idx] += 1
 
                             # Increment the current landmark's visitation count
                             self.landmarks.visitations[self.current_landmark] += 1
+
+                            cur_x, cur_y = position
+                            landmark_x, landmark_y = self.landmarks.positions[self.current_landmark]
+                            end_distance = self.env_true_dist[cur_x, cur_y, landmark_x, landmark_y]
 
                             # In training, log that landmark is truly reached and end/start distance to landmark ratio 
                             if self._mode != 'eval':
@@ -361,8 +372,15 @@ class LandmarkAgent(FeatureDSRAgent):
                             landmark_x, landmark_y = self.landmarks.positions[self.current_landmark]
                             self.start_distance_to_landmark = self.env_true_dist[cur_x, cur_y, landmark_x, landmark_y]
 
+        # Execute last action of landmark policy
+        if self.last_action:
+            action = torch.randint_like(prev_action, high=self.distribution.dim)
+            action[:] = self.last_action
+            self.last_action = None
+            self.landmark_steps += 1
+
         # Exploration (random) policy
-        if self.explore:
+        elif self.explore:
             action = torch.randint_like(prev_action, high=self.distribution.dim)
 
             # In training, increment step counter used to track when to enter landmark mode
@@ -443,6 +461,7 @@ class LandmarkAgent(FeatureDSRAgent):
                 self.landmark_steps = 0
                 self.current_landmark = None
                 self.goal_landmark = 0
+                self.last_action = None
             
             # In training, start in exploration mode
             else:

@@ -830,7 +830,7 @@ class MinigridOneHotWrapper(Wrapper):
 class FourRoomsWrapper(Wrapper):
     
     def __init__(self, env):
-        super().__init__(env)
+        super().__init__(env, true_goal_pos=[11, 2])
         self.env = env
         
         env_obs_shape = env.observation_space['image'].shape
@@ -840,14 +840,14 @@ class FourRoomsWrapper(Wrapper):
         self.visited = np.zeros(env_obs_shape[:2], dtype=int)
 
         # TODO: Hard-coded state next to goal state for now!
-        self.landmark_goal_pos = np.array([11, 2])
+        self.true_goal_pos = np.array(true_goal_pos)
 
     def get_oracle_landmarks(self):
         return []
 
     def get_goal_state(self):
-        self.env.unwrapped.agent_pos = self.landmark_goal_pos
-        return self.get_current_state()[0], self.landmark_goal_pos
+        self.env.unwrapped.agent_pos = self.true_goal_pos
+        return self.get_current_state()[0], self.true_goal_pos
 
     def get_true_distances(self):
         h, w = self.env.grid.height, self.env.grid.width
@@ -1042,8 +1042,9 @@ def make(*args, info_example=None, mode=None, minigrid_config=None, **kwargs):
             return GymEnvWrapper(env)
         elif mode == 'fourroom':
             goal_pos = minigrid_config.get('goal_pos', None)
+            true_goal_pos = minigrid_config.get('true_goal_pos', [11, 2])
             env = FourRooms(start_pos=start_pos, goal_pos=goal_pos, max_steps=max_steps)
-            env = FourRoomsWrapper(FullyObsWrapper(ReseedWrapper(env, seeds=[seed])))
+            env = FourRoomsWrapper(FullyObsWrapper(ReseedWrapper(env, seeds=[seed])), true_goal_pos)
             return GymEnvWrapper(env)
         else:
             env = gym.make(*args, **kwargs)

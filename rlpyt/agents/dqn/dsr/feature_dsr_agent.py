@@ -44,8 +44,8 @@ class FeatureDSRAgent(Mixin, DsrAgent):
 
     def state_dict(self):
         return dict(model=self.model.state_dict(),
-            target=self.target_model.state_dict(),
-            feature_model=self.feature_model.state_dict())
+                    target=self.target_model.state_dict(),
+                    feature_model=self.feature_model.state_dict())
 
     @torch.no_grad()
     def step(self, observation, prev_action, prev_reward):
@@ -165,7 +165,6 @@ class FeatureDSRAgent(Mixin, DsrAgent):
     def eval_mode(self, itr):
         super().eval_mode(itr)
         self.feature_model.eval()
-    
 
 class IDFDSRAgent:
 
@@ -186,7 +185,6 @@ class IDFDSRAgent:
             device=self.device)
         pred_actions = self.feature_model(*model_inputs, mode='inverse')
         return pred_actions.cpu()
-
 
 class TCFDSRAgent:
 
