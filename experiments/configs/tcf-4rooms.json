@@ -14,11 +14,11 @@
             "feature_size": 64,
             "norm_output": true,
             "alpha": 10.0,
-            "simple_encoder": false
+            "simple_encoder": true
         },
         "landmark_mode_interval": 30,
         "landmark_update_interval": 100,
-        "add_threshold": 0.90,
+        "add_threshold": 0.95,
         "reach_threshold": 0.99,
         "max_landmarks": 10,
         "steps_per_landmark": 12,
@@ -53,7 +53,8 @@
         "max_steps": 100,
         "reset_episodes": 1,
         "reset_same": true,
-        "terminate": true
+        "terminate": false,
+        "true_goal_pos": [9, 5]
     },
     "eval_env": {
         "size": [25, 25],
@@ -61,7 +62,8 @@
         "goal_pos": [11, 1],
         "max_steps": 100,
         "reset_same": true,
-        "terminate": true
+        "terminate": true,
+        "true_goal_pos": [9, 5]
     }, 
     "runner": {
         "log_interval_steps": 1000,

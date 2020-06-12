@@ -829,7 +829,7 @@ class MinigridOneHotWrapper(Wrapper):
 
 class FourRoomsWrapper(Wrapper):
     
-    def __init__(self, env):
+    def __init__(self, env, true_goal_pos=[11, 2]):
         super().__init__(env)
         self.env = env
         
@@ -840,14 +840,14 @@ class FourRoomsWrapper(Wrapper):
         self.visited = np.zeros(env_obs_shape[:2], dtype=int)
 
         # TODO: Hard-coded state next to goal state for now!
-        self.landmark_goal_pos = np.array([11, 2])
+        self.true_goal_pos = np.array(true_goal_pos)
 
     def get_oracle_landmarks(self):
         return []
 
     def get_goal_state(self):
-        self.env.unwrapped.agent_pos = self.landmark_goal_pos
-        return self.get_current_state()[0], self.landmark_goal_pos
+        self.env.unwrapped.agent_pos = self.true_goal_pos
+        return self.get_current_state()[0], self.true_goal_pos
 
     def get_true_distances(self):
         h, w = self.env.grid.height, self.env.grid.width
@@ -1012,6 +1012,7 @@ def make(*args, info_example=None, mode=None, minigrid_config=None, **kwargs):
         max_steps = minigrid_config.get('max_steps', 500)
         seed = minigrid_config.get('seed', 0)
         start_pos = minigrid_config.get('start_pos', None)
+        true_goal_pos = minigrid_config.get('true_goal_pos', [16, 19])
 
         if mode == 'multiroom':
             num_rooms = minigrid_config.get('num_rooms', 10)
@@ -1037,13 +1038,12 @@ def make(*args, info_example=None, mode=None, minigrid_config=None, **kwargs):
                 env = MinigridMultiRoomOracleWrapper(env, epsilon=epsilon)
             else:
                 use_doors = minigrid_config.get('use_doors', False)
-                true_goal_pos = minigrid_config.get('true_goal_pos', [16, 19])
                 env = MinigridMultiRoomLandmarkWrapper(env, true_goal_pos, use_doors)
             return GymEnvWrapper(env)
         elif mode == 'fourroom':
             goal_pos = minigrid_config.get('goal_pos', None)
             env = FourRooms(start_pos=start_pos, goal_pos=goal_pos, max_steps=max_steps)
-            env = FourRoomsWrapper(FullyObsWrapper(ReseedWrapper(env, seeds=[seed])))
+            env = FourRoomsWrapper(FullyObsWrapper(ReseedWrapper(env, seeds=[seed])), true_goal_pos=true_goal_pos)
             return GymEnvWrapper(env)
         else:
             env = gym.make(*args, **kwargs)
