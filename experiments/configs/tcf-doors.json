@@ -35,11 +35,11 @@
         "discount": 0.99,
         "batch_size": 256,
         "min_steps_learn": 1000,
-        "learning_rate": 1e-2,
+        "learning_rate": 1e-3,
         "replay_size": 100000,
         "delta_clip": 1,
         "min_steps_dsr_learn": 20000,
-        "feature_learning_rate": 1e-2,
+        "feature_learning_rate": 1e-3,
         "pos_threshold": 3,
         "neg_close_threshold": 15,
         "neg_far_threshold": 30,
@@ -49,19 +49,23 @@
         "size": [25, 25],
         "max_steps": 500,
         "reset_episodes": 1,
-        "reset_same": false,
+        "reset_same": true,
         "terminate": false,
         "encoding": "obj",
-        "use_doors": false
+        "use_doors": true,
+        "num_rooms": 4,
+        "true_goal_pos": [13, 4]
     },
     "eval_env": {
         "size": [25, 25],
         "max_steps": 500,
-        "start_pos": [7, 4],
+        "start_pos": [5, 16],
         "reset_same": true,
         "terminate": true,
         "encoding": "obj",
-        "use_doors": false
+        "use_doors": true,
+        "num_rooms": 4,
+        "true_goal_pos": [13, 4]
     }, 
     "runner": {
         "log_interval_steps": 1e4,

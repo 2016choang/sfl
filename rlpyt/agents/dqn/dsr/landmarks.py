@@ -38,7 +38,17 @@ class Landmarks(object):
 
         self.success_rates = []
         self.non_zero_success_rates = []
-        self.zero_success_edge_ratio = []    
+        self.zero_success_edge_ratio = []
+
+    def save(self, filename):
+        np.savez(filename,
+                 observations=self.observations.cpu().detach().numpy(),
+                 features=self.features.cpu().detach().numpy(),
+                 dsr=self.dsr.cpu().detach().numpy(),
+                 visitations=self.visitations,
+                 positions=self.positions,
+                 successes=self.successes,
+                 attempts=self.attempts)
 
     def force_add_landmark(self, observation, features, dsr, position):
         # Add landmark while ignoring similarity thresholds and max landmarks

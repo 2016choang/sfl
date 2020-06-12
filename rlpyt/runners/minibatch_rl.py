@@ -442,10 +442,16 @@ class MinibatchDSREval(MinibatchRlEval):
                         dy = 0.35
                     elif action == 2:
                         dx = -0.35
-                    else:
+                    elif action == 3:
                         dy = -0.35
+                    else:
+                        pass
 
-                    plt.arrow(x - dx, y - dy, dx, dy, head_width=0.3, head_length=0.3, fc='k', ec='k')
+                    if dx == 0 and dy == 0:
+                        circle = plt.Circle((x, y), 0.2, color='yellow')
+                        plt.gca().add_artist(circle)
+                    else:
+                        plt.arrow(x - dx, y - dy, dx, dy, head_width=0.3, head_length=0.3, fc='k', ec='k')
         plt.colorbar()
         save_image('Subgoal Policy', itr)
         plt.close()
@@ -542,9 +548,7 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         if self.agent.landmarks is None or self.agent.landmarks.num_landmarks == 0:
             return
 
-        # landmark_reach_percentage = self.agent.landmark_reaches / np.clip(self.agent.landmark_attempts, 1, None)
-        # ind = np.arange(len(landmark_reach_percentage))
-        # plt.bar(ind, landmark_reach_percentage)
+        self.agent.landmarks.save(os.path.join(logger.get_snapshot_dir(), 'landmarks_itr_{}.npz'.format(itr)))
 
         figure = plt.figure(figsize=(7, 7))
         landmark_true_reach_percentage = self.agent.landmark_true_reaches / np.clip(self.agent.landmark_attempts, 1, None)
