@@ -17,7 +17,7 @@
         },
         "landmark_mode_interval": 100,
         "landmark_update_interval": 500,
-        "add_threshold": 0.6,
+        "add_threshold": 0.5,
         "reach_threshold": 0.99,
         "max_landmarks": 20,
         "steps_per_landmark": 15,
