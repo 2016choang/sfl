@@ -540,20 +540,10 @@ class MinigridMultiRoomLandmarkWrapper(Wrapper):
 
 class MinigridMultiRoomWrapper(Wrapper):
     
-    def __init__(self,
-                 env,
-                 num_rooms=10,
-                 size=(25, 25),
-                 encoding='RGB',
-                 max_steps=500,
-                 terminate=False,
-                 start_pos=None,
-                 reset_same=False,
-                 reset_episodes=1):
+    def __init__(self, env, num_rooms=10, size=(25, 25), encoding='RGB', max_steps=500, terminate=False, start_pos=None, reset_same=False, reset_episodes=1):
         super().__init__(env)
         self.num_rooms = num_rooms
         self.env = env
-        self.env.reset()
         
         self.size = size
         self.encoding = encoding
@@ -570,18 +560,12 @@ class MinigridMultiRoomWrapper(Wrapper):
         self.reset_episodes = reset_episodes
         self.episodes = 0
 
-        self.min_x = min([room.top[0] for room in self.env.rooms])
-        self.min_y = min([room.top[1] for room in self.env.rooms])
-        self.max_x = max([room.top[0] + room.size[0] for room in self.env.rooms])
-        self.max_y = max([room.top[1] + room.size[1] for room in self.env.rooms])
-
         if self.encoding == 'gray':
             self.observation_space = Box(0, 1, size)
         elif self.encoding == 'RGB':
             self.observation_space = Box(0, 1, (*size, 3))
         elif self.encoding == 'obj':
-            obs_space = self.env.observation_space['image']
-            self.observation_space = Box(0, 255, (self.max_x - self.min_x, self.max_y - self.min_y, 3), obs_space.dtype)
+            self.observation_space = self.env.observation_space['image']
         else:
             raise NotImplementedError
 
@@ -650,7 +634,7 @@ class MinigridMultiRoomWrapper(Wrapper):
 
     def get_obs(self, obs):
         if self.encoding == 'obj':
-            return obs['image'][self.min_x:self.max_x, self.min_y:self.max_y]
+            return obs['image']
         else:
             resized = resize(obs['image'], self.size, anti_aliasing=True)
             if self.encoding == 'gray':
