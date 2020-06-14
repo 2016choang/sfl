@@ -19,8 +19,8 @@
         "landmark_update_interval": 500,
         "add_threshold": 0.5,
         "reach_threshold": 0.99,
-        "max_landmarks": 20,
-        "steps_per_landmark": 15,
+        "max_landmarks": 8,
+        "steps_per_landmark": 10,
         "edge_threshold": 0.01,
         "landmark_paths": 5,
         "affinity_decay": 0.9,
@@ -47,7 +47,7 @@
     },
     "env": {
         "size": [25, 25],
-        "max_steps": 500,
+        "max_steps": 80,
         "reset_episodes": 1,
         "start_pos": [1, 1],
         "reset_same": true,
@@ -61,7 +61,7 @@
     },
     "eval_env": {
         "size": [25, 25],
-        "max_steps": 500,
+        "max_steps": 80,
         "start_pos": [1, 1],
         "reset_same": true,
         "terminate": true,
