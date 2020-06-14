@@ -38,7 +38,7 @@
         "learning_rate": 1e-3,
         "replay_size": 100000,
         "delta_clip": 1,
-        "min_steps_dsr_learn": 20000,
+        "min_steps_dsr_learn": 2000,
         "feature_learning_rate": 1e-3,
         "pos_threshold": 3,
         "neg_close_threshold": 15,
@@ -73,10 +73,10 @@
         "true_goal_pos": [2, 5]
     }, 
     "runner": {
-        "log_interval_steps": 1e4,
-        "log_dsr_interval_steps": 1e4,
-        "log_landmark_steps": 1e4,
-        "min_steps_landmark": 4e4
+        "log_interval_steps": 1e3,
+        "log_dsr_interval_steps": 1e3,
+        "log_landmark_steps": 1e3,
+        "min_steps_landmark": 4e3
     },
     "mode": "multiroom",
     "seed": 333,

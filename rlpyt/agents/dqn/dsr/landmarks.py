@@ -113,7 +113,7 @@ class Landmarks(object):
             current_landmark = similarity.argmax().item()
 
             # Candidate under similarity threshold w.r.t. existing landmarks
-            if sum(similarity < self.threshold) >= (self.num_landmarks - 1):
+            if sum(similarity < self.threshold) >= (self.num_landmarks):
                 self.landmark_adds += 1
 
                 # Add landmark

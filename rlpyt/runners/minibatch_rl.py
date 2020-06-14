@@ -364,7 +364,6 @@ class MinibatchDSREval(MinibatchRlEval):
         torch.save(features, os.path.join(logger.get_snapshot_dir(), 'features_itr_{}.pt'.format(itr)))
         torch.save(dsr, os.path.join(logger.get_snapshot_dir(), 'dsr_itr_{}.pt'.format(itr)))
         subgoal = tuple(env.start_pos)
-        subgoal = (9, 3)
 
         # 3. Distance visualization in feature space
         figure = plt.figure(figsize=(7, 7))
