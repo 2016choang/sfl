@@ -74,7 +74,7 @@
         "log_interval_steps": 1e4,
         "log_dsr_interval_steps": 1e4,
         "log_landmark_steps": 1e4,
-        "min_steps_landmark": 4e4
+        "min_steps_landmark": 2e4
     },
     "mode": "multiroom",
     "seed": 333,
