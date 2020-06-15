@@ -6,7 +6,7 @@
         "model_kwargs": {
             "feature_size": 64,
             "dsr_params": {
-                "fc_sizes": [512],
+                "fc_sizes": [128],
                 "nonlinearity": "relu"
             }   
         },
@@ -19,9 +19,10 @@
         "landmark_update_interval": 500,
         "add_threshold": 0.6,
         "reach_threshold": 0.99,
-        "max_landmarks": 20,
-        "steps_per_landmark": 15,
-        "edge_threshold": 0.01,
+        "max_landmarks": 8,
+        "steps_per_landmark": 5,
+        "success_threshold": 0.01,
+        "sim_threshold": 0.8,
         "landmark_paths": 5,
         "affinity_decay": 0.9,
         "true_distance": false,
@@ -33,21 +34,20 @@
     },
     "algo": {
         "discount": 0.99,
-        "batch_size": 256,
+        "batch_size": 128,
         "min_steps_learn": 1000,
-        "learning_rate": 1e-3,
+        "learning_rate": 1e-4,
         "replay_size": 100000,
         "delta_clip": 1,
         "min_steps_dsr_learn": 2000,
-        "feature_learning_rate": 1e-3,
+        "feature_learning_rate": 1e-4,
         "pos_threshold": 3,
-        "neg_close_threshold": 15,
-        "neg_far_threshold": 30,
+        "neg_close_threshold": 10,
+        "neg_far_threshold": 15,
         "margin": 2.0
     },
     "env": {
-        "size": [25, 25],
-        "max_steps": 500,
+        "max_steps": 80,
         "reset_episodes": 1,
         "start_pos": [1, 1],
         "reset_same": true,
@@ -57,11 +57,10 @@
         "num_rooms": 4,
         "room_size": 4,
         "grid_size": 9,
-        "true_goal_pos": [2, 5]
+        "true_goal_pos": [3, 5]
     },
     "eval_env": {
-        "size": [25, 25],
-        "max_steps": 500,
+        "max_steps": 80,
         "start_pos": [1, 1],
         "reset_same": true,
         "terminate": true,
@@ -70,7 +69,7 @@
         "num_rooms": 4,
         "room_size": 4,
         "grid_size": 9,
-        "true_goal_pos": [2, 5]
+        "true_goal_pos": [3, 5]
     }, 
     "runner": {
         "log_interval_steps": 1e3,

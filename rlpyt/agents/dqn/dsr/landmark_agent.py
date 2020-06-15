@@ -27,10 +27,10 @@ class LandmarkAgent(FeatureDSRAgent):
             landmark_update_interval=int(5e3),
             add_threshold=0.75,
             max_landmarks=8,
-            edge_threshold=0,
-            use_affinity=True,
+            success_threshold=0,
+            sim_threshold=0.9,
             affinity_decay=0.9,
-            landmark_paths=None, 
+            landmark_paths=1, 
             landmark_mode_interval=100,
             steps_per_landmark=25,
             reach_threshold=0.95,
@@ -81,8 +81,8 @@ class LandmarkAgent(FeatureDSRAgent):
     def set_oracle_landmarks(self, env):
         # Set oracle landmarks hardcoded in environment
         landmarks = env.get_oracle_landmarks()
-        self.oracle_landmarks = Landmarks(len(landmarks), self.add_threshold, self.landmark_paths,
-                                          self.use_affinity, self.affinity_decay)
+        self.oracle_landmarks = Landmarks(len(landmarks), self.add_threshold, self.success_threshold,
+                                          self.sim_threshold, self.landmark_paths, self.affinity_decay)
         for landmark_obs, landmark_pos in landmarks:
             observation = torchify_buffer(landmark_obs).unsqueeze(0).float()
 
@@ -111,8 +111,8 @@ class LandmarkAgent(FeatureDSRAgent):
             self.max_landmarks = self.oracle_max_landmarks
         else:
             goal_obs, goal_pos = goal
-            self.landmarks = Landmarks(self.max_landmarks, self.add_threshold, self.landmark_paths,
-                                       self.use_affinity, self.affinity_decay)
+            self.landmarks = Landmarks(self.max_landmarks, self.add_threshold, self.success_threshold,
+                                       self.sim_threshold, self.landmark_paths, self.affinity_decay)
             observation = torchify_buffer(goal_obs).unsqueeze(0).float()
 
             model_inputs = buffer_to(observation,
@@ -165,11 +165,11 @@ class LandmarkAgent(FeatureDSRAgent):
     def generate_graph(self):
         # Use true distance edges
         if self.true_distance:
-            self.landmarks.generate_true_graph(self.env_true_dist, self.edge_threshold)
+            self.landmarks.generate_true_graph(self.env_true_dist)
 
-        # Use DSR similarity edges
+        # Use estimated edges
         else:
-            self.landmarks.generate_graph(self.edge_threshold, self._mode)
+            self.landmarks.generate_graph(self._mode)
 
     @torch.no_grad()
     def step(self, observation, prev_action, prev_reward, position=None):
