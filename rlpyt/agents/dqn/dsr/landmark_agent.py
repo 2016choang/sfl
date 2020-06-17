@@ -54,6 +54,8 @@ class LandmarkAgent(FeatureDSRAgent):
         global_B=1, env_ranks=None):
         super().initialize(env_spaces, share_memory,
             global_B=global_B, env_ranks=env_ranks)
+        
+        # Used for soft-Q action sampling
         self.soft_distribution = Categorical(dim=env_spaces.action.n)
 
     def reset_logging(self):
@@ -110,9 +112,11 @@ class LandmarkAgent(FeatureDSRAgent):
             self.landmarks = self.oracle_landmarks
             self.max_landmarks = self.oracle_max_landmarks
         else:
-            goal_obs, goal_pos = goal
             self.landmarks = Landmarks(self.max_landmarks, self.add_threshold, self.success_threshold,
                                        self.sim_threshold, self.landmark_paths, self.affinity_decay)
+
+            # Add goal observation as a landmark                           
+            goal_obs, goal_pos = goal
             observation = torchify_buffer(goal_obs).unsqueeze(0).float()
 
             model_inputs = buffer_to(observation,
@@ -127,7 +131,7 @@ class LandmarkAgent(FeatureDSRAgent):
 
     @torch.no_grad()
     def update_landmarks(self, itr):
-        # Update features and DSR of existing landmarks
+        # Update features and successor features of existing landmarks
         if self.landmarks.num_landmarks:
             if (itr + 1) % self.landmark_update_interval == 0:
                 observation = self.landmarks.observations

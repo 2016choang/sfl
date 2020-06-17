@@ -37,6 +37,7 @@ class FeatureDSRAgent(Mixin, DsrAgent):
             self.feature_model.load_state_dict(self.initial_feature_model_state_dict)
 
     def encode(self, observation):
+        # Encode observation into feature representation
         model_inputs = buffer_to(observation,
             device=self.device)
         features = self.feature_model(model_inputs, mode='encode')
@@ -49,10 +50,11 @@ class FeatureDSRAgent(Mixin, DsrAgent):
 
     @torch.no_grad()
     def step(self, observation, prev_action, prev_reward):
-        # random exploration policy shortcut
         if self.distribution.epsilon >= 1.0:
+            # Random policy
             action = torch.randint_like(prev_action, high=self.distribution.dim)
         else:
+            # Epsilon-greedy over q-values generated with SF
             model_inputs = buffer_to(observation,
                 device=self.device)
             features = self.feature_model(model_inputs, mode='encode')
@@ -78,6 +80,7 @@ class FeatureDSRAgent(Mixin, DsrAgent):
 
     @torch.no_grad()
     def get_representations(self, env):
+        # Get features and SFs of possible observations
         h, w = env.grid.height, env.grid.width
         features = torch.zeros((h, w, 4, self.feature_model.feature_size), dtype=torch.float)
         features += np.nan

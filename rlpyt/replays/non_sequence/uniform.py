@@ -125,9 +125,6 @@ class UniformTripletReplayBuffer(BaseReplayBuffer):
         # neg_idxs[neg_idxs >= t] += t
         neg_idxs = neg_idxs % self.T
 
-        # if self._buffer_full and t > 10:
-            # import pdb; pdb.set_trace()
-
         B_idxs = np.random.randint(low=0, high=self.B, size=(batch_B,))
 
         batch = TripletsFromReplay(

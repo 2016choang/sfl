@@ -210,7 +210,7 @@ class Landmarks(object):
             self.norm_dsr = torch.cat((self.norm_dsr, norm_dsr), dim=0)
 
     def generate_true_graph(self, env_true_dist, edge_threshold=None):
-        # TODO: Hack to generate landmark graph based on true distances
+        # Generate landmark graph using true distances given by oracle
         n_landmarks = len(self.norm_dsr)
         landmark_distances = np.zeros((n_landmarks, n_landmarks))
 
@@ -241,7 +241,8 @@ class Landmarks(object):
         return self.graph
         
     def generate_graph(self, mode):
-        # Generate landmark graph
+        # Generate landmark graph using empirical transitions
+        # and similarity in SF space between landmarks
         N = self.num_landmarks
         edge_success_rate = self.successes / np.clip(self.attempts, 1, None)
         landmark_distances = edge_success_rate.copy()
@@ -262,10 +263,10 @@ class Landmarks(object):
 
         # If less than 5% of possible edges have non-zero success rates,
         # then use edges with high similarity 
-        if sum(edge_success_rate > 0) < 0.05 * (N * (N - 1) / 2):
-            high_similarity_edges = similarities > self.sim_threshold
-            non_edges[high_similarity_edges] = False 
-            landmark_distances[high_similarity_edges] = np.clip(landmark_distances[high_similarity_edges], a_min=min_dist, a_max=None)
+        # if sum(edge_success_rate > 0) < 0.05 * (N * (N - 1) / 2):
+        #     high_similarity_edges = similarities > self.sim_threshold
+        #     non_edges[high_similarity_edges] = False 
+        #     landmark_distances[high_similarity_edges] = np.clip(landmark_distances[high_similarity_edges], a_min=min_dist[high_similarity_edges], a_max=None)
 
         # In all modes except eval, consider edges with low numbers
         # of attempted transitions as valid starting edges
@@ -274,7 +275,7 @@ class Landmarks(object):
             attempt_threshold = max(non_zero_attempts.mean() - non_zero_attempts.std(), 1)
             low_attempt_edges = self.attempts < attempt_threshold
             non_edges[low_attempt_edges] = False            
-            landmark_distances[low_attempt_edges] = np.clip(landmark_distances[low_attempt_edges], a_min=min_dist, a_max=None)
+            landmark_distances[low_attempt_edges] = np.clip(landmark_distances[low_attempt_edges], a_min=min_dist[low_attempt_edges], a_max=None)
 
         # Distance = -1 * np.log (transition probability)
         landmark_distances[non_edges] = 0
@@ -322,14 +323,6 @@ class Landmarks(object):
         self.graph = G
         return self.graph
 
-    # def get_true_edges(self, nodes, weight):
-    #     w = 0
-    #     for i, node in enumerate(nodes[1:]):
-    #         prev = nodes[i]
-    #         if self.graph[prev][node][weight] < (self.max_landmarks * 3):
-    #             w += 1
-    #     return w 
-
     def get_path_weight(self, nodes, weight):
         # Get weight of path
         w = 0
@@ -350,30 +343,14 @@ class Landmarks(object):
             # Weights defined by path weight
             path_weights = np.array([self.get_path_weight(path, 'weight') for path in paths])
 
-        # if mode == 'eval':
-        #     true_edges = np.array([self.get_true_edges(path, 'weight') for path in paths])
-        #     max_true_edges = max(true_edges)
-        #     paths = [path for i, path in enumerate(paths) if true_edges[i] == max_true_edges]
-
         # Select path with probability given by softmin of path weights
         path_p = softmax(-1 * path_weights)
+        path_choice = np.random.choice(list(range(len(paths))), p=path_p)
+        self.path = paths[path_choice]
 
         if mode == 'eval':
             self.eval_paths = paths
             self.eval_paths_p = path_p
-        path_choice = np.random.choice(list(range(len(paths))), p=path_p)
-        self.path = paths[path_choice]
-        
-        # Select shortest path that has most number of actual nodes
-        # else:
-        #     max_length = 0
-        #     for path in nx.all_shortest_paths(self.graph, source, target, weight='weight'):
-        #         if len(path) > max_length:
-        #             self.path = path
-        #             max_length = len(path)
-        #     self.eval_paths = [self.path]
-        #     self.eval_paths_p = np.array([1])
-
         return self.path
 
     def update_affinity(self):
@@ -384,9 +361,6 @@ class Landmarks(object):
             self.attempts = (self.attempts * self.affinity_decay)
 
     def prune_landmarks(self):
-        # Prune landmarks that do not meet similarity requirement [NOT CURRENTLY USED]
-        # landmark_similarities = torch.matmul(self.norm_dsr, self.norm_dsr.T)
-        # save_idx = torch.sum(landmark_similarities < self.add_threshold, axis=1) >= (self.num_landmarks - 1)
 
         seen_positions = set()
         save_idx = []
@@ -409,3 +383,7 @@ class Landmarks(object):
 
         self.landmark_removes += (self.num_landmarks - len(save_idx))
         self.num_landmarks = len(save_idx)
+
+        # Prune landmarks that do not meet similarity requirement
+        # landmark_similarities = torch.matmul(self.norm_dsr, self.norm_dsr.T)
+        # save_idx = torch.sum(landmark_similarities < self.add_threshold, axis=1) >= (self.num_landmarks - 1)

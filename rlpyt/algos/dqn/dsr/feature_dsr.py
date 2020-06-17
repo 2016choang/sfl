@@ -57,6 +57,7 @@ class FeatureDSR(DSR):
                 'feature': self.feature_optimizer.state_dict()}
     
     def append_feature_samples(self, samples=None):
+        # Append samples to replay buffer used for training feature representation only
         if samples is not None and self.feature_replay_buffer is not None:
             samples_to_buffer = self.samples_to_buffer(samples)
             self.feature_replay_buffer.append_samples(samples_to_buffer)
@@ -64,17 +65,18 @@ class FeatureDSR(DSR):
     def optimize_agent(self, itr, samples=None, sampler_itr=None):
         itr = itr if sampler_itr is None else sampler_itr  # Async uses sampler_itr.
         if samples is not None:
+            # Append samples to replay buffer used for training successor features
             samples_to_buffer = self.samples_to_buffer(samples)
             self.replay_buffer.append_samples(samples_to_buffer)
-            # if self.feature_replay_buffer is not None:
-            #     self.feature_replay_buffer.append_samples(samples_to_buffer)
         opt_info = self.opt_info_class(*([] for _ in range(len(self.opt_info_class._fields))))
         if itr < self.min_itr_learn:
+            # Not enough samples have been collected
             return opt_info
 
         for _ in range(self.updates_per_optimize):
             samples_from_replay = self.replay_buffer.sample_batch(self.batch_size)
             if self.max_itr_feature_learn is None or itr < self.max_itr_feature_learn: 
+                # Train feature representation
                 if self.feature_replay_buffer:
                     feature_samples_from_replay = self.feature_replay_buffer.sample_batch(self.batch_size)
                 else:
@@ -95,6 +97,7 @@ class FeatureDSR(DSR):
                     getattr(opt_info, key).append(value)
 
             if itr >= self.min_itr_dsr_learn:
+                # Train successor feature representation
                 self.dsr_optimizer.zero_grad()
 
                 dsr_loss, td_abs_errors = self.dsr_loss(samples_from_replay)
@@ -111,7 +114,7 @@ class FeatureDSR(DSR):
                 self.update_counter += 1
                 if self.update_counter % self.target_update_interval == 0:
                     self.agent.update_target()
-            
+        
         self.update_itr_hyperparams(itr)
         return opt_info
 
@@ -131,6 +134,7 @@ class IDFDSR(FeatureDSR):
         self.cross_entropy_loss = nn.CrossEntropyLoss()
 
     def feature_loss(self, samples):
+        # Inverse dynamics prediction loss
         pred_actions = self.agent.inverse_dynamics(samples.agent_inputs.observation,
                                             samples.target_inputs.observation)
 
@@ -179,6 +183,7 @@ class TCFDSR(FeatureDSR):
         self.feature_replay_buffer = UniformTripletReplayBuffer(**triplet_replay_kwargs)
 
     def feature_loss(self, samples):
+        # Time contrastive loss
         anchor_embeddings = self.agent.encode(samples.anchor)
         pos_embeddings = self.agent.encode(samples.pos)
         neg_embeddings = self.agent.encode(samples.neg)

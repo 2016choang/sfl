@@ -16,13 +16,14 @@
             "alpha": 10.0,
             "simple_encoder": true
         },
-        "landmark_mode_interval": 100,
+        "landmark_mode_interval": 50,
         "landmark_update_interval": 500,
         "add_threshold": 0.6,
         "reach_threshold": 0.99,
         "max_landmarks": 8,
         "steps_per_landmark": 10,
-        "edge_threshold": 0.01,
+        "success_threshold": 0.01,
+        "sim_threshold": 1,
         "landmark_paths": 5,
         "affinity_decay": 0.9,
         "true_distance": false,
@@ -43,7 +44,7 @@
         "feature_learning_rate": 1e-4,
         "pos_threshold": 2,
         "neg_close_threshold": 10,
-        "neg_far_threshold": 35,
+        "neg_far_threshold": 15,
         "margin": 2.0
     },
     "env": {
@@ -74,7 +75,7 @@
         "log_interval_steps": 1e4,
         "log_dsr_interval_steps": 1e4,
         "log_landmark_steps": 1e4,
-        "min_steps_landmark": 2e4
+        "min_steps_landmark": 2e7
     },
     "mode": "multiroom",
     "seed": 333,
