@@ -13,12 +13,11 @@
         "feature_model_kwargs": {
             "feature_size": 64,
             "norm_output": true,
-            "alpha": 10.0,
-            "simple_encoder": true
+            "alpha": 10.0
         },
         "landmark_mode_interval": 50,
         "landmark_update_interval": 500,
-        "add_threshold": 0.6,
+        "add_threshold": 0.8,
         "reach_threshold": 0.99,
         "max_landmarks": 8,
         "steps_per_landmark": 10,
@@ -35,12 +34,12 @@
     },
     "algo": {
         "discount": 0.99,
-        "batch_size": 256,
+        "batch_size": 128,
         "min_steps_learn": 1000,
         "learning_rate": 1e-4,
         "replay_size": 20000,
         "delta_clip": 1,
-        "min_steps_dsr_learn": 20000,
+        "min_steps_dsr_learn": 10000,
         "feature_learning_rate": 1e-4,
         "pos_threshold": 2,
         "neg_close_threshold": 10,
@@ -75,7 +74,7 @@
         "log_interval_steps": 1e4,
         "log_dsr_interval_steps": 1e4,
         "log_landmark_steps": 1e4,
-        "min_steps_landmark": 2e7
+        "min_steps_landmark": 2e4
     },
     "mode": "multiroom",
     "seed": 333,

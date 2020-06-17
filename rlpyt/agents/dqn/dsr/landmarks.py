@@ -361,7 +361,8 @@ class Landmarks(object):
             self.attempts = (self.attempts * self.affinity_decay)
 
     def prune_landmarks(self):
-
+        # Prune redundant landmarks
+        # HACK: Using (x, y) position of landmarks given by oracle
         seen_positions = set()
         save_idx = []
         for i, position in enumerate(map(tuple, self.positions)):
