@@ -20,6 +20,7 @@ from rlpyt.envs.gym import make as gym_make
 from rlpyt.algos.dqn.dsr.dsr import DSR
 from rlpyt.algos.dqn.dsr.feature_dsr import IDFDSR, TCFDSR
 from rlpyt.agents.dqn.dsr.landmark_agent import LandmarkIDFAgent, LandmarkTCFAgent
+from rlpyt.agents.dqn.dsr.landmarks import Landmarks
 from rlpyt.runners.minibatch_rl import MinibatchLandmarkDSREval
 from rlpyt.utils.logging.context import logger_context
 from rlpyt.utils.seed import set_seed
@@ -78,8 +79,11 @@ def build_and_train(config_file,
         agent_class = LandmarkIDFAgent
         algo_class = IDFDSR
 
+    landmarks = Landmarks(**config['landmarks'])
     agent = agent_class(initial_model_state_dict=model_checkpoint, 
-                        initial_feature_model_state_dict=feature_model_checkpoint, **config['agent'])
+                        initial_feature_model_state_dict=feature_model_checkpoint,
+                        landmarks=landmarks,
+                        **config['agent'])
     algo = algo_class(**config['algo'])
     runner = MinibatchLandmarkDSREval(
         algo=algo,

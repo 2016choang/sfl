@@ -398,10 +398,13 @@ class MinigridMultiRoomLandmarkWrapper(Wrapper):
             self.action_space = Discrete(5)
         else:
             self.action_space = Discrete(4)
+
         # TODO: Hard-coded state next to goal state for now!
         self.true_goal_pos = np.array(true_goal_pos)
 
         self.visited = np.zeros((self.env.grid.height, self.env.grid.width), dtype=int)
+
+        self.oracle_distance_matrix = None
 
     def get_oracle_landmarks(self):
         self.reset()
@@ -435,43 +438,46 @@ class MinigridMultiRoomLandmarkWrapper(Wrapper):
         self.reset_episode()
         return (obs, self.true_goal_pos)
 
-    def get_true_distances(self):
-        h, w = self.env.grid.height, self.env.grid.width
+    def get_oracle_distance_matrix(self):
+        if self.oracle_distance_matrix is None:
+            h, w = self.env.grid.height, self.env.grid.width
 
-        dist_matrix = np.zeros((h * w, h * w))
-        valid = set()
+            dist_matrix = np.zeros((h * w, h * w))
+            valid = set()
 
-        for room in self.env.rooms:
-            start_x, start_y = room.top
-            size_x, size_y = room.size
-            for x in range(start_x + 1, start_x + size_x - 1):
-                for y in range(start_y + 1, start_y + size_y - 1):
-                    valid.add((x, y))
+            for room in self.env.rooms:
+                start_x, start_y = room.top
+                size_x, size_y = room.size
+                for x in range(start_x + 1, start_x + size_x - 1):
+                    for y in range(start_y + 1, start_y + size_y - 1):
+                        valid.add((x, y))
+                
+                if room.exitDoorPos is not None:
+                    valid.add(room.exitDoorPos)
+
+            for pos in valid:
+                x, y = pos
+                true_pos = y * w + x
+                
+                for adjacent in [[x-1, y], [x, y-1], [x+1, y], [x, y+1]]:
+                    adj_x, adj_y = adjacent
+                    if (adj_x, adj_y) in valid:
+                        true_adj_pos = adj_y * w + adj_x
+                        dist_matrix[true_pos, true_adj_pos] = 1
+
+            G = nx.from_numpy_array(dist_matrix)
+            lengths = nx.shortest_path_length(G)
+            true_dist = np.zeros((w, h, w, h)) - 1
+
+            for source, targets in lengths:
+                source_x, source_y = source % w, source // w
+                for target, dist in targets.items():
+                    target_x, target_y = target % w, target // w
+                    true_dist[source_x, source_y, target_x, target_y] = dist
             
-            if room.exitDoorPos is not None:
-                valid.add(room.exitDoorPos)
-
-        for pos in valid:
-            x, y = pos
-            true_pos = y * w + x
-            
-            for adjacent in [[x-1, y], [x, y-1], [x+1, y], [x, y+1]]:
-                adj_x, adj_y = adjacent
-                if (adj_x, adj_y) in valid:
-                    true_adj_pos = adj_y * w + adj_x
-                    dist_matrix[true_pos, true_adj_pos] = 1
-
-        G = nx.from_numpy_array(dist_matrix)
-        lengths = nx.shortest_path_length(G)
-        true_dist = np.zeros((w, h, w, h)) - 1
-
-        for source, targets in lengths:
-            source_x, source_y = source % w, source // w
-            for target, dist in targets.items():
-                target_x, target_y = target % w, target // w
-                true_dist[source_x, source_y, target_x, target_y] = dist
+            self.oracle_distance_matrix = true_dist
         
-        return true_dist
+        return self.oracle_distance_matrix
 
     def get_room(self, pos):
         for i, room in enumerate(self.env.rooms):
@@ -843,6 +849,8 @@ class FourRoomsWrapper(Wrapper):
         # TODO: Hard-coded state next to goal state for now!
         self.true_goal_pos = np.array(true_goal_pos)
 
+        self.oracle_distance_matrix = None
+
     def get_oracle_landmarks(self):
         return []
 
@@ -850,33 +858,36 @@ class FourRoomsWrapper(Wrapper):
         self.env.unwrapped.agent_pos = self.true_goal_pos
         return self.get_current_state()[0], self.true_goal_pos
 
-    def get_true_distances(self):
-        h, w = self.env.grid.height, self.env.grid.width
+    def get_oracle_distance_matrix(self):
+        if self.oracle_distance_matrix is None:
+            h, w = self.env.grid.height, self.env.grid.width
 
-        dist_matrix = np.zeros((h * w, h * w))
-        valid = self.get_possible_pos()
+            dist_matrix = np.zeros((h * w, h * w))
+            valid = self.get_possible_pos()
 
-        for pos in valid:
-            x, y = pos
-            true_pos = y * w + x
+            for pos in valid:
+                x, y = pos
+                true_pos = y * w + x
+                
+                for adjacent in [[x-1, y], [x, y-1], [x+1, y], [x, y+1]]:
+                    adj_x, adj_y = adjacent
+                    if (adj_x, adj_y) in valid:
+                        true_adj_pos = adj_y * w + adj_x
+                        dist_matrix[true_pos, true_adj_pos] = 1
+
+            G = nx.from_numpy_array(dist_matrix)
+            lengths = nx.shortest_path_length(G)
+            true_dist = np.zeros((w, h, w, h)) - 1
+
+            for source, targets in lengths:
+                source_x, source_y = source % w, source // w
+                for target, dist in targets.items():
+                    target_x, target_y = target % w, target // w
+                    true_dist[source_x, source_y, target_x, target_y] = dist
             
-            for adjacent in [[x-1, y], [x, y-1], [x+1, y], [x, y+1]]:
-                adj_x, adj_y = adjacent
-                if (adj_x, adj_y) in valid:
-                    true_adj_pos = adj_y * w + adj_x
-                    dist_matrix[true_pos, true_adj_pos] = 1
-
-        G = nx.from_numpy_array(dist_matrix)
-        lengths = nx.shortest_path_length(G)
-        true_dist = np.zeros((w, h, w, h)) - 1
-
-        for source, targets in lengths:
-            source_x, source_y = source % w, source // w
-            for target, dist in targets.items():
-                target_x, target_y = target % w, target // w
-                true_dist[source_x, source_y, target_x, target_y] = dist
+            self.oracle_distance_matrix = true_dist
         
-        return true_dist
+        return self.oracle_distance_matrix
 
     def observation(self, obs):
         return np.expand_dims(self.env.observation(obs)['image'][:, :, 0], 2)
