@@ -334,8 +334,6 @@ class MinibatchDSREval(MinibatchRlEval):
         state_entropy = entropy(env.visited.flatten(), base=2)
         if not np.isnan(state_entropy):
             logger.record_tabular_stat('Entropy', state_entropy, itr)
-        # if self.agent.landmarks is not None:
-        #     logger.record_tabular_stat('Landmark Threshold', self.agent.landmarks.threshold, itr)
 
     def log_dsr(self, itr):
         # 1. Render actual environemnt
@@ -459,11 +457,23 @@ class MinibatchDSREval(MinibatchRlEval):
 class MinibatchLandmarkDSREval(MinibatchDSREval):
     _eval = True
 
-    def __init__(self, min_steps_landmark=2e4, log_landmark_steps=1e4, **kwargs):
+    def __init__(self,
+                 min_steps_landmark=2e4,
+                 log_landmark_steps=1e4,
+                 **kwargs):
         self.min_steps_landmark = int(min_steps_landmark)
         self.log_landmark_steps = int(log_landmark_steps)
         self.last_explore_sample=True
         super().__init__(**kwargs)
+
+    def startup(self):
+        n_itr = super().startup()
+        train_envs = len(self.sampler.collector.envs)
+        eval_envs = len(self.sampler.eval_collector.envs)
+        goal = self.sampler.eval_collector.envs[0].get_goal_state()
+        oracle_distance_matrix = self.sampler.collector.envs[0].get_oracle_distance_matrix()        
+        self.agent.initialize_landmarks(train_envs, eval_envs, goal, oracle_distance_matrix)
+        return n_itr
 
     def train(self):
         n_itr = self.startup()
@@ -471,14 +481,14 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
             eval_traj_infos, eval_time = self.evaluate_agent(0)
             self.log_diagnostics(0, eval_traj_infos, eval_time)
         
-        # Set oracle distance matrix and landmarks
-        self.agent.set_env_true_dist(self.sampler.collector.envs[0])
-        self.agent.set_oracle_landmarks(self.sampler.eval_collector.envs[0])
-
         # Main loop
         for itr in range(n_itr):
             with logger.prefix(f"itr #{itr} "):
                 self.agent.sample_mode(itr)
+                
+                if itr >= self.min_steps_landmark_mode:
+                    self.agent.landmarks.activate()
+
                 samples, traj_infos = self.sampler.obtain_samples(itr)
                 self.algo.append_feature_samples(samples)  # feature replay buffer (policy-agnostic)
 
@@ -497,19 +507,11 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                 logger.log_itr_info(itr, opt_info)
                 self.store_diagnostics(itr, traj_infos, opt_info)
                 
-                if (itr + 1) >= self.min_steps_landmark:
-                    # Create landmarks 
-                    if self.agent.landmarks is None:
-                        goal = self.sampler.eval_collector.envs[0].get_goal_state()
-                        self.agent.create_landmarks(goal)
-
-                    # Update representations of landmarksf c y
-                    self.agent.update_landmarks(itr)
+                # Update representations of landmarks
+                self.agent.update_landmarks(itr)
 
                 # Evaluate agent
-                landmarks_eval = False
                 if (itr + 1) % self.log_interval_itrs == 0:
-                    landmarks_eval = self.agent.enter_eval_mode()
                     eval_traj_infos, eval_time = self.evaluate_agent(itr)
                     self.log_diagnostics(itr, eval_traj_infos, eval_time)
                     self.algo.update_scheduler(self._opt_infos)
@@ -554,7 +556,7 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
     @torch.no_grad()
     def log_landmarks(self, itr):
         # If no landmark info to log
-        if self.agent.landmarks is None or self.agent.landmarks.num_landmarks == 0:
+        if not self.agent.landmarks:
             return
 
         # Save landmarks data
