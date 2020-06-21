@@ -93,7 +93,7 @@ class LandmarkAgent(FeatureDSRAgent):
 
     @torch.no_grad()
     def update_landmarks(self, itr):
-        if self.landmarks is not None and itr % self.landmark_update_interval == 0:
+        if self.landmarks and itr % self.landmark_update_interval == 0:
             # Update features and successor features of existing landmarks
             observation = self.landmarks.observations
             model_inputs = buffer_to(observation,
@@ -125,23 +125,19 @@ class LandmarkAgent(FeatureDSRAgent):
 
                 self.landmarks.add_landmarks(observation, features, dsr, position)
 
-            self.explore = True
+            # Reset landmark mode for all environments
+            self.reset()
 
-            # # Generate landmark graph and path between start and goal landmarks
-            # self.generate_graph()
-
-    def generate_graph(self):
-        # Use true distance edges given by oracle
-        if self.use_oracle_graph:
-            self.landmarks.generate_true_graph(self.env_true_dist)
-
-        # Use estimated edges
-        else:
-            self.landmarks.generate_graph(self._mode)
+            # Generate landmark graph
+            self.landmarks.generate_graph()
 
     @torch.no_grad()
     def step(self, observation, prev_action, prev_reward, position=None):
-        if self.landmarks is not None:
+        # Default exploration (uniform random) policy
+        action = torch.randint_like(prev_action, high=self.distribution.dim)
+
+        # Use landmark policy sometimes
+        if self.landmarks:
             model_inputs = buffer_to(observation,
                 device=self.device)
             features = self.feature_model(model_inputs, mode='encode')
@@ -150,34 +146,31 @@ class LandmarkAgent(FeatureDSRAgent):
                 device=self.device)
             dsr = self.model(model_inputs, mode='dsr')
 
-            # # Add landmarks if in exploration mode during training
-            # if self.explore and self._mode != 'eval' and not self.use_oracle_landmarks:
-            #     self.landmarks.add_landmark(observation.float(), features, dsr, position)
+            # Add potential landmarks during training
+            if self._mode != 'eval':
+                self.landmarks.add_potential_landmark(self, observation, dsr, position)
 
             self.landmarks.set_paths(dsr, position, self._mode)
 
             landmarks_dsr, landmark_mode = self.get_landmarks_data(self, dsr, self._mode)
 
-        # Default exploration (uniform random) policy
-        action = torch.randint_like(prev_action, high=self.distribution.dim)
+            # Landmark subgoal policy (SF-based Q values)
+            current_dsr = dsr[landmark_mode] / torch.norm(dsr[landmark_mode], p=2, dim=2, keepdim=True)
+            q_values = torch.matmul(current_dsr, landmarks_dsr).cpu()
+        
+            if self.use_soft_q:
+                # Select action based on softmax of Q as probabilities
+                prob = F.softmax(q_values, dim=1)
+                landmark_action = self.soft_distribution.sample(DistInfo(prob=prob))
+            else:
+                # Select action based on epsilon-greedy of Q
+                landmark_action = self.distribution.sample(q_values)
 
-        # Landmark subgoal policy (SF-based Q values)
-        current_dsr = dsr[landmark_mode] / torch.norm(dsr[landmark_mode], p=2, dim=2, keepdim=True)
-        q_values = torch.matmul(current_dsr, landmarks_dsr).cpu()
-    
-        if self.use_soft_q:
-            # Select action based on softmax of Q as probabilities
-            prob = F.softmax(q_values, dim=1)
-            landmark_action = self.soft_distribution.sample(DistInfo(prob=prob))
-        else:
-            # Select action based on epsilon-greedy of Q
-            landmark_action = self.distribution.sample(q_values)
+            action[landmark_mode] = landmark_action
 
-        action[landmark_mode] = landmark_action
-
-        # Try to enter landmark mode in training
-        if self._mode != 'eval' and self.landmarks:
-            self.landmarks.enter_landmark_mode()
+            # Try to enter landmark mode in training
+            if self._mode != 'eval':
+                self.landmarks.enter_landmark_mode()
 
         agent_info = AgentInfo(a=action)
         return AgentStep(action=action, agent_info=agent_info)

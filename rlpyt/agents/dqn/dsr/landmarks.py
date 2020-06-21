@@ -147,21 +147,26 @@ class Landmarks(object):
         self.attempts = self.attempts[:self.num_landmarks, :self.num_landmarks]
 
     def add_potential_landmark(self, observation, dsr, position):
+        observation = observation[self.landmark_mode]
+        dsr = dsr[self.landmark_mode]
+        position = position[self.landmark_mode]
+
         norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, keepdim=True)
         similarity = torch.matmul(self.norm_dsr, norm_dsr.T)
 
-        # Candidate landmark under similarity threshold w.r.t. existing landmarks
-        if sum(similarity < self.add_threshold) >= self.num_landmarks:
-            if self.potential_landmarks:
-                self.potential_landmarks['observation'] = torch.cat((self.potential_landmarks['observation'],
-                                                                     observation), dim=0)
-                self.potential_landmarks['positions'] = np.append(self.potential_landmarks['positions'],
-                                                                  np.expand_dims(position, 0), axis=0)
-            else:
-                self.potential_landmarks['observation'] = observation
-                self.potential_landmarks['positions'] = np.expand_dims(position, 0)
-            
-            self.potential_landmark_adds += 1
+        # Potential landmarks under similarity threshold w.r.t. existing landmarks
+        potential_idxs = torch.sum(similarity < self.add_threshold, dim=0) >= self.num_landmarks
+
+        if self.potential_landmarks:
+            self.potential_landmarks['observation'] = torch.cat((self.potential_landmarks['observation'],
+                                                                 observation[potential_idxs]), dim=0)
+            self.potential_landmarks['positions'] = np.append(self.potential_landmarks['positions'],
+                                                              position[potential_idxs], axis=0)
+        else:
+            self.potential_landmarks['observation'] = observation[potential_idxs]
+            self.potential_landmarks['positions'] = position[potential_idxs]
+        
+        self.potential_landmark_adds += sum(potential_idxs)
 
     def add_landmarks(self, observation, features, dsr, position):
         # Add landmarks if it is not similar w.r.t existing landmarks
