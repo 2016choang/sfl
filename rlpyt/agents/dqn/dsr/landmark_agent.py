@@ -34,7 +34,7 @@ class LandmarkAgent(FeatureDSRAgent):
             affinity_decay=0.9,
             landmark_paths=1, 
             landmark_mode_interval=100,
-            steps_per_landmark=25,
+            landmark_mode_step_limit=100,
             reach_threshold=0.95,
             use_sf=False,
             use_soft_q=False,
@@ -279,8 +279,8 @@ class LandmarkAgent(FeatureDSRAgent):
                 find_next_landmark = True
                 while find_next_landmark:
 
-                    # If we still have steps remaining to try to reach the current landmark
-                    if self.landmark_steps < self.steps_per_landmark:
+                    # If we still have steps remaining in landmark mode
+                    if self.landmark_steps < self.landmark_mode_step_limit:
 
                         # Log if current landmark is reached based on similarity
                         norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, keepdim=True) 
@@ -350,7 +350,7 @@ class LandmarkAgent(FeatureDSRAgent):
                         else:
                             find_next_landmark = False
                     
-                    # We have run out of steps trying to reach current landmark
+                    # We have run out of steps in landmark mode
                     else:
                         cur_x, cur_y = position 
                         landmark_x, landmark_y = self.landmarks.positions[self.current_landmark]
@@ -365,31 +365,18 @@ class LandmarkAgent(FeatureDSRAgent):
                                 self.landmarks.attempts[self.last_landmark, self.current_landmark] += 1
                                 self.landmarks.attempts[self.current_landmark, self.last_landmark] += 1
 
-                        # If current landmark is goal, exit landmark mode
-                        if self.current_landmark == self.goal_landmark:
-                            self.explore = True
+                        # In eval, log end position trying to reach goal and distance away from goal
+                        if self._mode == 'eval':
+                            self.eval_end_pos[(cur_x, cur_y)].append(self.current_landmark)
+                            self.eval_distances.append(end_distance)
 
-                            # In eval, log end position trying to reach goal and distance away from goal
-                            if self._mode == 'eval':
-                                self.eval_end_pos[(cur_x, cur_y)].append(self.current_landmark)
-                                self.eval_distances.append(end_distance)
-
-                            # In train, log end/start distance to goal ratio
-                            else:
-                                # TODO: Bucket by starting distance instead
-                                self.goal_landmark_dist_completed.append(end_distance / self.start_distance_to_goal)
-                            find_next_landmark = False
-                        
-                        # Else, move on to next landmark and set as new goal
+                        # In train, log end/start distance to goal ratio
                         else:
-                            self.last_landmark = None
-                            self.path_idx += 1
-                            self.current_landmark = self.path[self.path_idx]
-                            self.landmark_steps = 0
-                            find_next_landmark = True
+                            # TODO: Bucket by starting distance instead
+                            self.goal_landmark_dist_completed.append(end_distance / self.start_distance_to_goal)
 
-                            landmark_x, landmark_y = self.landmarks.positions[self.current_landmark]
-                            self.start_distance_to_landmark = self.env_true_dist[cur_x, cur_y, landmark_x, landmark_y]
+                        find_next_landmark = False
+                        self.explore = True
 
         # Exploration (random) policy
         if self.explore:

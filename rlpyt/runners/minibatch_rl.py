@@ -588,7 +588,7 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         if self.agent.goal_landmark_dist_completed:
             logger.record_tabular_stat('PercentDistanceCoveredToGoal', np.average(self.agent.goal_landmark_dist_completed), itr)
 
-        # 4. Statistics related to adding/removing landmarks
+        # 4. Statistics related to adding/removed landmarks
         logger.record_tabular_stat('LandmarksAdded', self.agent.landmarks.landmark_adds, itr)
         logger.record_tabular_stat('LandmarksRemoved', self.agent.landmarks.landmark_removes, itr)
 

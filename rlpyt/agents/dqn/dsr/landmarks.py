@@ -133,9 +133,9 @@ class Landmarks(object):
         norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, keepdim=True)
         similarity = torch.matmul(self.norm_dsr, norm_dsr.T)
 
-        k_nearest_similarity = torch.topk(similarity, 3, dim=0, largest=False).values
+        k_nearest_similarity = torch.topk(similarity, self.top_k_similar, dim=0, largest=False).values
         similarity_score = torch.sum(k_nearest_similarity, dim=0)
-        new_landmark_idxs = torch.topk(similarity_score, 2, largest=False).indices
+        new_landmark_idxs = torch.topk(similarity_score, self.landmarks_per_update, largest=False).indices
 
         for idx in new_landmark_idxs:
             self.add_landmark(observation[idx], features[idx], dsr[idx], position[idx])
@@ -231,6 +231,8 @@ class Landmarks(object):
                     self.successes[:, replace_idx] = 0
                     self.attempts[replace_idx, :] = 0
                     self.attempts[:, replace_idx] = 0
+
+                    self.landmark_removes += 1
             
             # Record landmark transitions found during exploration mode
             # TODO: Still in the works!
