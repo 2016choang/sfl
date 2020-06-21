@@ -25,8 +25,10 @@ class LandmarkAgent(FeatureDSRAgent):
     def __init__(
             self,
             landmark_update_interval=int(5e3),
-            add_threshold=0.75,
             max_landmarks=8,
+            add_threshold=0.75,
+            top_k_similar=None,
+            landmarks_per_update=None,
             success_threshold=0,
             sim_threshold=0.9,
             affinity_decay=0.9,
@@ -83,8 +85,12 @@ class LandmarkAgent(FeatureDSRAgent):
     def set_oracle_landmarks(self, env):
         # Set oracle landmarks hardcoded in environment
         landmarks = env.get_oracle_landmarks()
-        self.oracle_landmarks = Landmarks(len(landmarks), self.add_threshold, self.success_threshold,
-                                          self.sim_threshold, self.landmark_paths, self.affinity_decay)
+        self.oracle_landmarks = Landmarks(max_landmarks=len(landmarks),
+                                          add_threshold=self.add_threshold,
+                                          success_threshold=self.success_threshold,
+                                          sim_threshold=self.sim_threshold,
+                                          landmark_paths=self.landmark_paths,
+                                          affinity_decay=self.affinity_decay)
         for landmark_obs, landmark_pos in landmarks:
             observation = torchify_buffer(landmark_obs).unsqueeze(0).float()
 
@@ -112,8 +118,14 @@ class LandmarkAgent(FeatureDSRAgent):
             self.landmarks = self.oracle_landmarks
             self.max_landmarks = self.oracle_max_landmarks
         else:
-            self.landmarks = Landmarks(self.max_landmarks, self.add_threshold, self.success_threshold,
-                                       self.sim_threshold, self.landmark_paths, self.affinity_decay)
+            self.landmarks = Landmarks(max_landmarks=self.max_landmarks,
+                                              add_threshold=self.add_threshold,
+                                              top_k_similar=self.top_k_similar,
+                                              landmarks_per_update=self.landmarks_per_update,
+                                              success_threshold=self.success_threshold,
+                                              sim_threshold=self.sim_threshold,
+                                              landmark_paths=self.landmark_paths,
+                                              affinity_decay=self.affinity_decay)
 
             # Add goal observation as a landmark                           
             goal_obs, goal_pos = goal
@@ -131,29 +143,43 @@ class LandmarkAgent(FeatureDSRAgent):
 
     @torch.no_grad()
     def update_landmarks(self, itr):
-        # Update features and successor features of existing landmarks
-        if self.landmarks.num_landmarks:
-            if (itr + 1) % self.landmark_update_interval == 0:
-                observation = self.landmarks.observations
+        if self.landmarks is not None and itr % self.landmark_update_interval == 0:
+            # Update features and successor features of existing landmarks
+            observation = self.landmarks.observations
+            model_inputs = buffer_to(observation,
+                device=self.device)
+            features = self.feature_model(model_inputs, mode='encode')
+            self.landmarks.set_features(features)
+            model_inputs = buffer_to(features,
+                device=self.device)
+            dsr = self.model(model_inputs, mode='dsr')
+            self.landmarks.set_dsr(dsr)
+
+            self.landmarks.update()
+
+            # Add new landmarks
+            if self.landmarks.potential_landmarks:
+                observation = self.landmarks.potential_landmarks['observation']
+                unique_idxs = np.unique(observation.numpy(), return_index=True, axis=0)[1]
+                position = self.landmarks.potential_landmarks['positions'][unique_idxs]
+
+                observation = observation[unique_idxs]
 
                 model_inputs = buffer_to(observation,
                     device=self.device)
                 features = self.feature_model(model_inputs, mode='encode')
                 self.landmarks.set_features(features)
-
                 model_inputs = buffer_to(features,
                     device=self.device)
                 dsr = self.model(model_inputs, mode='dsr')
-                self.landmarks.set_dsr(dsr)
 
-                self.landmarks.update_affinity()
+                self.landmarks.add_landmarks(observation, features, dsr, position)
 
-                self.landmarks.prune_landmarks()
-                self.explore = True
+            self.explore = True
 
     def landmark_mode(self):
         # Enter landmark mode during training every landmark_mode_interval steps
-        if self.landmarks is not None and self.landmarks.num_landmarks > 0 and self.explore and \
+        if self.landmarks is not None and self.explore and \
             self._mode != 'eval' and (self.landmark_mode_steps % self.landmark_mode_interval) == 0:
 
                 self.explore = False

@@ -158,11 +158,11 @@ class MinibatchRlBase(BaseRunner):
                 self._cum_time - self._cum_eval_time, itr)  # Already added new eval_time.
         logger.record_tabular('Iteration', itr)
         logger.record_tabular_stat('CumTime (s)', self._cum_time, itr)
-        logger.record_tabular('CumSteps', cum_steps)
-        logger.record_tabular('CumCompletedTrajs', self._cum_completed_trajs)
-        logger.record_tabular('CumUpdates', self.algo.update_counter)
-        logger.record_tabular('StepsPerSecond', samples_per_second)
-        logger.record_tabular('UpdatesPerSecond', updates_per_second)
+        logger.record_tabular_stat('CumSteps', cum_steps, itr)
+        logger.record_tabular_stat('CumCompletedTrajs', self._cum_completed_trajs, itr)
+        logger.record_tabular_stat('CumUpdates', self.algo.update_counter, itr)
+        logger.record_tabular_stat('StepsPerSecond', samples_per_second, itr)
+        logger.record_tabular_stat('UpdatesPerSecond', updates_per_second, itr)
         logger.record_tabular('ReplayRatio', replay_ratio)
         logger.record_tabular('CumReplayRatio', cum_replay_ratio)
         self._log_infos(traj_infos, itr)
@@ -462,6 +462,7 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
     def __init__(self, min_steps_landmark=2e4, log_landmark_steps=1e4, **kwargs):
         self.min_steps_landmark = int(min_steps_landmark)
         self.log_landmark_steps = int(log_landmark_steps)
+        self.last_explore_sample=True
         super().__init__(**kwargs)
 
     def train(self):
@@ -481,19 +482,18 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                 samples, traj_infos = self.sampler.obtain_samples(itr)
                 self.algo.append_feature_samples(samples)  # feature replay buffer (policy-agnostic)
 
-                # Entered landmark mode
-                if not self.agent.explore:
-                    samples = copy.deepcopy(samples)
+                # Add to SF replay buffer (explore policy only)
+                if self.agent.explore:
+                   self.algo.append_dsr_samples(samples)
+                   self.last_explore_sample = True
+                elif self.last_explore_sample:
                     samples.env.done[-1] = True
-                    traj_infos = copy.deepcopy(traj_infos)
-                    while not self.agent.explore:
-                        # TODO: Make sampler function to simply move in environment
-                        landmark_samples, _ = self.sampler.obtain_samples(itr)
-                        self.algo.append_feature_samples(landmark_samples)  # feature replay buffer
+                    self.algo.append_dsr_samples(samples)
+                    self.last_explore_sample = False
 
                 # Train agent's neural networks
                 self.agent.train_mode(itr)
-                opt_info = self.algo.optimize_agent(itr, samples)
+                opt_info = self.algo.optimize_agent(itr)
                 logger.log_itr_info(itr, opt_info)
                 self.store_diagnostics(itr, traj_infos, opt_info)
                 
@@ -550,11 +550,6 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                     self.agent.exit_eval_mode()
 
         self.shutdown()
-
-    def log_diagnostics(self, itr, eval_traj_infos, eval_time):
-        super().log_diagnostics(itr, eval_traj_infos, eval_time)
-        logger.record_tabular_stat('EnvSteps', self.sampler.collector.env_steps, itr)
-        logger.record_tabular_stat('EnvEpisodes', self.sampler.collector.env_episodes, itr)
 
     @torch.no_grad()
     def log_landmarks(self, itr):
@@ -677,6 +672,9 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         summary_writer = logger.get_tf_summary_writer()
         goal_neighbors = ', '.join('({}, {:.3f})'.format(node, data['weight']) for node, data in G[0].items())
         summary_writer.add_text("Goal neighbors", goal_neighbors, itr)
+
+        # 12. Landmarks add threshold (dynamically adjusted)
+        logger.record_tabular_stat('Add Threshold', self.agent.landmarks.add_threshold, itr)
 
     def evaluate_agent(self, itr):
         # Evaluate agent using landmark mode

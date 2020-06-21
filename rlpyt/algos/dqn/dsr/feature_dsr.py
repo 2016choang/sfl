@@ -61,13 +61,15 @@ class FeatureDSR(DSR):
         if samples is not None and self.feature_replay_buffer is not None:
             samples_to_buffer = self.samples_to_buffer(samples)
             self.feature_replay_buffer.append_samples(samples_to_buffer)
-        
-    def optimize_agent(self, itr, samples=None, sampler_itr=None):
-        itr = itr if sampler_itr is None else sampler_itr  # Async uses sampler_itr.
+    
+    def append_dsr_samples(self, samples=None):
+        # Append samples to replay buffer used for training successor features
         if samples is not None:
-            # Append samples to replay buffer used for training successor features
             samples_to_buffer = self.samples_to_buffer(samples)
             self.replay_buffer.append_samples(samples_to_buffer)
+        
+    def optimize_agent(self, itr, sampler_itr=None):
+        itr = itr if sampler_itr is None else sampler_itr  # Async uses sampler_itr.
         opt_info = self.opt_info_class(*([] for _ in range(len(self.opt_info_class._fields))))
         if itr < self.min_itr_learn:
             # Not enough samples have been collected
