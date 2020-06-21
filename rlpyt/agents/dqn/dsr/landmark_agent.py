@@ -34,7 +34,7 @@ class LandmarkAgent(FeatureDSRAgent):
             affinity_decay=0.9,
             landmark_paths=1, 
             landmark_mode_interval=100,
-            landmark_mode_step_limit=100,
+            steps_per_landmark=10,
             reach_threshold=0.95,
             use_sf=False,
             use_soft_q=False,
@@ -280,7 +280,7 @@ class LandmarkAgent(FeatureDSRAgent):
                 while find_next_landmark:
 
                     # If we still have steps remaining in landmark mode
-                    if self.landmark_steps < self.landmark_mode_step_limit:
+                    if self.landmark_steps < len(self.path) * self.steps_per_landmark:
 
                         # Log if current landmark is reached based on similarity
                         norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, keepdim=True) 
