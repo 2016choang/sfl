@@ -14,12 +14,9 @@ class Landmarks(object):
     def __init__(self,
                  max_landmarks=20,
                  add_threshold=0.75,
-<<<<<<< HEAD
                  top_k_similar=None,
                  landmarks_per_update=None,
-=======
                  landmark_mode_interval=100,
->>>>>>> Initial landmark parallelization changes
                  success_threshold=0,
                  sim_threshold=0.9,
                  use_oracle_start=False,
@@ -52,12 +49,9 @@ class Landmarks(object):
         self.attempts = None
         self.zero_edge_indices = None
 
-<<<<<<< HEAD
         self.potential_landmark_adds = 0
         self.reset_logging() 
-=======
         self._active = False
->>>>>>> Initial landmark parallelization changes
     
     def initialize(self, num_envs, mode='train'):
         self.num_envs = num_envs
@@ -595,42 +589,6 @@ class Landmarks(object):
         # else:
         #     self.goal_landmark_dist_completed.append(end_distance / self.start_distance_to_goal)
 
-    def update_affinity(self):
-        # Decay empirical transition data by affinity_decay factor
-        if self.successes is not None:
-            self.successes = (self.successes * self.affinity_decay)
-        if self.attempts is not None:
-            self.attempts = (self.attempts * self.affinity_decay)
-
-    def prune_landmarks(self):
-        # Prune redundant landmarks
-        # HACK: Using (x, y) position of landmarks given by oracle
-        seen_positions = set()
-        save_idx = []
-        for i, position in enumerate(map(tuple, self.positions)):
-            if position not in seen_positions:
-                seen_positions.add(position)
-                save_idx.append(i)
-        save_idx = np.array(save_idx)
-
-        self.observations = self.observations[save_idx]
-        self.features = self.features[save_idx]
-        self.norm_features = self.norm_features[save_idx]
-        self.dsr = self.dsr[save_idx]
-        self.norm_dsr = self.norm_dsr[save_idx]
-        self.positions = self.positions[save_idx]
-        
-        self.visitations = self.visitations[save_idx]
-        self.successes = self.successes[save_idx[:, None], save_idx]
-        self.attempts = self.attempts[save_idx[:, None], save_idx]
-
-        self.landmark_removes += (self.num_landmarks - len(save_idx))
-        self.num_landmarks = len(save_idx)
-
-        # Prune landmarks that do not meet similarity requirement
-        # landmark_similarities = torch.matmul(self.norm_dsr, self.norm_dsr.T)
-        # save_idx = torch.sum(landmark_similarities < self.add_threshold, axis=1) >= (self.num_landmarks - 1)
-
     def generate_true_graph(self, oracle_distance_matrix, edge_threshold=None):
         # Generate landmark graph using true distances given by oracle
         n_landmarks = len(self.norm_dsr)
@@ -662,45 +620,3 @@ class Landmarks(object):
         self.graph = G
         return self.graph
         
-    def force_add_landmark(self, observation, features, dsr, position):
-        # Add landmark while ignoring similarity thresholds and max landmark limits
-        if self.num_landmarks == 0:
-            self.observations = observation
-            self.set_features(features)
-            self.set_dsr(dsr)
-            self.positions = np.expand_dims(position, 0)
-            self.visitations = np.array([0])
-            self.num_landmarks += 1
-            self.successes = np.array([[0]])
-            self.attempts = np.array([[0]])
-
-        else:
-            self.observations = torch.cat((self.observations, observation), dim=0)
-            self.set_features(features, self.num_landmarks)
-            self.set_dsr(dsr, self.num_landmarks)
-            self.positions = np.append(self.positions, np.expand_dims(position, 0), axis=0)            
-            self.visitations = np.append(self.visitations, 0)
-
-            self.successes = np.append(self.successes, np.zeros((self.num_landmarks, 1)), axis=1)
-            self.successes = np.append(self.successes, np.zeros((1, self.num_landmarks + 1)), axis=0)
-            self.attempts = np.append(self.attempts, np.zeros((self.num_landmarks, 1)), axis=1)
-            self.attempts = np.append(self.attempts, np.zeros((1, self.num_landmarks + 1)), axis=0)
-           
-            self.num_landmarks += 1
-
-    def force_remove_landmark(self):
-        # Remove last landmark
-        save_idx = range(self.num_landmarks - 1)
-
-        self.observations = self.observations[save_idx]
-        self.features = self.features[save_idx]
-        self.norm_features = self.norm_features[save_idx]
-        self.dsr = self.dsr[save_idx]
-        self.norm_dsr = self.norm_dsr[save_idx]
-
-        self.positions = self.positions[save_idx]
-        self.visitations = self.visitations[save_idx]
-
-        self.num_landmarks -= 1
-        self.successes = self.successes[:self.num_landmarks, :self.num_landmarks]
-        self.attempts = self.attempts[:self.num_landmarks, :self.num_landmarks]
