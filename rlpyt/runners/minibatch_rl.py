@@ -458,10 +458,10 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
     _eval = True
 
     def __init__(self,
-                 min_steps_landmark=2e4,
+                 min_steps_landmark_mode=2e4,
                  log_landmark_steps=1e4,
                  **kwargs):
-        self.min_steps_landmark = int(min_steps_landmark)
+        self.min_steps_landmark_mode = int(min_steps_landmark_mode)
         self.log_landmark_steps = int(log_landmark_steps)
         self.last_explore_sample=True
         super().__init__(**kwargs)
@@ -527,7 +527,7 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                     plt.close('all')
 
                 # Log evaluation information (if applicable)
-                if landmarks_eval:
+                if self.agent.landmarks:
                     summary_writer = logger.get_tf_summary_writer()
                     eval_path_str = '\n'.join(','.join(map(str, path)) + ' ({:.3f})'.format(self.agent.landmarks.eval_paths_p[i]) for i, path in enumerate(self.agent.landmarks.eval_paths))
                     summary_writer.add_text("Path to goal", eval_path_str, itr)

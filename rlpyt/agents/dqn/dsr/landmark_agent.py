@@ -25,16 +25,17 @@ class LandmarkAgent(FeatureDSRAgent):
 
     def __init__(
             self,
-            landmarks,
+            landmarks=None,
             landmark_update_interval=int(5e3),
             use_soft_q=False,
             use_oracle_graph=False,
             **kwargs):
-        save__init__args(locals())
+        self._landmarks = landmarks
+        local_args = locals()
+        local_args.pop('landmarks')
+        save__init__args(local_args)
         self.explore = True
-        self.landmarks = None
         self.landmark_mode_steps = 0
-        self.reset_logging()
         super().__init__(**kwargs)
     
     def initialize(self, env_spaces, share_memory=False,
@@ -45,18 +46,18 @@ class LandmarkAgent(FeatureDSRAgent):
         self.soft_distribution = Categorical(dim=env_spaces.action.n)
 
     def reset_logging(self):
-        # Percentage of times we reach the ith landmark
-        self.landmark_attempts = np.zeros(self.max_landmarks)
-        self.landmark_reaches = np.zeros(self.max_landmarks)
-        self.landmark_true_reaches = np.zeros(self.max_landmarks)
+        # # Percentage of times we reach the ith landmark
+        # self.landmark_attempts = np.zeros(self.max_landmarks)
+        # self.landmark_reaches = np.zeros(self.max_landmarks)
+        # self.landmark_true_reaches = np.zeros(self.max_landmarks)
 
-        # End / start distance to ith landmark
-        self.landmark_dist_completed = [[] for _ in range(self.max_landmarks)]
+        # # End / start distance to ith landmark
+        # self.landmark_dist_completed = [[] for _ in range(self.max_landmarks)]
 
-        # End / start distance to goal landmark
-        self.goal_landmark_dist_completed = []
+        # # End / start distance to goal landmark
+        # self.goal_landmark_dist_completed = []
 
-        if self.landmarks is not None:
+        if self.landmarks:
             self.landmarks.reset_logging()
 
     @property
@@ -135,6 +136,7 @@ class LandmarkAgent(FeatureDSRAgent):
     def step(self, observation, prev_action, prev_reward, position=None):
         # Default exploration (uniform random) policy
         action = torch.randint_like(prev_action, high=self.distribution.dim)
+        mode = torch.zeros_like(prev_action, dtype=bool)
 
         # Use landmark policy sometimes
         if self.landmarks:
@@ -146,13 +148,15 @@ class LandmarkAgent(FeatureDSRAgent):
                 device=self.device)
             dsr = self.model(model_inputs, mode='dsr')
 
+            observation = observation.float()
+
             # Add potential landmarks during training
             if self._mode != 'eval':
-                self.landmarks.add_potential_landmark(self, observation, dsr, position)
+                self.landmarks.add_potential_landmark(observation, dsr, position)
 
             self.landmarks.set_paths(dsr, position, self._mode)
 
-            landmarks_dsr, landmark_mode = self.get_landmarks_data(self, dsr, self._mode)
+            landmarks_dsr, landmark_mode = self.get_landmarks_data(self, observation, self._mode)
 
             # Landmark subgoal policy (SF-based Q values)
             current_dsr = dsr[landmark_mode] / torch.norm(dsr[landmark_mode], p=2, dim=2, keepdim=True)
@@ -172,7 +176,7 @@ class LandmarkAgent(FeatureDSRAgent):
             if self._mode != 'eval':
                 self.landmarks.enter_landmark_mode()
 
-        agent_info = AgentInfo(a=action)
+        agent_info = AgentInfo(a=action, mode=mode)
         return AgentStep(action=action, agent_info=agent_info)
 
     def reset(self):

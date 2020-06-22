@@ -64,9 +64,9 @@ class CpuLandmarksCollector(DecorrelatingStartCollector):
 
     def start_envs(self, max_decorrelation_steps=0):
         agent_inputs = super().start_envs(max_decorrelation_steps)
-        self.env_positions = []
-        for env in self.envs:
-            self.env_positions.append(env.agent_pos)
+        self.env_positions = np.full((len(self.envs), 2), -1, dtype=int)
+        for i, env in enumerate(self.envs):
+            self.env_positions[i] = env.agent_pos
         return agent_inputs
 
     def collect_batch(self, agent_inputs, traj_infos, itr):

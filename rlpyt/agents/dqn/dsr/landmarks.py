@@ -17,12 +17,12 @@ class Landmarks(object):
                  top_k_similar=None,
                  landmarks_per_update=None,
                  landmark_mode_interval=100,
+                 steps_per_landmark=10,
                  success_threshold=0,
                  sim_threshold=0.9,
                  use_oracle_start=False,
                  landmark_paths=1,
                  reach_threshold=0.99,
-                 landmark_steps_limit=100,
                  affinity_decay=0.9,
                 ):
         save__init__args(locals())
@@ -147,24 +147,25 @@ class Landmarks(object):
         self.attempts = self.attempts[:self.num_landmarks, :self.num_landmarks]
 
     def add_potential_landmark(self, observation, dsr, position):
-        observation = observation[self.landmark_mode]
-        dsr = dsr[self.landmark_mode]
-        position = position[self.landmark_mode]
+        potential_observation = observation[self.landmark_mode]
+        potential_dsr = dsr[self.landmark_mode]
+        potential_position = position[self.landmark_mode]
 
-        norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, keepdim=True)
+        norm_dsr = potential_dsr.mean(dim=1) / torch.norm(potential_dsr.mean(dim=1), p=2, keepdim=True)
         similarity = torch.matmul(self.norm_dsr, norm_dsr.T)
 
         # Potential landmarks under similarity threshold w.r.t. existing landmarks
         potential_idxs = torch.sum(similarity < self.add_threshold, dim=0) >= self.num_landmarks
+        potential_idxs = potential_idxs.cpu().numpy()
 
         if self.potential_landmarks:
             self.potential_landmarks['observation'] = torch.cat((self.potential_landmarks['observation'],
-                                                                 observation[potential_idxs]), dim=0)
+                                                                 potential_observation[potential_idxs]), dim=0)
             self.potential_landmarks['positions'] = np.append(self.potential_landmarks['positions'],
-                                                              position[potential_idxs], axis=0)
+                                                              potential_position[potential_idxs], axis=0)
         else:
-            self.potential_landmarks['observation'] = observation[potential_idxs]
-            self.potential_landmarks['positions'] = position[potential_idxs]
+            self.potential_landmarks['observation'] = potential_observation[potential_idxs].clone()
+            self.potential_landmarks['positions'] = potential_position[potential_idxs].copy()
         
         self.potential_landmark_adds += sum(potential_idxs)
 
@@ -272,6 +273,8 @@ class Landmarks(object):
                     self.successes[:, replace_idx] = 0
                     self.attempts[replace_idx, :] = 0
                     self.attempts[:, replace_idx] = 0
+
+                    self.landmark_removes += 1
             
             # Record landmark transitions found during exploration mode
             # TODO: Still in the works!
@@ -514,30 +517,35 @@ class Landmarks(object):
         
         # self.start_distance_to_landmark = self.start_distance_to_goal
     
-    def get_landmarks_data(self, current_dsr, mode):
+    def get_landmarks_data(self, current_observation, mode):
         # Check if current landmark is reached based on similarity in SF space
-        norm_dsr = current_dsr[self.landmark_mode]
-        norm_dsr = norm_dsr.mean(dim=1) / torch.norm(norm_dsr.mean(dim=1), p=2, keepdim=True)
+        # norm_dsr = current_dsr[self.landmark_mode]
+        # norm_dsr = norm_dsr.mean(dim=1) / torch.norm(norm_dsr.mean(dim=1), p=2, keepdim=True)
 
         current_idxs = self.path_idxs[self.landmark_mode]
 
-        current_landmarks = self.paths[self.landmark_mode][current_idxs]
-        landmark_similarity = torch.matmul(self.norm_dsr[current_landmarks], norm_dsr.T)
+        # current_landmarks = self.paths[self.landmark_mode][current_idxs]
+        # landmark_similarity = torch.matmul(self.norm_dsr[current_landmarks], norm_dsr.T)
 
         # TODO: Logging
         # # Log if current landmark is reached based on similarity
         # if landmark_similarity > self.reach_threshold and self._mode != 'eval':
         #     self.landmark_reaches[self.path_idx] += 1
 
-        reached_landmarks = landmark_similarity > self.reach_threshold
-        
+        # reached_landmarks = landmark_similarity > self.reach_threshold
         final_goal_landmarks = self.current_idxs == (self.path_lengths[self.landmark_mode] - 1)
-        reached_landmarks[final_goal_landmarks] = landmark_similarity >= 1.0
+        # reached_landmarks[final_goal_landmarks] = landmark_similarity >= 1.0
+
+        reached_landmarks = self.landmark_mode[self.landmark_mode]
+        current_landmarks = self.current_landmarks[self.landmark_mode]
+
+        for i, observation in enumerate(current_observation[self.landmark_mode]):
+            reached_landmarks[i] = torch.allclose(observation, self.observations[current_landmarks[i]])
 
         # Increment the current landmark's visitation count
         self.visitations[self.current_landmarks[reached_landmarks]] += 1
 
-        steps_limit_reached = self.landmark_steps[self.landmark_mode] >= self.landmark_steps_limit
+        steps_limit_reached = self.landmark_steps[self.landmark_mode] >= (self.path_lengths[self.landmark_mode] * self.steps_per_landmark)
         
         if mode != 'eval':
             # TODO: Logging
