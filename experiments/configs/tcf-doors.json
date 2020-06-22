@@ -16,9 +16,8 @@
             "alpha": 10.0
         },
         "landmark_mode_interval": 50,
-        "landmark_update_interval": 500,
+        "landmark_update_interval": 1000,
         "add_threshold": 0.7,
-        "top_k_similar": 2,
         "reach_threshold": 0.99,
         "max_landmarks": 10,
         "steps_per_landmark": 10,

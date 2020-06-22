@@ -216,9 +216,10 @@ class LandmarkAgent(FeatureDSRAgent):
                 device=self.device)
             dsr = self.model(model_inputs, mode='dsr')
 
+            observation = observation.float()
             # Add landmarks if in exploration mode during training
             if self.explore and self._mode != 'eval' and not self.use_oracle_landmarks:
-                self.landmarks.add_landmark(observation.float(), features, dsr, position)
+                self.landmarks.add_landmark(observation, features, dsr, position)
 
             # Select current (subgoal) landmark
             if not self.explore:
@@ -288,21 +289,20 @@ class LandmarkAgent(FeatureDSRAgent):
                         if landmark_similarity > self.reach_threshold and self._mode != 'eval':
                             self.landmark_reaches[self.path_idx] += 1
                         
-                        # HACK: Check if current landmark is reached based on true distance
-                        cur_x, cur_y = position
-                        landmark_x, landmark_y = self.landmarks.positions[self.current_landmark]
-                        end_distance = self.env_true_dist[cur_x, cur_y, landmark_x, landmark_y]
-
-                        # If goal landmark, we must try to reach it perfectly
-                        if self.current_landmark == self.goal_landmark:
-                            reach_threshold = 0
+                        # # If goal landmark, we must try to reach it perfectly
+                        # if self.current_landmark == self.goal_landmark:
+                        #     reach_threshold = 0
                         
-                        # Otherwise, try to reach the current landmark within a true distance threshold
-                        else:
-                            reach_threshold = self.steps_for_true_reach
+                        # # Otherwise, try to reach the current landmark within a true distance threshold
+                        # else:
+                        #     reach_threshold = self.steps_for_true_reach
 
-                        # If we have reached the current landmark based on our criteria
-                        if end_distance <= reach_threshold:
+                        # If we have reached the current landmark based on observation equivalence
+                        if torch.allclose(observation[0], self.landmarks.observations[self.current_landmark]):
+
+                            cur_x, cur_y = position
+                            landmark_x, landmark_y = self.landmarks.positions[self.current_landmark]
+                            end_distance = self.env_true_dist[cur_x, cur_y, landmark_x, landmark_y]
 
                             # Increment the current landmark's visitation count
                             self.landmarks.visitations[self.current_landmark] += 1
