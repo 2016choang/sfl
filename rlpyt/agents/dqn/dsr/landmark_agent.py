@@ -112,7 +112,7 @@ class LandmarkAgent(FeatureDSRAgent):
         self.env_true_dist = env.get_true_distances()
 
     @torch.no_grad()
-    def create_landmarks(self, goal):
+    def create_landmarks(self, initial_landmarks):
         # Create Landmarks object
         if self.use_oracle_landmarks:
             self.landmarks = self.oracle_landmarks
@@ -127,19 +127,19 @@ class LandmarkAgent(FeatureDSRAgent):
                                               landmark_paths=self.landmark_paths,
                                               affinity_decay=self.affinity_decay)
 
-            # Add goal observation as a landmark                           
-            goal_obs, goal_pos = goal
-            observation = torchify_buffer(goal_obs).unsqueeze(0).float()
+            # Add initial landmarks
+            for obs, pos in initial_landmarks:
+                observation = torchify_buffer(obs).unsqueeze(0).float()
 
-            model_inputs = buffer_to(observation,
-                    device=self.device)
-            features = self.feature_model(model_inputs, mode='encode')
+                model_inputs = buffer_to(observation,
+                        device=self.device)
+                features = self.feature_model(model_inputs, mode='encode')
 
-            model_inputs = buffer_to(features,
-                    device=self.device)
-            dsr = self.model(model_inputs, mode='dsr')
+                model_inputs = buffer_to(features,
+                        device=self.device)
+                dsr = self.model(model_inputs, mode='dsr')
 
-            self.landmarks.add_landmark(observation, features, dsr, goal_pos)
+                self.landmarks.force_add_landmark(observation, features, dsr, pos)
 
     @torch.no_grad()
     def update_landmarks(self, itr):

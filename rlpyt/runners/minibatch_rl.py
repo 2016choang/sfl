@@ -500,10 +500,10 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                 if (itr + 1) >= self.min_steps_landmark:
                     # Create landmarks 
                     if self.agent.landmarks is None:
-                        goal = self.sampler.eval_collector.envs[0].get_goal_state()
-                        self.agent.create_landmarks(goal)
+                        initial_landmarks = self.sampler.eval_collector.envs[0].get_initial_landmarks()
+                        self.agent.create_landmarks(initial_landmarks)
 
-                    # Update representations of landmarksf c y
+                    # Update representations of landmarks
                     self.agent.update_landmarks(itr)
 
                 # Evaluate agent
