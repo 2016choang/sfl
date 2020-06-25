@@ -56,7 +56,7 @@ def build_and_train(config_file,
         env_kwargs=dict(id=env_id, mode=mode, minigrid_config=config['env']),
         eval_env_kwargs=dict(id=env_id, mode=mode, minigrid_config=config['eval_env']),
         batch_T=1,  # One time-step per sampler iteration.
-        batch_B=1,  # One environment (i.e. sampler Batch dimension).
+        batch_B=32,  # One environment (i.e. sampler Batch dimension).
         max_decorrelation_steps=0,
         eval_n_envs=1,
         eval_max_steps=int(5e3),
@@ -108,7 +108,7 @@ if __name__ == "__main__":
     parser.add_argument('--env_id', help='environment ID', default='MiniGrid-FourRooms-v0')
     parser.add_argument('--run_ID', help='run identifier (logging)', type=int, default=0)
     parser.add_argument('--cuda_idx', help='gpu to use ', type=int, default=0)
-    parser.add_argument('--snapshot_gap', help='iterations between snapshots', type=int, default=5000)
+    parser.add_argument('--snapshot_gap', help='iterations between snapshots', type=int, default=10000)
     parser.add_argument('--steps', help='iterations', type=float, default=200000)
     parser.add_argument('--checkpoint', help='checkpoint file', default=None)
     args = parser.parse_args()

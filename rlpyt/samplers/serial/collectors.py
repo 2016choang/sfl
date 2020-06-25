@@ -84,10 +84,10 @@ class SerialLandmarksEvalCollector(BaseEvalCollector):
         traj_infos = [self.TrajInfoCls() for _ in range(len(self.envs))]
         completed_traj_infos = list()
         observations = list()
-        self.env_positions = []
-        for env in self.envs:
+        self.env_positions = np.full((len(self.envs), 2), -1, dtype=int)
+        for i, env in enumerate(self.envs):
             observations.append(env.reset())
-            self.env_positions.append(env.agent_pos)
+            self.env_positions[i] = env.agent_pos
         observation = buffer_from_example(observations[0], len(self.envs))
         for b, o in enumerate(observations):
             observation[b] = o
@@ -103,7 +103,7 @@ class SerialLandmarksEvalCollector(BaseEvalCollector):
             for b, env in enumerate(self.envs):
                 o, r, d, env_info = env.step(action[b])
                 self.env_positions[b] = env.agent_pos
-                if self.agent.explore:
+                if not self.agent.get_landmark_mode(b):
                     d = True
                 traj_infos[b].step(observation[b], action[b], r, d,
                     agent_info[b], env_info)

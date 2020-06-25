@@ -301,9 +301,16 @@ def save_image(title, itr):
 class MinibatchDSREval(MinibatchRlEval):
     _eval = True
 
-    def __init__(self, log_dsr_interval_steps=1e4, **kwargs):
-        self.log_dsr_interval_steps = int(log_dsr_interval_steps)
+    def __init__(self,
+                 log_dsr_interval_steps=1e4,
+                 **kwargs):
+        save__init__args(locals())
         super().__init__(**kwargs)
+    
+    def get_n_itr(self):
+        n_itr = super().get_n_itr()
+        self.log_dsr_interval_itrs = max(int(self.log_dsr_interval_steps // self.itr_batch_size), 1)
+        return n_itr
 
     def train(self):
         n_itr = self.startup()
@@ -323,7 +330,7 @@ class MinibatchDSREval(MinibatchRlEval):
                     self.log_diagnostics(itr, eval_traj_infos, eval_time)
                     self.algo.update_scheduler(self._opt_infos)
 
-                if (itr + 1) % self.log_dsr_interval_steps == 0:
+                if (itr + 1) % self.log_dsr_interval_itrs == 0:
                     self.log_dsr(itr)
                     
         self.shutdown()
@@ -459,12 +466,18 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
 
     def __init__(self,
                  min_steps_landmark_mode=2e4,
-                 log_landmark_steps=1e4,
+                 update_landmarks_interval_steps=1e3,
+                 log_landmarks_interval_steps=1e4,
                  **kwargs):
-        self.min_steps_landmark_mode = int(min_steps_landmark_mode)
-        self.log_landmark_steps = int(log_landmark_steps)
-        self.last_explore_sample=True
+        save__init__args(locals())
         super().__init__(**kwargs)
+
+    def get_n_itr(self):
+        n_itr = super().get_n_itr()
+        self.min_itr_landmark_mode = max(int(self.min_steps_landmark_mode // self.itr_batch_size), 1)
+        self.update_landmarks_interval_itrs = max(int(self.update_landmarks_interval_steps // self.itr_batch_size), 1)
+        self.log_landmarks_interval_itrs = max(int(self.log_landmarks_interval_steps // self.itr_batch_size), 1)
+        return n_itr
 
     def startup(self):
         n_itr = super().startup()
@@ -486,20 +499,18 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
             with logger.prefix(f"itr #{itr} "):
                 self.agent.sample_mode(itr)
                 
-                if itr >= self.min_steps_landmark_mode:
+                if not self.agent.landmarks and itr >= self.min_itr_landmark_mode:
                     self.agent.landmarks.activate()
+                    self.agent.reset()
 
                 samples, traj_infos = self.sampler.obtain_samples(itr)
                 self.algo.append_feature_samples(samples)  # feature replay buffer (policy-agnostic)
 
                 # Add to SF replay buffer (explore policy only)
-                if self.agent.explore:
-                   self.algo.append_dsr_samples(samples)
-                   self.last_explore_sample = True
-                elif self.last_explore_sample:
-                    samples.env.done[-1] = True
-                    self.algo.append_dsr_samples(samples)
-                    self.last_explore_sample = False
+                explore_policy = ~samples.agent.agent_info.mode.reshape(-1)
+                if explore_policy.any():
+                    dsr_samples = samples[:, explore_policy]
+                    self.algo.append_dsr_samples(dsr_samples)
 
                 # Train agent's neural networks
                 self.agent.train_mode(itr)
@@ -508,7 +519,16 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                 self.store_diagnostics(itr, traj_infos, opt_info)
                 
                 # Update representations of landmarks
-                self.agent.update_landmarks(itr)
+                if (itr + 1) % self.update_landmarks_interval_itrs == 0:
+                    self.agent.update_landmarks(itr)
+
+                # Log successor features information
+                if (itr + 1) % self.log_dsr_interval_itrs == 0:
+                    self.log_dsr(itr)
+
+                # Log landmarks information
+                if (itr + 1) % self.log_landmarks_interval_itrs == 0:
+                    self.log_landmarks(itr)
 
                 # Evaluate agent
                 if (itr + 1) % self.log_interval_itrs == 0:
@@ -516,40 +536,29 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                     self.log_diagnostics(itr, eval_traj_infos, eval_time)
                     self.algo.update_scheduler(self._opt_infos)
 
-                # Log successor features information
-                if (itr + 1) % self.log_dsr_interval_steps == 0:
-                    self.log_dsr(itr)
-                    plt.close('all')
+                    # Log 
+                    if self.agent.landmarks:
+                        summary_writer = logger.get_tf_summary_writer()
+                        eval_path_str = '\n'.join(','.join(map(str, path)) + ' ({:.3f})'.format(self.agent.landmarks.path_p[i]) for i, path in enumerate(self.agent.landmarks.possible_paths))
+                        summary_writer.add_text("Path to goal", eval_path_str, itr)
+                        logger.record_tabular_stat('EndDistanceToGoal', np.average(self.agent.landmarks.eval_distances), itr)
 
-                # Log landmarks information
-                if (itr + 1) % self.log_landmark_steps == 0:
-                    self.log_landmarks(itr)
-                    plt.close('all')
+                        eval_env = self.sampler.eval_collector.envs[0]
+                        eval_grid = eval_env.visited.T.copy()
 
-                # Log evaluation information (if applicable)
-                if self.agent.landmarks:
-                    summary_writer = logger.get_tf_summary_writer()
-                    eval_path_str = '\n'.join(','.join(map(str, path)) + ' ({:.3f})'.format(self.agent.landmarks.eval_paths_p[i]) for i, path in enumerate(self.agent.landmarks.eval_paths))
-                    summary_writer.add_text("Path to goal", eval_path_str, itr)
-                    logger.record_tabular_stat('EndDistanceToGoal', np.average(self.agent.eval_distances), itr)
-
-                    eval_env = self.sampler.eval_collector.envs[0]
-                    eval_grid = eval_env.visited.T.copy()
-
-                    # State visitation heatmap in evaluation mode and
-                    # agent's end position after executing landmark mode
-                    figure = plt.figure(figsize=(7, 7))
-                    plt.imshow(eval_grid)
-                    for pos, landmarks in self.agent.eval_end_pos.items():
-                        plt.text(pos[0] -0.25, pos[1] + 0.25, ','.join(map(str, landmarks)), fontsize=6)
-                    circle = plt.Circle(tuple(eval_env.start_pos), 0.2, color='r')
-                    plt.gca().add_artist(circle)
-                    circle = plt.Circle(tuple(eval_env.goal_pos), 0.2, color='purple')
-                    plt.gca().add_artist(circle)
-                    plt.colorbar()
-                    save_image('Eval visitations and end positions', itr)
-
-                    self.agent.exit_eval_mode()
+                        # State visitation heatmap in evaluation mode and
+                        # agent's end position after executing landmark mode
+                        figure = plt.figure(figsize=(7, 7))
+                        plt.imshow(eval_grid)
+                        for pos, landmark in self.agent.landmarks.eval_end_pos.items():
+                            plt.text(pos[0] -0.25, pos[1] + 0.25, str(landmark), fontsize=6)
+                        circle = plt.Circle(tuple(eval_env.start_pos), 0.2, color='r')
+                        plt.gca().add_artist(circle)
+                        circle = plt.Circle(tuple(eval_env.goal_pos), 0.2, color='purple')
+                        plt.gca().add_artist(circle)
+                        plt.colorbar()
+                        save_image('Eval visitations and end positions', itr)
+                        plt.close()
 
         self.shutdown()
 
@@ -564,44 +573,48 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
 
         # 1. Reach rate of ith landmark
         figure = plt.figure(figsize=(7, 7))
-        landmark_true_reach_percentage = self.agent.landmark_true_reaches / np.clip(self.agent.landmark_attempts, 1, None)
+        landmark_true_reach_percentage = self.agent.landmarks.landmark_true_reaches / np.clip(self.agent.landmarks.landmark_attempts, 1, None)
         ind = np.arange(len(landmark_true_reach_percentage))
         plt.bar(ind, landmark_true_reach_percentage)
         plt.xlabel('ith Landmark')
         plt.ylabel('Reach Percentage')
         plt.legend()
         save_image('Landmarks reach rates', itr)
+        plt.close()
 
-        # 2. Percent distance covered to ith landmark
-        figure = plt.figure(figsize=(7, 7))
-        landmark_dist_completed = self.agent.landmark_dist_completed
-        for i, progress in enumerate(landmark_dist_completed):
-            if progress:
-                landmark_dist_completed[i] = np.average(progress)
-            else:
-                landmark_dist_completed[i] = 0
-        ind = np.arange(len(landmark_dist_completed))
-        plt.bar(ind, landmark_dist_completed)
-        plt.xlabel('ith Landmark')
-        plt.ylabel('Percent Distance Covered')
-        save_image('Landmarks percent distance covered', itr)
+        # # 2. Percent distance covered to ith landmark
+        # figure = plt.figure(figsize=(7, 7))
+        # landmark_dist_completed = self.agent.landmark_dist_completed
+        # for i, progress in enumerate(landmark_dist_completed):
+        #     if progress:
+        #         landmark_dist_completed[i] = np.average(progress)
+        #     else:
+        #         landmark_dist_completed[i] = 0
+        # ind = np.arange(len(landmark_dist_completed))
+        # plt.bar(ind, landmark_dist_completed)
+        # plt.xlabel('ith Landmark')
+        # plt.ylabel('Percent Distance Covered')
+        # save_image('Landmarks percent distance covered', itr)
 
         # 3. Percent distance covered to goal landmark
-        if self.agent.goal_landmark_dist_completed:
-            logger.record_tabular_stat('PercentDistanceCoveredToGoal', np.average(self.agent.goal_landmark_dist_completed), itr)
+        if self.agent.landmarks.goal_landmark_dist_completed:
+            logger.record_tabular_stat('PercentDistanceCoveredToGoal',
+                                       np.average(self.agent.landmarks.goal_landmark_dist_completed), itr)
 
         # 4. Statistics related to adding/removing landmarks
         logger.record_tabular_stat('LandmarksAdded', self.agent.landmarks.landmark_adds, itr)
         logger.record_tabular_stat('LandmarksRemoved', self.agent.landmarks.landmark_removes, itr)
 
         # 5. Percent of times we select correct starting landmark
-        if self.agent.total_landmark_paths:
-            logger.record_tabular_stat('PercentCorrectStartLandmark', self.agent.correct_start_landmark / self.agent.total_landmark_paths, itr)
+        if self.agent.landmarks.total_landmark_paths:
+            logger.record_tabular_stat('PercentCorrectStartLandmark',
+                                       self.agent.landmarks.correct_start_landmark / self.agent.landmarks.total_landmark_paths, itr)
 
         # 6. Ratio of distance to correct start landmark over distance
         #    to estimated start landmark
-        if self.agent.dist_ratio_start_landmark:
-            logger.record_tabular_stat('Correct-EstimatedStartLandmarkDistanceRatio', np.average(self.agent.dist_ratio_start_landmark), itr)
+        if self.agent.landmarks.dist_ratio_start_landmark:
+            logger.record_tabular_stat('Correct-EstimatedStartLandmarkDistanceRatio',
+                                       np.average(self.agent.landmarks.dist_ratio_start_landmark), itr)
 
         # 7. Statistics related to success rates of transitions between landmarks
         if self.agent.landmarks.success_rates:
@@ -618,6 +631,7 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         plt.xlabel('Landmark')
         plt.ylabel('Visitations')
         save_image('Landmark visitation counts', itr)
+        plt.close()
 
         # 9. Landmarks by spatial location
         env = self.sampler.collector.envs[0]
@@ -640,12 +654,12 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         plt.gca().add_artist(circle)
         plt.colorbar()
         save_image('Landmarks', itr)
+        plt.close()
 
         # 10. Landmarks graph
         #       - black edges have had successful transitions between their incident nodes
         #       - red edges were used to connect the graph and do not have any successful transitions
         figure = plt.figure(figsize=(7, 7))
-        self.agent.generate_graph()
 
         G = self.agent.landmarks.graph
         pos = nx.circular_layout(G)
@@ -669,6 +683,7 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         nx.draw_networkx_edge_labels(G, pos, font_size=10, font_family='sans-serif', edge_labels=edge_labels)
         plt.axis('off')
         save_image('Landmarks graph', itr)
+        plt.close()
 
         # 11. Neighbors of the goal landmark
         summary_writer = logger.get_tf_summary_writer()

@@ -26,7 +26,6 @@ class LandmarkAgent(FeatureDSRAgent):
     def __init__(
             self,
             landmarks=None,
-            landmark_update_interval=int(5e3),
             use_soft_q=False,
             use_oracle_graph=False,
             **kwargs):
@@ -34,7 +33,6 @@ class LandmarkAgent(FeatureDSRAgent):
         local_args = locals()
         local_args.pop('landmarks')
         save__init__args(local_args)
-        self.explore = True
         self.landmark_mode_steps = 0
         super().__init__(**kwargs)
     
@@ -46,17 +44,6 @@ class LandmarkAgent(FeatureDSRAgent):
         self.soft_distribution = Categorical(dim=env_spaces.action.n)
 
     def reset_logging(self):
-        # # Percentage of times we reach the ith landmark
-        # self.landmark_attempts = np.zeros(self.max_landmarks)
-        # self.landmark_reaches = np.zeros(self.max_landmarks)
-        # self.landmark_true_reaches = np.zeros(self.max_landmarks)
-
-        # # End / start distance to ith landmark
-        # self.landmark_dist_completed = [[] for _ in range(self.max_landmarks)]
-
-        # # End / start distance to goal landmark
-        # self.goal_landmark_dist_completed = []
-
         if self.landmarks:
             self.landmarks.reset_logging()
 
@@ -88,13 +75,11 @@ class LandmarkAgent(FeatureDSRAgent):
 
         self._landmarks.add_landmark(observation, features, dsr, goal_pos)
 
-        # if self.use_oracle_landmarks:
-        #     self.landmarks = self.oracle_landmarks
-        #     self.max_landmarks = self.oracle_max_landmarks
+        self._landmarks.generate_graph()
 
     @torch.no_grad()
     def update_landmarks(self, itr):
-        if self.landmarks and itr % self.landmark_update_interval == 0:
+        if self.landmarks:
             # Update features and successor features of existing landmarks
             observation = self.landmarks.observations
             model_inputs = buffer_to(observation,
@@ -154,23 +139,24 @@ class LandmarkAgent(FeatureDSRAgent):
             if self._mode != 'eval':
                 self.landmarks.add_potential_landmark(observation, dsr, position)
 
-            self.landmarks.set_paths(dsr, position, self._mode)
+            self.landmarks.set_paths(dsr, position)
 
-            landmarks_dsr, landmark_mode = self.get_landmarks_data(self, observation, self._mode)
+            landmarks_dsr, landmark_mode = self.landmarks.get_landmarks_data(observation, position)
 
-            # Landmark subgoal policy (SF-based Q values)
-            current_dsr = dsr[landmark_mode] / torch.norm(dsr[landmark_mode], p=2, dim=2, keepdim=True)
-            q_values = torch.matmul(current_dsr, landmarks_dsr).cpu()
-        
-            if self.use_soft_q:
-                # Select action based on softmax of Q as probabilities
-                prob = F.softmax(q_values, dim=1)
-                landmark_action = self.soft_distribution.sample(DistInfo(prob=prob))
-            else:
-                # Select action based on epsilon-greedy of Q
-                landmark_action = self.distribution.sample(q_values)
+            if np.any(landmark_mode):
+                # Landmark subgoal policy (SF-based Q values)
+                current_dsr = dsr[landmark_mode] / torch.norm(dsr[landmark_mode], p=2, dim=2, keepdim=True)
+                q_values = torch.sum(current_dsr * landmarks_dsr.unsqueeze(1), dim=2).cpu()
 
-            action[landmark_mode] = landmark_action
+                if self.use_soft_q:
+                    # Select action based on softmax of Q as probabilities
+                    prob = F.softmax(q_values, dim=1)
+                    landmark_action = self.soft_distribution.sample(DistInfo(prob=prob))
+                else:
+                    # Select action based on epsilon-greedy of Q
+                    landmark_action = self.distribution.sample(q_values)
+
+                action[landmark_mode] = landmark_action
 
             # Try to enter landmark mode in training
             if self._mode != 'eval':
@@ -188,6 +174,12 @@ class LandmarkAgent(FeatureDSRAgent):
         if self.landmarks:
             # Always start in landmarks mode
             self.landmarks.enter_landmark_mode(override=idx)
+    
+    def get_landmark_mode(self, idx):
+        if self.landmarks:
+            return self.landmarks.landmark_mode[idx]
+        else:
+            return False
 
     def eval_mode(self, itr):
         super().eval_mode(itr)

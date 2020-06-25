@@ -47,9 +47,9 @@ class UniformTripletReplayBuffer(BaseReplayBuffer):
         self.t = 0  # Cursor (in T dimension).
         self.samples = buffer_from_example(example, (T, B),
             share_memory=self.async_)
-        self.episode_bounds = np.zeros((T, 2), dtype=int)
-        self.episode_bounds[:, 0] = -self.T
-        self.episode_bounds[:, 1] = self.T
+        self.episode_bounds = np.zeros((T, B, 2), dtype=int)
+        self.episode_bounds[:, :, 0] = -self.T
+        self.episode_bounds[:, :, 1] = self.T
         self.episode_start = 0
         self._buffer_full = False
 
@@ -68,13 +68,16 @@ class UniformTripletReplayBuffer(BaseReplayBuffer):
             bounds = [self.episode_start, t]
         self.episode_bounds[idxs] = bounds 
 
-        for done_idx in idxs[samples.done.flatten().detach().numpy()]:
+        done = samples.done.detach().numpy()
+        any_done = np.any(done, axis=1)
+
+        for done_idx, done_markers in zip(idxs[any_done], done[any_done]):
             if self.episode_start >= done_idx + 1:
                 bounds = [self.episode_start - self.T, done_idx + 1]
             else:
                 bounds = [self.episode_start, done_idx + 1]
 
-            self.episode_bounds[self.episode_start: done_idx + 1] = bounds
+            self.episode_bounds[self.episode_start: done_idx + 1, done_markers] = bounds
             self.episode_start = done_idx + 1
 
         if not self._buffer_full and t + T >= self.T:
@@ -89,9 +92,11 @@ class UniformTripletReplayBuffer(BaseReplayBuffer):
         anchor_idxs = np.random.randint(low=low, high=high, size=(batch_B,))
         # anchor_idxs[anchor_idxs >= t] += t # min for invalid high t.
         anchor_idxs = anchor_idxs % self.T
+        
+        B_idxs = np.random.randint(low=0, high=self.B, size=(batch_B,))
 
-        pos_low = np.maximum(anchor_idxs - self.pos_threshold, self.episode_bounds[anchor_idxs][:, 0])
-        upper_bounds = self.episode_bounds[anchor_idxs][:, 1]
+        pos_low = np.maximum(anchor_idxs - self.pos_threshold, self.episode_bounds[anchor_idxs, B_idxs, 0])
+        upper_bounds = self.episode_bounds[anchor_idxs, B_idxs, 1]
         invalid_bounds = anchor_idxs >= upper_bounds
         upper_bounds[invalid_bounds] += self.T
         pos_high = np.minimum(anchor_idxs + self.pos_threshold + 1, upper_bounds)
@@ -102,7 +107,7 @@ class UniformTripletReplayBuffer(BaseReplayBuffer):
         # pos_idxs[pos_idxs >= t] += t
         pos_idxs = pos_idxs % self.T
 
-        left_neg_low = np.maximum(anchor_idxs - self.neg_far_threshold, self.episode_bounds[anchor_idxs][:, 0])
+        left_neg_low = np.maximum(anchor_idxs - self.neg_far_threshold, self.episode_bounds[anchor_idxs, B_idxs, 0])
         left_neg_high = anchor_idxs - self.neg_close_threshold + 1
         invalid = left_neg_low >= left_neg_high
         left_neg_low[invalid] = left_neg_high[invalid] - 1
@@ -111,7 +116,7 @@ class UniformTripletReplayBuffer(BaseReplayBuffer):
         left_range[invalid] = 0
 
         right_neg_low = anchor_idxs + self.neg_close_threshold
-        right_neg_high = np.minimum(anchor_idxs + self.neg_far_threshold + 1, self.episode_bounds[anchor_idxs][:, 1])
+        right_neg_high = np.minimum(anchor_idxs + self.neg_far_threshold + 1, self.episode_bounds[anchor_idxs, B_idxs, 1])
         invalid = right_neg_low >= right_neg_high
         right_neg_low[invalid] = right_neg_high[invalid] - 1
         right_neg_idxs = np.random.randint(low=right_neg_low, high=right_neg_high, size=(batch_B,))
@@ -124,8 +129,6 @@ class UniformTripletReplayBuffer(BaseReplayBuffer):
         # neg_idxs = neg_idxs % self.T
         # neg_idxs[neg_idxs >= t] += t
         neg_idxs = neg_idxs % self.T
-
-        B_idxs = np.random.randint(low=0, high=self.B, size=(batch_B,))
 
         batch = TripletsFromReplay(
             anchor=self.extract_observation(anchor_idxs, B_idxs),

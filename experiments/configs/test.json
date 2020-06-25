@@ -15,7 +15,6 @@
             "norm_output": true,
             "alpha": 10.0
         },
-        "landmark_update_interval": 1000,
         "use_oracle_graph": false,
         "use_soft_q": false
     },
@@ -34,11 +33,11 @@
     "algo": {
         "discount": 0.99,
         "batch_size": 256,
-        "min_steps_learn": 1000,
+        "min_steps_learn": 2000,
         "learning_rate": 1e-3,
         "replay_size": 20000,
         "delta_clip": 1,
-        "min_steps_dsr_learn": 2000,
+        "min_steps_dsr_learn": 3000,
         "feature_learning_rate": 1e-3,
         "pos_threshold": 3,
         "neg_close_threshold": 15,
@@ -64,8 +63,9 @@
     "runner": {
         "log_interval_steps": 1e3,
         "log_dsr_interval_steps": 1e3,
-        "log_landmark_steps": 1e3,
-        "min_steps_landmark_mode": 3e3
+        "log_landmarks_interval_steps": 1e3,
+        "update_landmarks_interval_steps": 200,
+        "min_steps_landmark_mode": 4e3
     },
     "mode": "multiroom",
     "seed": 333,
