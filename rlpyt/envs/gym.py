@@ -425,7 +425,7 @@ class MinigridMultiRoomLandmarkWrapper(Wrapper):
         return self.env.get_current_state()
     
     def get_initial_landmarks(self):
-        return [self.get_start_state(), self.get_goal_state()]
+        return [self.get_goal_state(), self.get_start_state()]
     
     def get_start_state(self):
         self.reset()
