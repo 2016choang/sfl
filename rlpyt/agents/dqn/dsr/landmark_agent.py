@@ -353,7 +353,7 @@ class LandmarkAgent(FeatureDSRAgent):
                     # We have run out of steps in landmark mode
                     else:
                         cur_x, cur_y = position 
-                        landmark_x, landmark_y = self.landmarks.positions[self.current_landmark]
+                        landmark_x, landmark_y = self.landmarks.positions[self.goal_landmark]
                         end_distance = self.env_true_dist[cur_x, cur_y, landmark_x, landmark_y]
 
                         # In training, log end/start distance to landmark ratio
