@@ -20,7 +20,7 @@
     },
     "landmarks": {
         "max_landmarks": 10,
-        "add_threshold": 0.9,
+        "add_threshold": 0.7,
         "landmark_mode_interval": 50,
         "steps_per_landmark": 10,
         "success_threshold": 0.01,
