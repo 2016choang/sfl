@@ -583,8 +583,8 @@ class Landmarks(object):
 
         # If reached (not goal) landmark, move to next landmark
         reached_non_goal_landmarks = reached_landmarks & ~final_goal_landmarks
-        self.last_landmarks[self.landmark_mode][reached_non_goal_landmarks] = current_landmarks[reached_non_goal_landmarks]
-        self.path_idxs[self.landmark_mode][reached_non_goal_landmarks] += 1
+        self.last_landmarks[np.where(self.landmark_mode)[0][reached_non_goal_landmarks]] = current_landmarks[reached_non_goal_landmarks]
+        self.path_idxs[np.where(self.landmark_mode)[0][reached_non_goal_landmarks]] += 1
 
         # If reached goal landmark or steps limit, exit landmark mode
         reached_goal_landmarks = reached_landmarks & final_goal_landmarks 
