@@ -104,7 +104,7 @@ if __name__ == "__main__":
     parser.add_argument('--env_id', help='environment ID', default='MiniGrid-FourRooms-v0')
     parser.add_argument('--run_ID', help='run identifier (logging)', type=int, default=0)
     parser.add_argument('--cuda_idx', help='gpu to use ', type=int, default=0)
-    parser.add_argument('--snapshot_gap', help='iterations between snapshots', type=int, default=10000)
+    parser.add_argument('--snapshot_gap', help='iterations between snapshots', type=int, default=20000)
     parser.add_argument('--steps', help='iterations', type=float, default=200000)
     parser.add_argument('--checkpoint', help='checkpoint file', default=None)
     args = parser.parse_args()

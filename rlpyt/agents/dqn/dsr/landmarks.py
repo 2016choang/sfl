@@ -212,8 +212,9 @@ class Landmarks(object):
                 else:
                     # Find two landmarks most similar to each other, select one most similar to candidate
                     landmark_similarities = torch.matmul(self.norm_dsr, self.norm_dsr.T)
-                    landmark_similarities[0, :] = -2
-                    landmark_similarities[:, 0] = -2
+                    # Do not replace initial landmarks (which occupy indices 0 and 1)
+                    landmark_similarities[0:2, :] = -2
+                    landmark_similarities[:, 0:2] = -2
                     landmark_similarities[range(self.num_landmarks), range(self.num_landmarks)] = -2
                     idx = landmark_similarities.argmax().item()
                     a, b = (idx // self.num_landmarks), (idx % self.num_landmarks)

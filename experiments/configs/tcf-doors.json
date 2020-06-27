@@ -2,7 +2,7 @@
     "agent": {
         "eps_init": 0.1,
         "eps_final": 0.1,
-        "eps_eval": 0.1,
+        "eps_eval": 0,
         "model_kwargs": {
             "feature_size": 64,
             "dsr_params": {
@@ -17,7 +17,7 @@
         },
         "landmark_mode_interval": 50,
         "landmark_update_interval": 1000,
-        "add_threshold": 0.7,
+        "add_threshold": 0.9,
         "reach_threshold": 0.99,
         "max_landmarks": 10,
         "steps_per_landmark": 10,
