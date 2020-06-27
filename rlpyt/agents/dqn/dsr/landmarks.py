@@ -400,7 +400,11 @@ class Landmarks(object):
         # Generate path from source to target in landmark graph
         
         # Get k shortest paths (k = self.landmark_paths)
-        paths = list(itertools.islice(nx.shortest_simple_paths(self.graph, source, target, weight='weight'), self.landmark_paths))
+        if mode != 'eval':
+            k = self.landmark_paths
+        else:
+            k = 1
+        paths = list(itertools.islice(nx.shortest_simple_paths(self.graph, source, target, weight='weight'), k))
         if mode != 'eval':
             # Weights defined by index of path, where paths sorted by distance
             path_weights = np.arange(1, len(paths) + 1)
