@@ -125,10 +125,9 @@ class Landmarks(object):
             self.set_dsr(dsr)
             self.positions = np.expand_dims(position, 0)
             self.visitations = np.array([0])
-            self.num_landmarks += 1
             self.successes = np.array([[0]])
             self.attempts = np.array([[0]])
-
+            self.num_landmarks += 1
         else:
             self.observations = torch.cat((self.observations, observation), dim=0)
             self.set_features(features, self.num_landmarks)
@@ -196,7 +195,10 @@ class Landmarks(object):
 
         for idx in new_landmark_idxs:
             idx = idx.item()
-            self.add_landmark(observation[[idx]], features[[idx]], dsr[[idx]], position[idx])
+            try:
+                self.add_landmark(observation[[idx]], features[[idx]], dsr[[idx]], position[idx])
+            except:
+                import pdb; pdb.set_trace()
 
         # # Dynamically adjust add threshold depending on value of self.potential_landmark_adds
         # if self.potential_landmark_adds > self.max_landmarks:
@@ -257,6 +259,7 @@ class Landmarks(object):
                     self.set_features(features, self.num_landmarks)
                     self.set_dsr(dsr, self.num_landmarks)
                     self.positions = np.append(self.positions, np.expand_dims(position, 0), axis=0)            
+                    self.visitations = np.append(self.visitations, 0)
                     
                     self.successes = np.append(self.successes, np.zeros((self.num_landmarks, 1)), axis=1)
                     self.successes = np.append(self.successes, np.zeros((1, self.num_landmarks + 1)), axis=0)
@@ -264,7 +267,6 @@ class Landmarks(object):
                     self.attempts = np.append(self.attempts, np.zeros((1, self.num_landmarks + 1)), axis=0)
 
                     self.num_landmarks += 1
-                    self.visitations = np.append(self.visitations, 0)
 
                 # Replace existing landmark
                 else:

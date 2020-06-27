@@ -426,9 +426,24 @@ class MinigridMultiRoomLandmarkWrapper(Wrapper):
 
     def get_current_state(self):
         return self.env.get_current_state()
+        
+    def get_initial_landmarks(self):
+        return [self.get_goal_state(), self.get_start_state()]
+
+    def get_start_state(self):
+        self.reset()
+        self.env.episodes -= 1  # does not count towards number of episodes per start position
+
+        # self.env.unwrapped.agent_pos = self.env.unwrapped.goal_pos
+        # TODO: Hard-coded state next to goal state for now!
+        self.env.unwrapped.agent_pos = self.start_pos
+        obs = self.get_current_state()[0]
+        self.reset_episode()
+        return (obs, self.start_pos)
 
     def get_goal_state(self):
         self.reset()
+        self.open_doors()
         self.env.episodes -= 1  # does not count towards number of episodes per start position
 
         # self.env.unwrapped.agent_pos = self.env.unwrapped.goal_pos
@@ -499,6 +514,36 @@ class MinigridMultiRoomLandmarkWrapper(Wrapper):
 
     def reset_episode(self):
         self.env.reset_episode()
+    
+    def open_doors(self):
+        self.exit_door_directions = []
+        for room in self.env.rooms[:-1]:
+            top_left = np.array(room.top)
+            bot_right = top_left + room.size - 1
+
+            exit_door = np.array(room.exitDoorPos)
+            open_door_pos = exit_door.copy()
+
+            if exit_door[0] == top_left[0]:
+                exit_door_direction = 2
+                open_door_pos[0] += 1
+            elif exit_door[0] == bot_right[0]:
+                exit_door_direction = 0
+                open_door_pos[0] -= 1
+            elif exit_door[1] == top_left[1]:
+                exit_door_direction = 3
+                open_door_pos[1] += 1
+            elif exit_door[1] == bot_right[1]:
+                exit_door_direction = 1
+                open_door_pos[1] -= 1
+            else:
+                raise RuntimeError
+
+            self.env.env.unwrapped.agent_pos = open_door_pos
+            self.env.env.unwrapped.agent_dir = exit_door_direction
+            self.env.step(4)
+
+            self.exit_door_directions.append(exit_door_direction)
 
     def reset(self, **kwargs):
         self.env.reset()
@@ -506,34 +551,7 @@ class MinigridMultiRoomLandmarkWrapper(Wrapper):
             org_dir = self.env.unwrapped.agent_dir
             org_pos = self.env.unwrapped.agent_pos.copy()
 
-            self.exit_door_directions = []
-            for room in self.env.rooms[:-1]:
-                top_left = np.array(room.top)
-                bot_right = top_left + room.size - 1
-
-                exit_door = np.array(room.exitDoorPos)
-                open_door_pos = exit_door.copy()
-
-                if exit_door[0] == top_left[0]:
-                    exit_door_direction = 2
-                    open_door_pos[0] += 1
-                elif exit_door[0] == bot_right[0]:
-                    exit_door_direction = 0
-                    open_door_pos[0] -= 1
-                elif exit_door[1] == top_left[1]:
-                    exit_door_direction = 3
-                    open_door_pos[1] += 1
-                elif exit_door[1] == bot_right[1]:
-                    exit_door_direction = 1
-                    open_door_pos[1] -= 1
-                else:
-                    raise RuntimeError
-
-                self.env.env.unwrapped.agent_pos = open_door_pos
-                self.env.env.unwrapped.agent_dir = exit_door_direction
-                self.env.step(4)
-
-                self.exit_door_directions.append(exit_door_direction)
+            self.open_doors()
 
             self.env.unwrapped.agent_dir = org_dir
             self.env.unwrapped.agent_pos = org_pos

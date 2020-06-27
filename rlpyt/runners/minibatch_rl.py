@@ -470,6 +470,7 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                  log_landmarks_interval_steps=1e4,
                  **kwargs):
         save__init__args(locals())
+        self.last_step_policy = None
         super().__init__(**kwargs)
 
     def get_n_itr(self):
@@ -483,9 +484,9 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         n_itr = super().startup()
         train_envs = len(self.sampler.collector.envs)
         eval_envs = len(self.sampler.eval_collector.envs)
-        goal = self.sampler.eval_collector.envs[0].get_goal_state()
+        initialize_landmarks = self.sampler.eval_collector.envs[0].get_initial_landmarks()
         oracle_distance_matrix = self.sampler.collector.envs[0].get_oracle_distance_matrix()        
-        self.agent.initialize_landmarks(train_envs, eval_envs, goal, oracle_distance_matrix)
+        self.agent.initialize_landmarks(train_envs, eval_envs, initialize_landmarks, oracle_distance_matrix)
         return n_itr
 
     def train(self):
@@ -511,6 +512,15 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                 if explore_policy.any():
                     dsr_samples = samples[:, explore_policy]
                     self.algo.append_dsr_samples(dsr_samples)
+                
+                if self.last_step_policy is not None:
+                    last_step_explore = self.last_step_policy & ~explore_policy
+                    if last_step_explore.any():
+                        samples.env.done[:, last_step_explore] = True
+                        dsr_samples = samples[:, last_step_explore]
+                        self.algo.append_dsr_samples(dsr_samples)
+
+                self.last_step_policy = explore_policy
 
                 # Train agent's neural networks
                 self.agent.train_mode(itr)

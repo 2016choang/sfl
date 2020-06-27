@@ -55,25 +55,25 @@ class LandmarkAgent(FeatureDSRAgent):
             return self._landmarks
 
     @torch.no_grad()
-    def initialize_landmarks(self, train_envs, eval_envs, goal, oracle_distance_matrix):
+    def initialize_landmarks(self, train_envs, eval_envs, initial_landmarks, oracle_distance_matrix):
         # Create Landmarks object
         self._landmarks.initialize(train_envs)
         self._landmarks.oracle_distance_matrix = oracle_distance_matrix
         self.eval_envs = eval_envs 
 
-        # Add goal observation as a landmark                           
-        goal_obs, goal_pos = goal
-        observation = torchify_buffer(goal_obs).unsqueeze(0).float()
+        # Add iniital landmarks
+        for obs, pos in initial_landmarks:                 
+            observation = torchify_buffer(obs).unsqueeze(0).float()
 
-        model_inputs = buffer_to(observation,
-                device=self.device)
-        features = self.feature_model(model_inputs, mode='encode')
+            model_inputs = buffer_to(observation,
+                    device=self.device)
+            features = self.feature_model(model_inputs, mode='encode')
 
-        model_inputs = buffer_to(features,
-                device=self.device)
-        dsr = self.model(model_inputs, mode='dsr')
+            model_inputs = buffer_to(features,
+                    device=self.device)
+            dsr = self.model(model_inputs, mode='dsr')
 
-        self._landmarks.add_landmark(observation, features, dsr, goal_pos)
+            self._landmarks.force_add_landmark(observation, features, dsr, pos)
 
         self._landmarks.generate_graph()
 
@@ -161,6 +161,8 @@ class LandmarkAgent(FeatureDSRAgent):
             # Try to enter landmark mode in training
             if self._mode != 'eval':
                 self.landmarks.enter_landmark_mode()
+            
+            mode = torch.from_numpy(landmark_mode)
 
         agent_info = AgentInfo(a=action, mode=mode)
         return AgentStep(action=action, agent_info=agent_info)
