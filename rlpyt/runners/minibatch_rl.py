@@ -507,19 +507,14 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                 samples, traj_infos = self.sampler.obtain_samples(itr)
                 self.algo.append_feature_samples(samples)  # feature replay buffer (policy-agnostic)
 
-                # Add to SF replay buffer (explore policy only)
                 explore_policy = ~samples.agent.agent_info.mode.reshape(-1)
-                if explore_policy.any():
-                    dsr_samples = samples[:, explore_policy]
-                    self.algo.append_dsr_samples(dsr_samples)
                 
                 if self.last_step_policy is not None:
                     last_step_explore = self.last_step_policy & ~explore_policy
                     if last_step_explore.any():
                         samples.env.done[:, last_step_explore] = True
-                        dsr_samples = samples[:, last_step_explore]
-                        self.algo.append_dsr_samples(dsr_samples)
-
+                
+                self.algo.append_dsr_samples(samples)  # SF replay buffer (random)
                 self.last_step_policy = explore_policy
 
                 # Train agent's neural networks

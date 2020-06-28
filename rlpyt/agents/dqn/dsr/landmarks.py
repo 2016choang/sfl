@@ -195,10 +195,7 @@ class Landmarks(object):
 
         for idx in new_landmark_idxs:
             idx = idx.item()
-            try:
-                self.add_landmark(observation[[idx]], features[[idx]], dsr[[idx]], position[idx])
-            except:
-                import pdb; pdb.set_trace()
+            self.add_landmark(observation[[idx]], features[[idx]], dsr[[idx]], position[idx])
 
         # # Dynamically adjust add threshold depending on value of self.potential_landmark_adds
         # if self.potential_landmark_adds > self.max_landmarks:
@@ -272,8 +269,10 @@ class Landmarks(object):
                 else:
                     # Find two landmarks most similar to each other, select one most similar to candidate
                     landmark_similarities = torch.matmul(self.norm_dsr, self.norm_dsr.T)
-                    landmark_similarities[0, :] = -2
-                    landmark_similarities[:, 0] = -2
+
+                    # Do not replace initial landmarks (first two indices)
+                    landmark_similarities[0:2, :] = -2
+                    landmark_similarities[:, 0:2] = -2
                     landmark_similarities[range(self.num_landmarks), range(self.num_landmarks)] = -2
                     idx = landmark_similarities.argmax().item()
                     a, b = (idx // self.num_landmarks), (idx % self.num_landmarks)
@@ -429,7 +428,12 @@ class Landmarks(object):
         # Generate path from source to target in landmark graph
         
         # Get k shortest paths (k = self.landmark_paths)
-        paths = list(itertools.islice(nx.shortest_simple_paths(self.graph, source, target, weight='weight'), self.landmark_paths))
+        if self.mode == 'eval':
+            k = 1
+        else:
+            k = self.landmark_paths
+
+        paths = list(itertools.islice(nx.shortest_simple_paths(self.graph, source, target, weight='weight'), k))
         if self.mode == 'eval':
             # Weights defined by path weight
             path_weights = np.array([self.get_path_weight(path, 'weight') for path in paths])

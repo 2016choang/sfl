@@ -35,6 +35,36 @@ class UniformReplayBuffer(UniformReplay, NStepReturnBuffer):
 class AsyncUniformReplayBuffer(AsyncReplayBufferMixin, UniformReplayBuffer):
     pass
 
+class NonContiguousUniformReplayBuffer(UniformReplayBuffer):
+    
+    def __init__(self, example, size, B, **kwargs):
+        super().__init__(example, size, B, kwargs)
+        self.valid_idxs = np.arange(self.T, dtype=int)
+
+    def sample_idxs(self, batch_B):
+        B_idxs = np.random.randint(low=0, high=self.B, size=(batch_B,))
+        t, b, f = self.t, self.off_backward, self.off_forward
+        high = self.T - b - f if self._buffer_full else t - b
+        low = 0 if self._buffer_full else f
+
+        T_idxs = np.zeros((batch_B, ), dtype=int)
+
+        if self._buffer_full:
+            saved = self.samples.mode[t - b:t - b + min(t, b) + f].copy()
+            self.samples.mode[t - b:t - b + min(t, b) + f] = True
+
+        for i, B_idx in enumerate(B_idxs):
+            mask = self.samples.mode[low:high, B_idx]
+            try:
+                T_idxs[i] = np.random.choice(self.valid_idxs[low:high][~mask])
+            except:
+                import pdb; pdb.set_trace()
+
+        if self._buffer_full and 0 < min(t, b) + f:
+            self.samples.mode[t - b:t - b + min(t, b) + f] = saved
+
+        return T_idxs, B_idxs
+
 class UniformTripletReplayBuffer(BaseReplayBuffer):
     
     def __init__(self, example, size, B, pos_threshold, neg_close_threshold, neg_far_threshold):

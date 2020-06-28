@@ -187,6 +187,7 @@ class LandmarkAgent(FeatureDSRAgent):
         super().eval_mode(itr)
         self._eval_landmarks = copy.deepcopy(self._landmarks)
         self._eval_landmarks.initialize(self.eval_envs, 'eval')
+        self._eval_landmarks.generate_graph()
 
 class LandmarkIDFAgent(LandmarkAgent, IDFDSRAgent):
 

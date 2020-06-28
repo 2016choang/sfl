@@ -2,7 +2,7 @@
     "agent": {
         "eps_init": 0.1,
         "eps_final": 0.1,
-        "eps_eval": 0.1,
+        "eps_eval": 0,
         "model_kwargs": {
             "feature_size": 64,
             "dsr_params": {
@@ -20,7 +20,7 @@
     },
     "landmarks": {
         "max_landmarks": 10,
-        "add_threshold": 0.8,
+        "add_threshold": 0.7,
         "landmark_mode_interval": 50,
         "steps_per_landmark": 10,
         "success_threshold": 0.01,
@@ -34,11 +34,11 @@
         "discount": 0.99,
         "batch_size": 128,
         "min_steps_learn": 1000,
-        "learning_rate": 1e-3,
+        "learning_rate": 1e-4,
         "replay_size": 20000,
         "delta_clip": 1,
         "min_steps_dsr_learn": 20000,
-        "feature_learning_rate": 1e-3,
+        "feature_learning_rate": 1e-4,
         "pos_threshold": 2,
         "neg_close_threshold": 10,
         "neg_far_threshold": 15,

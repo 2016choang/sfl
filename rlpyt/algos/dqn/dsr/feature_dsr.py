@@ -3,14 +3,19 @@ from collections import namedtuple
 import torch
 import torch.nn as nn
 
-from rlpyt.algos.dqn.dsr.dsr import DSR, SamplesToBuffer
-from rlpyt.replays.non_sequence.uniform import UniformTripletReplayBuffer
+from rlpyt.algos.dqn.dsr.dsr import DSR
+from rlpyt.replays.non_sequence.uniform import (UniformReplayBuffer,
+    AsyncUniformReplayBuffer, NonContiguousUniformReplayBuffer,
+    UniformTripletReplayBuffer)
+from rlpyt.utils.collections import namedarraytuple
 from rlpyt.utils.logging import logger
 from rlpyt.utils.misc import param_norm_
 from rlpyt.utils.quick_args import save__init__args
 
 FeatureOptInfo = namedtuple("FeateureOptInfo", ["featureLoss", "featureGradNorm",
                                                 "dsrLoss", "dsrGradNorm", "tdAbsErr"])
+SamplesToBuffer = namedarraytuple("SamplesToBuffer",
+    ["observation", "action", "reward", "done", "mode"])
 
 class FeatureDSR(DSR):
     """Feature-based DSR."""
@@ -48,7 +53,34 @@ class FeatureDSR(DSR):
         #     self.pri_beta_itr = max(1, self.pri_beta_steps // self.sampler_bs)
     
     def initialize_replay_buffer(self, examples, batch_spec, async_=False):
-        super().initialize_replay_buffer(examples, batch_spec, async_)
+        example_to_buffer = SamplesToBuffer(
+            observation=examples["observation"],
+            action=examples["action"],
+            reward=examples["reward"],
+            done=examples["done"],
+            mode=examples["agent_info"].mode
+        )
+        replay_kwargs = dict(
+            example=example_to_buffer,
+            size=self.replay_size,
+            B=batch_spec.B,
+            discount=self.discount,
+            n_step_return=self.n_step_return,
+        )
+        # if self.prioritized_replay:
+        #     replay_kwargs.update(dict(
+        #         alpha=self.pri_alpha,
+        #         beta=self.pri_beta_init,
+        #         default_priority=self.default_priority,
+        #     ))
+        #     ReplayCls = (AsyncPrioritizedReplayFrameBuffer if async_ else
+        #         PrioritizedReplayFrameBuffer)
+        # else:
+        # ReplayCls = (AsyncUniformReplayFrameBuffer if async_ else
+        #     UniformReplayFrameBuffer)
+        ReplayCls = (AsyncUniformReplayBuffer if async_ else
+            NonContiguousUniformReplayBuffer)
+        self.replay_buffer = ReplayCls(**replay_kwargs)
         self.feature_replay_buffer = None
 
     def optim_state_dict(self):
@@ -67,7 +99,16 @@ class FeatureDSR(DSR):
         if samples is not None:
             samples_to_buffer = self.samples_to_buffer(samples)
             self.replay_buffer.append_samples(samples_to_buffer)
-        
+    
+    def samples_to_buffer(self, samples):
+        return SamplesToBuffer(
+            observation=samples.env.observation,
+            action=samples.agent.action,
+            reward=samples.env.reward,
+            done=samples.env.done,
+            mode=samples.agent.agent_info.mode
+        )
+
     def optimize_agent(self, itr, sampler_itr=None):
         itr = itr if sampler_itr is None else sampler_itr  # Async uses sampler_itr.
         opt_info = self.opt_info_class(*([] for _ in range(len(self.opt_info_class._fields))))
@@ -123,7 +164,6 @@ class FeatureDSR(DSR):
     def feature_loss(self, samples_from_replay):
         raise NotImplementedError
 
-
 IDFOptInfo = namedtuple("IDFOptInfo", ["idfAccuracy"] + list(FeatureOptInfo._fields))
 
 class IDFDSR(FeatureDSR):
@@ -164,13 +204,19 @@ class TCFDSR(FeatureDSR):
         self.opt_info_class = TCFOptInfo
         self.opt_info_fields = tuple(f for f in self.opt_info_class._fields)
 
-    def initialize_replay_buffer(self, examples, batch_spec, async_=False):
-        super().initialize_replay_buffer(examples, batch_spec, async_)
+    def initialize(self, agent, n_itr, batch_spec, mid_batch_reset, examples,
+            world_size=1, rank=0):
+        super().initialize(agent, n_itr, batch_spec, mid_batch_reset, examples,
+            world_size, rank)
+        self.initialize_triplet_replay_buffer(examples, batch_spec)
+
+    def initialize_triplet_replay_buffer(self, examples, batch_spec, async_=False):
         example_to_buffer = SamplesToBuffer(
             observation=examples["observation"],
             action=examples["action"],
             reward=examples["reward"],
             done=examples["done"],
+            mode=examples["agent_info"].mode
         )
 
         triplet_replay_kwargs = dict(
