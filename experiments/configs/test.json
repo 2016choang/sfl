@@ -64,7 +64,7 @@
         "log_interval_steps": 1e3,
         "log_dsr_interval_steps": 1e3,
         "log_landmarks_interval_steps": 1e3,
-        "update_landmarks_interval_steps": 200,
+        "update_landmarks_interval_steps": 1e3,
         "min_steps_landmark_mode": 4e3
     },
     "mode": "multiroom",

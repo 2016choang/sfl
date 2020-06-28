@@ -62,6 +62,7 @@ class Landmarks(object):
         self.landmark_mode = np.full(self.num_envs, True, dtype=bool)
         self.explore_steps = np.full(self.num_envs, 0, dtype=int)
         self.landmark_steps = np.full(self.num_envs, 0, dtype=int)
+        self.current_landmark_steps = np.full(self.num_envs, 0, dtype=int)
         self.paths = np.full((self.num_envs, self.max_landmarks), -1, dtype=int)
         self.path_lengths = np.full(self.num_envs, -1, dtype=int)
         self.path_idxs = np.full(self.num_envs, -1, dtype=int)
@@ -293,19 +294,6 @@ class Landmarks(object):
 
                     self.landmark_removes += 1
             
-            # Record landmark transitions found during exploration mode
-            # TODO: Still in the works!
-            # if self.last_landmark is not None and self.last_landmark != current_landmark:
-            #     if self.attempts[self.last_landmark, current_landmark]:
-            #         new_successes = (self.successes[self.last_landmark, current_landmark] + self.attempts[self.last_landmark, current_landmark]) / 2
-            #         self.successes[self.last_landmark, current_landmark] = new_successes
-            #         self.successes[current_landmark, self.last_landmark] = new_successes
-            #     else:
-            #         self.successes[self.last_landmark, current_landmark] = 1
-            #         self.successes[current_landmark, self.last_landmark] = 1
-            #         self.attempts[self.last_landmark, current_landmark] = 1
-            #         self.attempts[current_landmark, self.last_landmark] = 1
-            
     def set_features(self, features, idx=None):
         # Set/add features of new landmark at idx
         norm_features = features / torch.norm(features, p=2, dim=1, keepdim=True)
@@ -461,6 +449,7 @@ class Landmarks(object):
         self.landmark_mode[enter_idxs] = True
         self.explore_steps[enter_idxs] = 0
         self.landmark_steps[enter_idxs] = 0 
+        self.current_landmark_steps[enter_idxs] = 0
         self.paths[enter_idxs] = -1
         self.path_idxs[enter_idxs] = 0
         self.last_landmarks[enter_idxs] = -1
@@ -539,25 +528,21 @@ class Landmarks(object):
         if not np.any(self.landmark_mode):
             return None, self.landmark_mode
 
-        # Check if current landmark is reached based on similarity in SF space
+        # TODO: Check if current landmark is reached based on similarity in SF space
         # norm_dsr = current_dsr[self.landmark_mode]
         # norm_dsr = norm_dsr.mean(dim=1) / torch.norm(norm_dsr.mean(dim=1), p=2, keepdim=True)
-
-        current_idxs = self.path_idxs[self.landmark_mode]
-        current_landmarks = self.paths[self.landmark_mode, current_idxs]
         # landmark_similarity = torch.matmul(self.norm_dsr[current_landmarks], norm_dsr.T)
-
-        # TODO: Logging
         # # Log if current landmark is reached based on similarity
         # if landmark_similarity > self.reach_threshold and self._mode != 'eval':
         #     self.landmark_reaches[self.path_idx] += 1
+        #     reached_landmarks = landmark_similarity > self.reach_threshold
+        #     reached_landmarks[final_goal_landmarks] = landmark_similarity >= 1.0
 
-        # reached_landmarks = landmark_similarity > self.reach_threshold
+        current_idxs = self.path_idxs[self.landmark_mode]
+        current_landmarks = self.paths[self.landmark_mode, current_idxs]
         final_goal_landmarks = current_idxs == (self.path_lengths[self.landmark_mode] - 1)
-        # reached_landmarks[final_goal_landmarks] = landmark_similarity >= 1.0
 
         reached_landmarks = self.landmark_mode[self.landmark_mode]
-
         for i, observation in enumerate(current_observation[self.landmark_mode]):
             reached_landmarks[i] = torch.allclose(observation, self.observations[current_landmarks[i]])
 
@@ -565,6 +550,7 @@ class Landmarks(object):
         self.visitations[current_landmarks[reached_landmarks]] += 1
 
         steps_limit_reached = self.landmark_steps[self.landmark_mode] >= (self.path_lengths[self.landmark_mode] * self.steps_per_landmark)
+        reached_within_steps = self.current_landmark_steps[self.landmark_mode] < self.steps_per_landmark
         
         if self.mode != 'eval':
             # In training, log landmarks are truly reached 
@@ -575,22 +561,26 @@ class Landmarks(object):
             last_landmarks = self.last_landmarks[self.landmark_mode]
             reached_last_landmarks = last_landmarks != -1
 
-            success_last_landmarks = last_landmarks[reached_last_landmarks & reached_landmarks]
-            success_current_landmarks = current_landmarks[reached_last_landmarks & reached_landmarks]
+            successful_transitions = reached_last_landmarks & reached_landmarks & reached_within_steps
+            success_last_landmarks = last_landmarks[successful_transitions]
+            success_current_landmarks = current_landmarks[successful_transitions]
             self.successes[success_last_landmarks, success_current_landmarks] += 1
             self.successes[success_current_landmarks, success_last_landmarks] += 1
             self.attempts[success_last_landmarks, success_current_landmarks] += 1
             self.attempts[success_current_landmarks, success_last_landmarks] += 1
 
-            fail_last_landmarks = last_landmarks[reached_last_landmarks & ~reached_landmarks & steps_limit_reached]
-            fail_current_landmarks = current_landmarks[reached_last_landmarks & ~reached_landmarks & steps_limit_reached]
+            failed_transitions = reached_last_landmarks & ~reached_landmarks & (~reached_within_steps | steps_limit_reached)
+            fail_last_landmarks = last_landmarks[failed_transitions]
+            fail_current_landmarks = current_landmarks[failed_transitions]
             self.attempts[fail_last_landmarks, fail_current_landmarks] += 1
             self.attempts[fail_current_landmarks, fail_last_landmarks] += 1
 
         # If reached (not goal) landmark, move to next landmark
         reached_non_goal_landmarks = reached_landmarks & ~final_goal_landmarks
-        self.last_landmarks[np.where(self.landmark_mode)[0][reached_non_goal_landmarks]] = current_landmarks[reached_non_goal_landmarks]
-        self.path_idxs[np.where(self.landmark_mode)[0][reached_non_goal_landmarks]] += 1
+        reached_non_goal_landmarks_mask = np.where(self.landmark_mode)[0][reached_non_goal_landmarks]
+        self.last_landmarks[reached_non_goal_landmarks_mask] = current_landmarks[reached_non_goal_landmarks]
+        self.current_landmark_steps[reached_non_goal_landmarks_mask] = 0
+        self.path_idxs[reached_non_goal_landmarks_mask] += 1
 
         # If reached goal landmark or steps limit, exit landmark mode
         reached_goal_landmarks = reached_landmarks & final_goal_landmarks 
