@@ -666,7 +666,7 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         #       - red edges were used to connect the graph and do not have any successful transitions
         figure = plt.figure(figsize=(7, 7))
 
-        G = self.agent.landmarks.graph
+        G = self.agent.eval_landmarks.graph
         pos = nx.circular_layout(G)
 
         non_zero_edges = {}

@@ -53,6 +53,14 @@ class LandmarkAgent(FeatureDSRAgent):
             return self._eval_landmarks
         else:
             return self._landmarks
+    
+    @property
+    def train_landmarks(self):
+        return self._landmarks
+    
+    @property
+    def eval_landmarks(self):
+        return self._eval_landmarks
 
     @torch.no_grad()
     def initialize_landmarks(self, train_envs, eval_envs, initial_landmarks, oracle_distance_matrix):

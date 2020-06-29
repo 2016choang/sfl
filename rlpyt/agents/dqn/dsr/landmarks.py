@@ -336,7 +336,7 @@ class Landmarks(object):
 
         similarities = torch.clamp(torch.matmul(self.norm_dsr, self.norm_dsr.T), min=1e-2, max=1.0)
         similarities = similarities.detach().cpu().numpy()
-        min_dist = similarities * zero_success_dist
+        min_dist = zero_success_dist * similarities
 
         # Remove edges with success rate <= success_threshold
         non_edges = np.logical_not(edge_success_rate > self.success_threshold)
@@ -385,7 +385,7 @@ class Landmarks(object):
             for success_rate, similarity, u, v in avail:
                 dist = -1 * np.log(success_rate)
                 if success_rate == 0:
-                    dist = -1 * np.log(zero_success_dist * similarity)
+                    dist = -1 * self.max_landmarks * np.log(zero_success_dist * similarity)
                 
                 landmark_distances[(u, v)] = dist
                 
