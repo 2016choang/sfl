@@ -112,7 +112,6 @@ class LandmarkAgent(FeatureDSRAgent):
                 model_inputs = buffer_to(observation,
                     device=self.device)
                 features = self.feature_model(model_inputs, mode='encode')
-                self.landmarks.set_features(features)
                 model_inputs = buffer_to(features,
                     device=self.device)
                 dsr = self.model(model_inputs, mode='dsr')

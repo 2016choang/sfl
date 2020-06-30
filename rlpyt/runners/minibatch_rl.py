@@ -470,7 +470,6 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                  log_landmarks_interval_steps=1e4,
                  **kwargs):
         save__init__args(locals())
-        self.last_step_policy = None
         super().__init__(**kwargs)
 
     def get_n_itr(self):
@@ -506,16 +505,7 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
 
                 samples, traj_infos = self.sampler.obtain_samples(itr)
                 self.algo.append_feature_samples(samples)  # feature replay buffer (policy-agnostic)
-
-                explore_policy = ~samples.agent.agent_info.mode.reshape(-1)
-                
-                if self.last_step_policy is not None:
-                    last_step_explore = self.last_step_policy & ~explore_policy
-                    if last_step_explore.any():
-                        samples.env.done[:, last_step_explore] = True
-                
                 self.algo.append_dsr_samples(samples)  # SF replay buffer (random)
-                self.last_step_policy = explore_policy
 
                 # Train agent's neural networks
                 self.agent.train_mode(itr)
@@ -672,7 +662,7 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         non_zero_edges = {}
         zero_edges = {}
         for index, edge_info in dict(G.edges).items():
-            if self.agent.landmarks.zero_edge_indices is not None and index in self.agent.landmarks.zero_edge_indices:
+            if self.agent.eval_landmarks.zero_edge_indices is not None and index in self.agent.eval_landmarks.zero_edge_indices:
                 zero_edges[index] = edge_info
             else:
                 non_zero_edges[index] = edge_info

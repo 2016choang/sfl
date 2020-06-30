@@ -1,8 +1,8 @@
 
 import numpy as np
 
-from rlpyt.replays.n_step import BaseNStepReturnBuffer
 from rlpyt.agents.base import AgentInputs
+from rlpyt.replays.n_step import BaseNStepReturnBuffer
 from rlpyt.utils.collections import namedarraytuple
 from rlpyt.utils.buffer import torchify_buffer
 

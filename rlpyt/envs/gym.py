@@ -565,7 +565,16 @@ class MinigridMultiRoomLandmarkWrapper(Wrapper):
 
 class MinigridMultiRoomWrapper(Wrapper):
     
-    def __init__(self, env, num_rooms=10, size=(25, 25), encoding='RGB', max_steps=500, terminate=False, start_pos=None, reset_same=False, reset_episodes=1):
+    def __init__(self,
+                 env,
+                 num_rooms=10,
+                 size=(25, 25),
+                 encoding='RGB',
+                 max_steps=500,
+                 terminate=False,
+                 start_pos=None,
+                 reset_same=False,
+                 reset_episodes=1):
         super().__init__(env)
         self.num_rooms = num_rooms
         self.env = env

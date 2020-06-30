@@ -18,7 +18,7 @@ from rlpyt.samplers.serial.collectors import SerialLandmarksEvalCollector
 from rlpyt.samplers.parallel.cpu.collectors import CpuLandmarksCollector
 from rlpyt.envs.gym import make as gym_make
 from rlpyt.algos.dqn.dsr.dsr import DSR
-from rlpyt.algos.dqn.dsr.feature_dsr import IDFDSR, TCFDSR
+from rlpyt.algos.dqn.dsr.feature_dsr import IDFDSR, LandmarkTCFDSR
 from rlpyt.agents.dqn.dsr.landmark_agent import LandmarkIDFAgent, LandmarkTCFAgent
 from rlpyt.agents.dqn.dsr.landmarks import Landmarks
 from rlpyt.runners.minibatch_rl import MinibatchLandmarkDSREval
@@ -74,10 +74,9 @@ def build_and_train(config_file,
     feature = config['feature']
     if feature == 'TCF':
         agent_class = LandmarkTCFAgent
-        algo_class = TCFDSR
+        algo_class = LandmarkTCFDSR
     else:
-        agent_class = LandmarkIDFAgent
-        algo_class = IDFDSR
+        raise NotImplementedError
 
     landmarks = Landmarks(**config['landmarks'])
     agent = agent_class(initial_model_state_dict=model_checkpoint, 

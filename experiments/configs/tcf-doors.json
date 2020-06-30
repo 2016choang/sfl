@@ -23,6 +23,7 @@
         "add_threshold": 0.80,
         "landmark_mode_interval": 50,
         "steps_per_landmark": 10,
+        "eval_steps": 80,
         "success_threshold": 0.01,
         "sim_threshold": 1,
         "use_oracle_start": false,

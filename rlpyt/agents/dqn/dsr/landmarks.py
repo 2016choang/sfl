@@ -19,6 +19,7 @@ class Landmarks(object):
                  landmarks_per_update=None,
                  landmark_mode_interval=100,
                  steps_per_landmark=10,
+                 eval_steps=100,
                  success_threshold=0,
                  sim_threshold=0.9,
                  use_oracle_start=False,
@@ -118,6 +119,29 @@ class Landmarks(object):
                  successes=self.successes,
                  attempts=self.attempts)
 
+    def update(self):
+        # Decay empirical transition data by affinity_decay factor
+        self.successes = (self.successes * self.affinity_decay)
+        self.attempts = (self.attempts * self.affinity_decay)
+
+        # # Prune landmarks that do not meet similarity requirement
+        # landmark_similarities = torch.matmul(self.norm_dsr, self.norm_dsr.T)
+        # save_idx = torch.sum(landmark_similarities < self.add_threshold, axis=1) >= (self.num_landmarks - 1)
+        
+        # self.observations = self.observations[save_idx]
+        # self.features = self.features[save_idx]
+        # self.norm_features = self.norm_features[save_idx]
+        # self.dsr = self.dsr[save_idx]
+        # self.norm_dsr = self.norm_dsr[save_idx]
+        # self.positions = self.positions[save_idx]
+        
+        # self.visitations = self.visitations[save_idx]
+        # self.successes = self.successes[save_idx[:, None], save_idx]
+        # self.attempts = self.attempts[save_idx[:, None], save_idx]
+
+        # self.landmark_removes += (self.num_landmarks - len(save_idx))
+        # self.num_landmarks = len(save_idx)
+
     def force_add_landmark(self, observation, features, dsr, position):
         # Add landmark while ignoring similarity thresholds and max landmark limits
         if self.num_landmarks == 0:
@@ -187,16 +211,20 @@ class Landmarks(object):
     def add_landmarks(self, observation, features, dsr, position):
         # Add landmarks if it is not similar w.r.t existing landmarks
         # by selecting from pool of potential landmarks
-        norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, keepdim=True)
-        similarity = torch.matmul(self.norm_dsr, norm_dsr.T)
+        # norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, keepdim=True)
+        # similarity = torch.matmul(self.norm_dsr, norm_dsr.T)
 
-        k_nearest_similarity = torch.topk(similarity, min(self.top_k_similar, self.num_landmarks), dim=0, largest=False).values
-        similarity_score = torch.sum(k_nearest_similarity, dim=0)
-        new_landmark_idxs = torch.topk(similarity_score, min(self.landmarks_per_update, len(observation)), largest=False).indices
+        # k_nearest_similarity = torch.topk(similarity, min(self.top_k_similar, self.num_landmarks), dim=0, largest=False).values
+        # similarity_score = torch.sum(k_nearest_similarity, dim=0)
+        # new_landmark_idxs = torch.topk(similarity_score, min(self.landmarks_per_update, len(observation)), largest=False).indices
 
-        for idx in new_landmark_idxs:
-            idx = idx.item()
-            self.add_landmark(observation[[idx]], features[[idx]], dsr[[idx]], position[idx])
+        landmarks_added = 0
+
+        for idx in range(len(observation)):
+            added = self.add_landmark(observation[[idx]], features[[idx]], dsr[[idx]], position[idx])
+            landmarks_added += int(added)
+            if landmarks_added == self.landmarks_per_update:
+                break
 
         # # Dynamically adjust add threshold depending on value of self.potential_landmark_adds
         # if self.potential_landmark_adds > self.max_landmarks:
@@ -206,29 +234,6 @@ class Landmarks(object):
         
         self.potential_landmarks = {}
         self.potential_landmark_adds = 0
-
-    def update(self):
-        # Decay empirical transition data by affinity_decay factor
-        self.successes = (self.successes * self.affinity_decay)
-        self.attempts = (self.attempts * self.affinity_decay)
-
-        # # Prune landmarks that do not meet similarity requirement
-        # landmark_similarities = torch.matmul(self.norm_dsr, self.norm_dsr.T)
-        # save_idx = torch.sum(landmark_similarities < self.add_threshold, axis=1) >= (self.num_landmarks - 1)
-        
-        # self.observations = self.observations[save_idx]
-        # self.features = self.features[save_idx]
-        # self.norm_features = self.norm_features[save_idx]
-        # self.dsr = self.dsr[save_idx]
-        # self.norm_dsr = self.norm_dsr[save_idx]
-        # self.positions = self.positions[save_idx]
-        
-        # self.visitations = self.visitations[save_idx]
-        # self.successes = self.successes[save_idx[:, None], save_idx]
-        # self.attempts = self.attempts[save_idx[:, None], save_idx]
-
-        # self.landmark_removes += (self.num_landmarks - len(save_idx))
-        # self.num_landmarks = len(save_idx)
 
     def add_landmark(self, observation, features, dsr, position):
         # Add landmark if it is not similar w.r.t. existing landmarks
@@ -243,6 +248,7 @@ class Landmarks(object):
             self.attempts = np.array([[0]])
             self.landmark_adds += 1
             self.num_landmarks += 1
+            return True
         else:
             norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, keepdim=True)
             similarity = torch.matmul(self.norm_dsr, norm_dsr.T)
@@ -293,6 +299,11 @@ class Landmarks(object):
                     self.attempts[:, replace_idx] = 0
 
                     self.landmark_removes += 1
+                
+                return True
+
+            else:
+                return False
             
     def set_features(self, features, idx=None):
         # Set/add features of new landmark at idx
@@ -455,6 +466,7 @@ class Landmarks(object):
         self.last_landmarks[enter_idxs] = -1
 
         self.entered_landmark_mode[enter_idxs] = True
+        return self.entered_landmark_mode
 
     def set_paths(self, dsr, position):
         if not np.any(self.entered_landmark_mode):
@@ -549,7 +561,12 @@ class Landmarks(object):
         # Increment the current landmark's visitation count
         self.visitations[current_landmarks[reached_landmarks]] += 1
 
-        steps_limit_reached = self.landmark_steps[self.landmark_mode] >= (self.path_lengths[self.landmark_mode] * self.steps_per_landmark)
+        if self.mode != 'eval':
+            steps_limit = self.path_lengths[self.landmark_mode] * self.steps_per_landmark
+        else:
+            steps_limit = self.eval_steps
+
+        steps_limit_reached = self.landmark_steps[self.landmark_mode] >= steps_limit
         reached_within_steps = self.current_landmark_steps[self.landmark_mode] < self.steps_per_landmark
         
         if self.mode != 'eval':
@@ -603,7 +620,8 @@ class Landmarks(object):
             dist_completed = end_distance / np.clip(start_distance, a_min=1, a_max=None)
             self.goal_landmark_dist_completed.extend(dist_completed.tolist())
 
-        self.landmark_mode[np.where(self.landmark_mode)[0][reached_goal_landmarks | steps_limit_reached]] = False
+        exit_landmark_mode = np.where(self.landmark_mode)[0][reached_goal_landmarks | steps_limit_reached]
+        self.landmark_mode[exit_landmark_mode] = False
 
         # Increment landmark step counter
         self.landmark_steps[self.landmark_mode] += 1

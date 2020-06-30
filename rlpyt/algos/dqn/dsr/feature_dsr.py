@@ -5,17 +5,17 @@ import torch.nn as nn
 
 from rlpyt.algos.dqn.dsr.dsr import DSR
 from rlpyt.replays.non_sequence.uniform import (UniformReplayBuffer,
-    AsyncUniformReplayBuffer, NonContiguousUniformReplayBuffer,
+    AsyncUniformReplayBuffer, LandmarkUniformReplayBuffer,
     UniformTripletReplayBuffer)
 from rlpyt.utils.collections import namedarraytuple
 from rlpyt.utils.logging import logger
 from rlpyt.utils.misc import param_norm_
 from rlpyt.utils.quick_args import save__init__args
+from rlpyt.utils.tensor import select_at_indexes, valid_mean
+from rlpyt.algos.utils import valid_from_done
 
 FeatureOptInfo = namedtuple("FeateureOptInfo", ["featureLoss", "featureGradNorm",
                                                 "dsrLoss", "dsrGradNorm", "tdAbsErr"])
-SamplesToBuffer = namedarraytuple("SamplesToBuffer",
-    ["observation", "action", "reward", "done", "mode"])
 
 class FeatureDSR(DSR):
     """Feature-based DSR."""
@@ -53,34 +53,7 @@ class FeatureDSR(DSR):
         #     self.pri_beta_itr = max(1, self.pri_beta_steps // self.sampler_bs)
     
     def initialize_replay_buffer(self, examples, batch_spec, async_=False):
-        example_to_buffer = SamplesToBuffer(
-            observation=examples["observation"],
-            action=examples["action"],
-            reward=examples["reward"],
-            done=examples["done"],
-            mode=examples["agent_info"].mode
-        )
-        replay_kwargs = dict(
-            example=example_to_buffer,
-            size=self.replay_size,
-            B=batch_spec.B,
-            discount=self.discount,
-            n_step_return=self.n_step_return,
-        )
-        # if self.prioritized_replay:
-        #     replay_kwargs.update(dict(
-        #         alpha=self.pri_alpha,
-        #         beta=self.pri_beta_init,
-        #         default_priority=self.default_priority,
-        #     ))
-        #     ReplayCls = (AsyncPrioritizedReplayFrameBuffer if async_ else
-        #         PrioritizedReplayFrameBuffer)
-        # else:
-        # ReplayCls = (AsyncUniformReplayFrameBuffer if async_ else
-        #     UniformReplayFrameBuffer)
-        ReplayCls = (AsyncUniformReplayBuffer if async_ else
-            NonContiguousUniformReplayBuffer)
-        self.replay_buffer = ReplayCls(**replay_kwargs)
+        super().initialize_replay_buffer(examples, batch_spec, async_)
         self.feature_replay_buffer = None
 
     def optim_state_dict(self):
@@ -100,15 +73,6 @@ class FeatureDSR(DSR):
             samples_to_buffer = self.samples_to_buffer(samples)
             self.replay_buffer.append_samples(samples_to_buffer)
     
-    def samples_to_buffer(self, samples):
-        return SamplesToBuffer(
-            observation=samples.env.observation,
-            action=samples.agent.action,
-            reward=samples.env.reward,
-            done=samples.env.done,
-            mode=samples.agent.agent_info.mode
-        )
-
     def optimize_agent(self, itr, sampler_itr=None):
         itr = itr if sampler_itr is None else sampler_itr  # Async uses sampler_itr.
         opt_info = self.opt_info_class(*([] for _ in range(len(self.opt_info_class._fields))))
@@ -188,8 +152,10 @@ class IDFDSR(FeatureDSR):
 
 
 TCFOptInfo = namedtuple("TCFOptInfo", ["posDistance", "negDistance"] + list(FeatureOptInfo._fields))
+SamplesToBuffer = namedarraytuple("SamplesToBuffer",
+    ["observation", "action", "reward", "done", "mode"])
 
-class TCFDSR(FeatureDSR):
+class LandmarkTCFDSR(FeatureDSR):
     """Time Contrastive Features DSR."""
 
     def __init__(
@@ -210,13 +176,44 @@ class TCFDSR(FeatureDSR):
             world_size, rank)
         self.initialize_triplet_replay_buffer(examples, batch_spec)
 
+    def initialize_replay_buffer(self, examples, batch_spec, async_=False):
+        example_to_buffer = SamplesToBuffer(
+            observation=examples["observation"],
+            action=examples["action"],
+            reward=examples["reward"],
+            done=examples["done"],
+            mode=examples["agent_info"].mode,
+        )
+        replay_kwargs = dict(
+            example=example_to_buffer,
+            size=self.replay_size,
+            B=batch_spec.B,
+            discount=self.discount,
+            n_step_return=self.n_step_return,
+        )
+        # if self.prioritized_replay:
+        #     replay_kwargs.update(dict(
+        #         alpha=self.pri_alpha,
+        #         beta=self.pri_beta_init,
+        #         default_priority=self.default_priority,
+        #     ))
+        #     ReplayCls = (AsyncPrioritizedReplayFrameBuffer if async_ else
+        #         PrioritizedReplayFrameBuffer)
+        # else:
+        # ReplayCls = (AsyncUniformReplayFrameBuffer if async_ else
+        #     UniformReplayFrameBuffer)
+        ReplayCls = (AsyncUniformReplayBuffer if async_ else
+            LandmarkUniformReplayBuffer)
+        self.replay_buffer = ReplayCls(**replay_kwargs)
+        self.feature_replay_buffer = None
+
     def initialize_triplet_replay_buffer(self, examples, batch_spec, async_=False):
         example_to_buffer = SamplesToBuffer(
             observation=examples["observation"],
             action=examples["action"],
             reward=examples["reward"],
             done=examples["done"],
-            mode=examples["agent_info"].mode
+            mode=examples["agent_info"].mode,
         )
 
         triplet_replay_kwargs = dict(
@@ -227,8 +224,16 @@ class TCFDSR(FeatureDSR):
             neg_close_threshold=self.neg_close_threshold,
             neg_far_threshold=self.neg_far_threshold
         )
-
         self.feature_replay_buffer = UniformTripletReplayBuffer(**triplet_replay_kwargs)
+
+    def samples_to_buffer(self, samples):
+        return SamplesToBuffer(
+            observation=samples.env.observation,
+            action=samples.agent.action,
+            reward=samples.env.reward,
+            done=samples.env.done,
+            mode=samples.agent.agent_info.mode
+        )
 
     def feature_loss(self, samples):
         # Time contrastive loss
@@ -244,3 +249,58 @@ class TCFDSR(FeatureDSR):
             feature_opt_info = {"posDistance": pos_dist.mean().item(),
                                 "negDistance": neg_dist.mean().item()}
         return loss, feature_opt_info
+
+    def dsr_loss(self, samples):
+        """Samples have leading batch dimension [B,..] (but not time)."""
+        # 1a. encode observations in feature space
+        with torch.no_grad():
+            features = self.agent.encode(samples.agent_inputs.observation)
+
+        # 1b. estimate successor features given features
+        dsr = self.agent(features)
+        s_features = select_at_indexes(samples.action, dsr)
+
+        with torch.no_grad():
+            # 2a. encode target observations in feature space
+            target_features = self.agent.encode(samples.target_inputs.observation)
+
+            # 2b. estimate target successor features given features
+            target_dsr = self.agent.target(target_features)
+
+            # next_qs = self.agent.q_estimate(target_dsr)
+            # next_a = torch.argmax(next_qs, dim=-1)
+            # random actions
+            next_a = torch.randint(high=target_dsr.shape[1], size=samples.action.shape)
+
+            target_s_features = select_at_indexes(next_a, target_dsr)
+
+        # 3. combine current features + discounted target successor features
+        done_n = samples.done_n.float().view(-1, 1)
+        disc_target_s_features = (self.discount ** self.n_step_return) * target_s_features
+        s_y = target_features + (1 - samples.target_done.float()).view(-1, 1) * disc_target_s_features
+        y = features * done_n + (1 - done_n) * s_y
+
+        delta = y - s_features
+        losses = 0.5 * delta ** 2
+        abs_delta = abs(delta)
+
+        if self.delta_clip is not None:  # Huber loss.
+            b = self.delta_clip * (abs_delta - self.delta_clip / 2)
+            losses = torch.where(abs_delta <= self.delta_clip, losses, b)
+        # if self.prioritized_replay:
+        #     losses *= samples.is_weights
+
+        # sum losses over feature vector such that each sample has a scalar loss (result: B x 1)
+        # losses = losses.sum(dim=1)
+
+        td_abs_errors = abs_delta.mean(axis=1).detach()
+        if self.delta_clip is not None:
+            td_abs_errors = torch.clamp(td_abs_errors, 0, self.delta_clip)
+        if not self.mid_batch_reset:
+            losses = torch.mean(losses, axis=1)
+            valid = valid_from_done(samples.done)
+            loss = valid_mean(losses, valid)
+            td_abs_errors *= valid
+        else:
+            loss = torch.mean(losses)
+        return loss, td_abs_errors
