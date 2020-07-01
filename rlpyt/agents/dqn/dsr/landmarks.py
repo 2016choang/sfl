@@ -485,7 +485,11 @@ class Landmarks(object):
             goal_landmarks = np.full(sum(self.entered_landmark_mode), 0, dtype=int)
         else:
             # Select goal landmarks with probability given by inverse of visitation count
-            inverse_visitations = 1. / np.clip(self.visitations, 1, None)
+            # visitations = np.clip(self.visitations, 1, None)
+            visitations = np.clip(self.successes.sum(axis=1), 1, None)
+            visitations[0] = max(visitations[1:].min(), visitations[0])
+
+            inverse_visitations = 1. / visitations
             landmark_probabilities = inverse_visitations / inverse_visitations.sum()
             goal_landmarks = np.random.choice(range(len(landmark_probabilities)),
                                             size=len(start_landmarks),
