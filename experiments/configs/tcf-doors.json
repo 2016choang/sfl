@@ -27,7 +27,7 @@
         "success_threshold": 0.01,
         "sim_threshold": 1,
         "use_oracle_start": false,
-        "reach_threshold": 0.85,
+        "reach_threshold": 0.95,
         "landmark_paths": 5,
         "affinity_decay": 0.99
     },
@@ -79,5 +79,6 @@
     "mode": "multiroom",
     "seed": 333,
     "tabular": false,
-    "feature": "TCF"
+    "feature": "TCF",
+    "samplers": 1
 }
