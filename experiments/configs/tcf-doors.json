@@ -20,14 +20,14 @@
     },
     "landmarks": {
         "max_landmarks": 20,
-        "add_threshold": 0.8,
+        "add_threshold": 0.75,
         "landmark_mode_interval": 50,
         "steps_per_landmark": 10,
         "eval_steps": 80,
         "success_threshold": 0.01,
         "sim_threshold": 1,
         "use_oracle_start": false,
-        "reach_threshold": 0.99,
+        "reach_threshold": 0.85,
         "landmark_paths": 5,
         "affinity_decay": 0.99
     },

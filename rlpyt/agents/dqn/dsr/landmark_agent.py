@@ -148,7 +148,7 @@ class LandmarkAgent(FeatureDSRAgent):
 
             self.landmarks.set_paths(dsr, position)
 
-            landmarks_dsr, landmark_mode = self.landmarks.get_landmarks_data(observation, position)
+            landmarks_dsr, landmark_mode = self.landmarks.get_landmarks_data(observation, dsr, position)
 
             if np.any(landmark_mode):
                 # Landmark subgoal policy (SF-based Q values)

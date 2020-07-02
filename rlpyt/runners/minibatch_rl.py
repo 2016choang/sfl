@@ -517,14 +517,6 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                 if (itr + 1) % self.update_landmarks_interval_itrs == 0:
                     self.agent.update_landmarks(itr)
 
-                # Log successor features information
-                if (itr + 1) % self.log_dsr_interval_itrs == 0:
-                    self.log_dsr(itr)
-
-                # Log landmarks information
-                if (itr + 1) % self.log_landmarks_interval_itrs == 0:
-                    self.log_landmarks(itr)
-
                 # Evaluate agent
                 if (itr + 1) % self.log_interval_itrs == 0:
                     eval_traj_infos, eval_time = self.evaluate_agent(itr)
@@ -554,6 +546,16 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                         plt.colorbar()
                         save_image('Eval visitations and end positions', itr)
                         plt.close()
+                
+                    self.agent.sample_mode(itr)
+
+                # Log successor features information
+                if (itr + 1) % self.log_dsr_interval_itrs == 0:
+                    self.log_dsr(itr)
+
+                # Log landmarks information
+                if (itr + 1) % self.log_landmarks_interval_itrs == 0:
+                    self.log_landmarks(itr)
 
         self.shutdown()
 

@@ -362,8 +362,8 @@ class Landmarks(object):
 
         # In all modes except eval, consider edges with low numbers
         # of attempted transitions as valid starting edges
+        non_zero_attempts = self.attempts[self.attempts > 0]
         if self.mode != 'eval':
-            non_zero_attempts = self.attempts[self.attempts > 0]
             attempt_threshold = max(non_zero_attempts.mean() - non_zero_attempts.std(), 1)
             low_attempt_edges = self.attempts < attempt_threshold
             non_edges[low_attempt_edges] = False            
@@ -383,6 +383,11 @@ class Landmarks(object):
         zero_edges = 0
         self.zero_edge_indices = set()
 
+        # # Penalize edges with no success, high attempts
+        # attempt_threshold = max(non_zero_attempts.mean() + non_zero_attempts.std(), 1)
+        # high_attempt_edges = self.attempts > attempt_threshold
+        # edge_success_rate[edge_success_rate == 0 & high_attempt_edges] = -1
+
         # Augment G with edges until it is connected
         # Edges are sorted by success rate, then similarity
         G = nx.from_numpy_array(landmark_distances)
@@ -394,16 +399,17 @@ class Landmarks(object):
             avail = sorted(avail, key=itemgetter(0, 1), reverse=True)
 
             for success_rate, similarity, u, v in avail:
-                dist = -1 * np.log(success_rate)
-                if success_rate == 0:
+                if success_rate > 0:
+                    dist = -1 * np.log(success_rate)
+                else:
                     dist = -1 * self.max_landmarks * np.log(zero_success_dist * similarity)
-                
+
                 landmark_distances[(u, v)] = dist
                 
                 G = nx.from_numpy_array(landmark_distances)
 
                 total_edges += 1
-                if success_rate == 0:
+                if success_rate <= 0:
                     zero_edges += 1
                     self.zero_edge_indices.add((u, v))
 
@@ -540,35 +546,41 @@ class Landmarks(object):
             
             self.entered_landmark_mode[enter_idx] = False
 
-    def get_landmarks_data(self, current_observation, current_position):
+    def get_landmarks_data(self, current_observation, current_dsr, current_position):
         if not np.any(self.landmark_mode):
             return None, self.landmark_mode
-
-        # TODO: Check if current landmark is reached based on similarity in SF space
-        # norm_dsr = current_dsr[self.landmark_mode]
-        # norm_dsr = norm_dsr.mean(dim=1) / torch.norm(norm_dsr.mean(dim=1), p=2, keepdim=True)
-        # landmark_similarity = torch.matmul(self.norm_dsr[current_landmarks], norm_dsr.T)
-        # # Log if current landmark is reached based on similarity
-        # if landmark_similarity > self.reach_threshold and self._mode != 'eval':
-        #     self.landmark_reaches[self.path_idx] += 1
-        #     reached_landmarks = landmark_similarity > self.reach_threshold
-        #     reached_landmarks[final_goal_landmarks] = landmark_similarity >= 1.0
 
         current_idxs = self.path_idxs[self.landmark_mode]
         current_landmarks = self.paths[self.landmark_mode, current_idxs]
         final_goal_landmarks = current_idxs == (self.path_lengths[self.landmark_mode] - 1)
 
-        reached_landmarks = self.landmark_mode[self.landmark_mode]
-        for i, observation in enumerate(current_observation[self.landmark_mode]):
-            reached_landmarks[i] = torch.allclose(observation, self.observations[current_landmarks[i]])
+        # Localization based on SF similarity
+        norm_dsr = current_dsr[self.landmark_mode]
+        norm_dsr = norm_dsr.mean(dim=1) / torch.norm(norm_dsr.mean(dim=1), p=2, keepdim=True)
+        landmark_similarity = torch.sum(norm_dsr * self.norm_dsr[current_landmarks], dim=1)
+        reached_landmarks = landmark_similarity > self.reach_threshold
+        
+        # If eval mode, final landmark localization based on observation equivalence
+        if self.mode == 'eval':
+            final_goal_idxs = np.arange(len(reached_landmarks))[final_goal_landmarks]
+            for idx in final_goal_idxs:
+                reached_landmarks[idx] = torch.allclose(current_observation[self.landmark_mode][idx],
+                                                        self.observations[current_landmarks[idx]])
+
+        reached_landmarks = reached_landmarks.detach().cpu().numpy()        
+
+        # # Localization based on observation equivalence
+        # reached_landmarks = self.landmark_mode[self.landmark_mode]
+        # for i, observation in enumerate(current_observation[self.landmark_mode]):
+        #     reached_landmarks[i] = torch.allclose(observation, self.observations[current_landmarks[i]])
 
         # Increment the current landmark's visitation count
         self.visitations[current_landmarks[reached_landmarks]] += 1
 
-        if self.mode != 'eval':
-            steps_limit = self.path_lengths[self.landmark_mode] * self.steps_per_landmark
-        else:
+        if self.mode == 'eval':
             steps_limit = self.eval_steps
+        else:
+            steps_limit = self.path_lengths[self.landmark_mode] * self.steps_per_landmark
 
         steps_limit_reached = self.landmark_steps[self.landmark_mode] >= steps_limit
         reached_within_steps = self.current_landmark_steps[self.landmark_mode] < self.steps_per_landmark
