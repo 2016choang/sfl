@@ -69,7 +69,7 @@ class LandmarkAgent(FeatureDSRAgent):
         self._landmarks.oracle_distance_matrix = oracle_distance_matrix
         self.eval_envs = eval_envs 
 
-        # Add iniital landmarks
+        # Add initial landmarks
         for obs, pos in initial_landmarks:                 
             observation = torchify_buffer(obs).unsqueeze(0).float()
 

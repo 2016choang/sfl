@@ -368,7 +368,7 @@ class MinibatchDSREval(MinibatchRlEval):
         features, dsr = self.agent.get_representations(dsr_env)
         torch.save(features, os.path.join(logger.get_snapshot_dir(), 'features_itr_{}.pt'.format(itr)))
         torch.save(dsr, os.path.join(logger.get_snapshot_dir(), 'dsr_itr_{}.pt'.format(itr)))
-        subgoal = tuple(env.start_pos)
+        subgoal = tuple(env.true_goal_pos)
 
         # 3. Distance visualization in feature space
         figure = plt.figure(figsize=(7, 7))
@@ -565,6 +565,8 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         if not self.agent.landmarks:
             return
 
+        env = self.sampler.collector.envs[0]
+
         # Save landmarks data
         self.agent.landmarks.save(os.path.join(logger.get_snapshot_dir(), 'landmarks_itr_{}.npz'.format(itr)))
 
@@ -614,10 +616,11 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                                        np.average(self.agent.landmarks.dist_ratio_start_landmark), itr)
 
         # 7. Statistics related to success rates of transitions between landmarks
-        if self.agent.landmarks.success_rates:
-            logger.record_tabular_stat('LandmarkSuccessRate', np.average(self.agent.landmarks.success_rates), itr)
-            logger.record_tabular_stat('NonZeroLandmarkSuccessRate', np.average(self.agent.landmarks.non_zero_success_rates), itr)
-            logger.record_tabular_stat('ZeroSuccessEdgeRatio', np.average(self.agent.landmarks.zero_success_edge_ratio), itr)
+        overall_success_rates, interval_success_rates = self.agent.landmarks.get_oracle_success_rates(env)
+        logger.record_tabular_stat('OverallLandmarkSuccessRate',
+                                   np.average(overall_success_rates), itr)
+        logger.record_tabular_stat('IntervalLandmarkSuccessRate',
+                                   np.average(interval_success_rates), itr)
 
         self.agent.reset_logging()
 
@@ -631,7 +634,6 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         plt.close()
 
         # 9. Landmarks by spatial location
-        env = self.sampler.collector.envs[0]
         landmarks_grid = env.visited.T.copy()
         landmarks_grid[landmarks_grid == 0] = -1
         landmarks_grid[landmarks_grid != -1] = 0

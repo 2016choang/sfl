@@ -70,5 +70,6 @@
     "mode": "multiroom",
     "seed": 333,
     "tabular": false,
-    "feature": "TCF"
+    "feature": "TCF",
+    "samplers": 1
 }

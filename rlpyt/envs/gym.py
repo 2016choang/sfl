@@ -497,13 +497,16 @@ class MinigridMultiRoomLandmarkWrapper(Wrapper):
     def get_room(self, pos):
         for i, room in enumerate(self.env.rooms):
             if all(pos == room.exitDoorPos):
-                return i
+                return i, False
 
             top_left = np.array(room.top)
             bot_right = top_left + room.size - 1
             if all(top_left < pos) and all(pos < bot_right):
-                return i
+                return i, True
         raise RuntimeError
+
+    def get_doors(self):
+        return [room.exitDoorPos for room in self.env.rooms[:-1]]
 
     def step(self, action):
         obs, reward, done, info = self.env.step(action)
