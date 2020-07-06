@@ -678,10 +678,10 @@ class Landmarks(object):
         reached_within_steps = self.current_landmark_steps[self.landmark_mode] < self.steps_per_landmark
 
         # Relocalize agent which has failed to reach current landmark in steps_per_landmark
-        # if self.mode == 'eval':
-        #     relocalize_idxs = self.landmark_mode.copy()
-        #     relocalize_idxs[self.landmark_mode] &= ~reached_landmarks & ~reached_within_steps & ~final_goal_landmarks
-        #     self.set_paths(current_dsr, current_position, relocalize_idxs)
+        if self.mode == 'eval':
+            relocalize_idxs = self.landmark_mode.copy()
+            relocalize_idxs[self.landmark_mode] &= ~reached_landmarks & ~reached_within_steps & ~final_goal_landmarks
+            self.set_paths(current_dsr, current_position, relocalize_idxs)
         
         if self.mode != 'eval':
             # # In training, log landmarks are truly reached 

@@ -47,7 +47,7 @@
         "margin": 2.0
     },
     "env": {
-        "max_steps": 160,
+        "max_steps": 80,
         "start_pos": [11, 9],
         "reset_same": true,
         "terminate": false,
