@@ -26,6 +26,7 @@
         "eval_steps": 80,
         "success_threshold": 0.01,
         "sim_threshold": 1,
+        "max_attempt_threshold": 10,
         "use_oracle_start": false,
         "reach_threshold": 0.98,
         "landmark_paths": 5,

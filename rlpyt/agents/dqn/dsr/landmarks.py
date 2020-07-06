@@ -22,6 +22,8 @@ class Landmarks(object):
                  eval_steps=100,
                  success_threshold=0,
                  sim_threshold=0.9,
+                 max_attempt_threshold=10,
+                 percentile_attempt_threshold=10,
                  use_oracle_start=False,
                  landmark_paths=1,
                  reach_threshold=0.99,
@@ -450,12 +452,11 @@ class Landmarks(object):
 
         # In all modes except eval, consider edges with low numbers
         # of attempted transitions as valid starting edges
-        non_zero_attempts = self.attempts[self.attempts > 0]
         if self.mode != 'eval':
-            attempt_threshold = max(non_zero_attempts.mean() - non_zero_attempts.std(), 1)
+            attempt_threshold = min(np.percentile(self.attempts[np.triu_indices(self.num_landmarks, k=1)], self.percentile_attempt_threshold), self.max_attempt_threshold)
             low_attempt_edges = self.attempts < attempt_threshold
             non_edges[low_attempt_edges] = False            
-            landmark_distances[low_attempt_edges] = np.clip(landmark_distances[low_attempt_edges], a_min=min_dist[low_attempt_edges], a_max=None)
+            landmark_distances[low_attempt_edges] = np.clip(landmark_distances[low_attempt_edges], a_min=1, a_max=None)
 
         # Distance = -1 * np.log (transition probability)
         landmark_distances[non_edges] = 0
