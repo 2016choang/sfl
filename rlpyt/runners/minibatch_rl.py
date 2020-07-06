@@ -570,16 +570,16 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         # Save landmarks data
         self.agent.landmarks.save(os.path.join(logger.get_snapshot_dir(), 'landmarks_itr_{}.npz'.format(itr)))
 
-        # 1. Reach rate of ith landmark
-        figure = plt.figure(figsize=(7, 7))
-        landmark_true_reach_percentage = self.agent.landmarks.landmark_true_reaches / np.clip(self.agent.landmarks.landmark_attempts, 1, None)
-        ind = np.arange(len(landmark_true_reach_percentage))
-        plt.bar(ind, landmark_true_reach_percentage)
-        plt.xlabel('ith Landmark')
-        plt.ylabel('Reach Percentage')
-        plt.legend()
-        save_image('Landmarks reach rates', itr)
-        plt.close()
+        # # 1. Reach rate of ith landmark
+        # figure = plt.figure(figsize=(7, 7))
+        # landmark_true_reach_percentage = self.agent.landmarks.landmark_true_reaches / np.clip(self.agent.landmarks.landmark_attempts, 1, None)
+        # ind = np.arange(len(landmark_true_reach_percentage))
+        # plt.bar(ind, landmark_true_reach_percentage)
+        # plt.xlabel('ith Landmark')
+        # plt.ylabel('Reach Percentage')
+        # plt.legend()
+        # save_image('Landmarks reach rates', itr)
+        # plt.close()
 
         # # 2. Percent distance covered to ith landmark
         # figure = plt.figure(figsize=(7, 7))

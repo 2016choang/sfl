@@ -104,8 +104,8 @@ class Landmarks(object):
         self.success_rates = None
         self.interval_success_rates = None
         if self.interval_successes is not None and self.interval_attempts is not None:
-            self.interval_successes[:] = 0
-            self.interval_attempts[:] = 0
+            self.interval_successes.fill(0)
+            self.interval_attempts.fill(0)
 
         # Percentage of times we reach the ith landmark
         self.landmark_attempts = np.zeros(self.max_landmarks)
@@ -131,8 +131,8 @@ class Landmarks(object):
         self.successes = (self.successes * self.affinity_decay)
         self.attempts = (self.attempts * self.affinity_decay)
 
-        self.interval_successes = (self.successes * self.affinity_decay)
-        self.interval_attempts = (self.attempts * self.affinity_decay)
+        self.interval_successes = (self.interval_successes * self.affinity_decay)
+        self.interval_attempts = (self.interval_attempts * self.affinity_decay)
 
         # # Prune landmarks that do not meet similarity requirement
         # landmark_similarities = torch.matmul(self.norm_dsr, self.norm_dsr.T)
@@ -420,7 +420,7 @@ class Landmarks(object):
         overall_success_rates = self.successes / np.clip(self.attempts, 1, None)
         interval_success_rates = self.interval_successes / np.clip(self.interval_attempts, 1, None)
         
-        return overall_success_rates[oracle_edges & (self.attempts > 0)], interval_success_rates[oracle_edges & (self.attempts > 0)]
+        return overall_success_rates[oracle_edges & (self.attempts > 0)], interval_success_rates[oracle_edges & (self.interval_attempts > 0)]
 
     def generate_graph(self):
         # Generate landmark graph using empirical transitions
@@ -551,12 +551,18 @@ class Landmarks(object):
         self.entered_landmark_mode[enter_idxs] = True
         return self.entered_landmark_mode
 
-    def set_paths(self, dsr, position):
-        if not np.any(self.entered_landmark_mode):
+    def set_paths(self, dsr, position, relocalize_idxs=None):
+        if relocalize_idxs is None:
+            set_paths_idxs = self.entered_landmark_mode.copy()
+            self.entered_landmark_mode[self.entered_landmark_mode] = False
+        else:
+            set_paths_idxs = relocalize_idxs
+
+        if not np.any(set_paths_idxs):
             return
         
-        norm_dsr = dsr[self.entered_landmark_mode]
-        selected_position = position[self.entered_landmark_mode]
+        norm_dsr = dsr[set_paths_idxs]
+        selected_position = position[set_paths_idxs]
 
         norm_dsr = norm_dsr.mean(dim=1) / torch.norm(norm_dsr.mean(dim=1), p=2, keepdim=True)
         landmark_similarity = torch.matmul(self.norm_dsr, norm_dsr.T)
@@ -564,24 +570,33 @@ class Landmarks(object):
         # Select start landmarks based on SF similarity w.r.t. current observations
         start_landmarks = landmark_similarity.argmax(axis=0).cpu().detach().numpy()
 
-        if self.mode == 'eval':
-            goal_landmarks = np.full(sum(self.entered_landmark_mode), 0, dtype=int)
+        if relocalize_idxs is None:
+            if self.mode == 'eval':
+                goal_landmarks = np.full(sum(set_paths_idxs), 0, dtype=int)
+            else:
+                # Select goal landmarks with probability given by inverse of visitation count
+                # visitations = np.clip(self.visitations, 1, None)
+                visitations = np.clip(self.successes.sum(axis=1), 1, None)
+                visitations[0] = max(visitations[1:].min(), visitations[0])
+
+                inverse_visitations = 1. / visitations
+                landmark_probabilities = inverse_visitations / inverse_visitations.sum()
+                goal_landmarks = np.random.choice(range(len(landmark_probabilities)),
+                                                size=len(start_landmarks),
+                                                replace=True,
+                                                p=landmark_probabilities)
         else:
-            # Select goal landmarks with probability given by inverse of visitation count
-            # visitations = np.clip(self.visitations, 1, None)
-            visitations = np.clip(self.successes.sum(axis=1), 1, None)
-            visitations[0] = max(visitations[1:].min(), visitations[0])
+            prev_start_landmarks = self.paths[relocalize_idxs, 0]
+            goal_landmarks = self.paths[relocalize_idxs, self.path_lengths[relocalize_idxs] - 1]
+            self.current_landmark_steps[relocalize_idxs] = 0
+            self.last_landmarks[relocalize_idxs] = -1
 
-            inverse_visitations = 1. / visitations
-            landmark_probabilities = inverse_visitations / inverse_visitations.sum()
-            goal_landmarks = np.random.choice(range(len(landmark_probabilities)),
-                                            size=len(start_landmarks),
-                                            replace=True,
-                                            p=landmark_probabilities)
+        enter_idxs = np.arange(self.num_envs)[set_paths_idxs]
 
-        enter_idxs = np.arange(self.num_envs)[self.entered_landmark_mode]
+        for i, enter_idx, start_pos, start_landmark, goal_landmark in zip(range(len(enter_idxs)), enter_idxs, selected_position, start_landmarks, goal_landmarks):
+            if relocalize_idxs is not None and start_landmark == prev_start_landmarks[i]:
+                continue
 
-        for enter_idx, start_pos, start_landmark, goal_landmark in zip(enter_idxs, selected_position, start_landmarks, goal_landmarks):
             self.start_positions[enter_idx] = start_pos
             cur_x, cur_y = start_pos
 
@@ -614,14 +629,14 @@ class Landmarks(object):
 
             path = self.generate_path(start_landmark, goal_landmark)
             path_length = len(path)
-            self.paths[enter_idx][:path_length] = path
+            if relocalize_idxs is not None:
+                self.paths[enter_idx, :] = -1
+            self.paths[enter_idx, :path_length] = path            
             self.path_lengths[enter_idx] = path_length
-
-            # Log that we attempted to reach each landmark in the path
-            if self.mode != 'eval':
-                self.landmark_attempts[:path_length] += 1
             
-            self.entered_landmark_mode[enter_idx] = False
+            # # Log that we attempted to reach each landmark in the path
+            # if self.mode != 'eval':
+            #     self.landmark_attempts[:path_length] += 1
 
     def get_landmarks_data(self, current_observation, current_dsr, current_position):
         if not np.any(self.landmark_mode):
@@ -644,7 +659,7 @@ class Landmarks(object):
                 reached_landmarks[idx] = torch.allclose(current_observation[self.landmark_mode][idx],
                                                         self.observations[current_landmarks[idx]])
 
-        reached_landmarks = reached_landmarks.detach().cpu().numpy()        
+        reached_landmarks = reached_landmarks.detach().cpu().numpy() 
 
         # # Localization based on observation equivalence
         # reached_landmarks = self.landmark_mode[self.landmark_mode]
@@ -661,11 +676,17 @@ class Landmarks(object):
 
         steps_limit_reached = self.landmark_steps[self.landmark_mode] >= steps_limit
         reached_within_steps = self.current_landmark_steps[self.landmark_mode] < self.steps_per_landmark
+
+        # Relocalize agent which has failed to reach current landmark in steps_per_landmark
+        # if self.mode == 'eval':
+        #     relocalize_idxs = self.landmark_mode.copy()
+        #     relocalize_idxs[self.landmark_mode] &= ~reached_landmarks & ~reached_within_steps & ~final_goal_landmarks
+        #     self.set_paths(current_dsr, current_position, relocalize_idxs)
         
         if self.mode != 'eval':
-            # In training, log landmarks are truly reached 
-            reaches = np.bincount(current_landmarks[reached_landmarks])
-            self.landmark_true_reaches[:len(reaches)] += reaches
+            # # In training, log landmarks are truly reached 
+            # reaches = np.bincount(current_landmarks[reached_landmarks])
+            # self.landmark_true_reaches[:len(reaches)] += reaches
 
             # Update landmark transition success rates
             last_landmarks = self.last_landmarks[self.landmark_mode]
@@ -724,6 +745,7 @@ class Landmarks(object):
 
         # Increment landmark step counter
         self.landmark_steps[self.landmark_mode] += 1
+        self.current_landmark_steps[self.landmark_mode] += 1
 
         # In training, increment explore step counter
         if self.mode != 'eval':
