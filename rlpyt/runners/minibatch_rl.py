@@ -547,6 +547,8 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                         save_image('Eval visitations and end positions', itr)
                         plt.close()
                 
+                        logger.record_tabular_stat('PercentReachedGoal',
+                                                   self.agent.landmarks.eval_times_reached_goal / len(eval_traj_infos), itr)
                     self.agent.sample_mode(itr)
 
                 # Log successor features information
@@ -616,13 +618,35 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                                        np.average(self.agent.landmarks.dist_ratio_start_landmark), itr)
 
         # 7. Statistics related to success rates of transitions between landmarks
-        overall_success_rates, interval_success_rates = self.agent.landmarks.get_oracle_success_rates(env)
+        oracle_edges = self.agent.landmarks.get_oracle_edges(env)
+        overall_success_rates = self.agent.landmarks.successes / np.clip(self.agent.landmarks.attempts, 1, None)
+        oracle_overall_success_rates = overall_success_rates[oracle_edges & (self.agent.landmarks.attempts > 0)]
+        interval_success_rates = self.agent.landmarks.interval_successes / np.clip(self.agent.landmarks.interval_attempts, 1, None)
+        oracle_interval_success_rates = interval_success_rates[oracle_edges & (self.agent.landmarks.interval_attempts > 0)]
         logger.record_tabular_stat('OverallLandmarkSuccessRate',
-                                   np.average(overall_success_rates), itr)
+                                   np.average(oracle_overall_success_rates), itr)
         logger.record_tabular_stat('IntervalLandmarkSuccessRate',
-                                   np.average(interval_success_rates), itr)
+                                   np.average(oracle_interval_success_rates), itr)
 
-        self.agent.reset_logging()
+        G = nx.from_numpy_array(oracle_edges.astype(int))
+        pos = nx.circular_layout(G)
+
+        nx.draw_networkx_nodes(G, pos, node_size=600)
+        nx.draw_networkx_edges(G, pos, edgelist=G.edges, width=6, edge_color='black')
+
+        edge_labels = nx.get_edge_attributes(G, 'weight')
+        for k, _ in edge_labels.items():
+            if self.agent.landmarks.attempts[k] > 0:
+                edge_label = round(overall_success_rates[k], 3)
+            else:
+                edge_label = -1
+            edge_labels[k] = edge_label
+
+        nx.draw_networkx_labels(G, pos, font_size=8, font_family='sans-serif')
+        nx.draw_networkx_edge_labels(G, pos, font_size=10, font_family='sans-serif', edge_labels=edge_labels)
+        plt.axis('off')
+        save_image('Oracle landmarks graph', itr)
+        plt.close()
 
         # 8. Visitation counts of landmarks
         figure = plt.figure(figsize=(7, 7))
@@ -691,6 +715,11 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
 
         # 12. Landmarks add threshold (dynamically adjusted)
         logger.record_tabular_stat('Add Threshold', self.agent.landmarks.add_threshold, itr)
+
+        # 13. Landmarks low attempt threshold
+        logger.record_tabular_stat('Low Attempt Threshold', self.agent.landmarks.get_low_attempt_threshold(use_max=False), itr)
+
+        self.agent.reset_logging()
 
     def evaluate_agent(self, itr):
         # Evaluate agent using landmark mode

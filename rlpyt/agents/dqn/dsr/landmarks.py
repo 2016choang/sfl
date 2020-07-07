@@ -77,6 +77,7 @@ class Landmarks(object):
 
         self.eval_end_pos = {}
         self.eval_distances = []
+        self.eval_times_reached_goal = 0
 
         self.reset_logging()
 
@@ -358,7 +359,7 @@ class Landmarks(object):
             self.dsr = torch.cat((self.dsr, dsr), dim=0)
             self.norm_dsr = torch.cat((self.norm_dsr, norm_dsr), dim=0)
 
-    def get_oracle_success_rates(self, env):
+    def get_oracle_edges(self, env):
         num_rooms = len(env.rooms)
         door_pos = env.get_doors()
         num_doors = len(door_pos)
@@ -417,10 +418,13 @@ class Landmarks(object):
 
                 oracle_edges[i, j] = edge_exists
 
-        overall_success_rates = self.successes / np.clip(self.attempts, 1, None)
-        interval_success_rates = self.interval_successes / np.clip(self.interval_attempts, 1, None)
-        
-        return overall_success_rates[oracle_edges & (self.attempts > 0)], interval_success_rates[oracle_edges & (self.interval_attempts > 0)]
+        return oracle_edges
+
+    def get_low_attempt_threshold(self, use_max=True):
+        threshold = np.percentile(self.attempts[np.triu_indices(self.num_landmarks, k=1)], self.percentile_attempt_threshold)
+        if use_max:
+            threshold = min(threshold, self.max_attempt_threshold)
+        return threshold
 
     def generate_graph(self):
         # Generate landmark graph using empirical transitions
@@ -453,8 +457,8 @@ class Landmarks(object):
         # In all modes except eval, consider edges with low numbers
         # of attempted transitions as valid starting edges
         if self.mode != 'eval':
-            attempt_threshold = min(np.percentile(self.attempts[np.triu_indices(self.num_landmarks, k=1)], self.percentile_attempt_threshold), self.max_attempt_threshold)
-            low_attempt_edges = self.attempts < attempt_threshold
+            attempt_threshold = self.get_low_attempt_threshold()
+            low_attempt_edges = self.attempts <= attempt_threshold
             non_edges[low_attempt_edges] = False            
             landmark_distances[low_attempt_edges] = np.clip(landmark_distances[low_attempt_edges], a_min=1, a_max=None)
 
@@ -589,6 +593,8 @@ class Landmarks(object):
             prev_start_landmarks = self.paths[relocalize_idxs, 0]
             goal_landmarks = self.paths[relocalize_idxs, self.path_lengths[relocalize_idxs] - 1]
             self.current_landmark_steps[relocalize_idxs] = 0
+            self.paths[relocalize_idxs, :] = -1
+            self.path_idxs[relocalize_idxs, :] = 0
             self.last_landmarks[relocalize_idxs] = -1
 
         enter_idxs = np.arange(self.num_envs)[set_paths_idxs]
@@ -629,8 +635,6 @@ class Landmarks(object):
 
             path = self.generate_path(start_landmark, goal_landmark)
             path_length = len(path)
-            if relocalize_idxs is not None:
-                self.paths[enter_idx, :] = -1
             self.paths[enter_idx, :path_length] = path            
             self.path_lengths[enter_idx] = path_length
             
@@ -677,11 +681,11 @@ class Landmarks(object):
         steps_limit_reached = self.landmark_steps[self.landmark_mode] >= steps_limit
         reached_within_steps = self.current_landmark_steps[self.landmark_mode] < self.steps_per_landmark
 
-        # Relocalize agent which has failed to reach current landmark in steps_per_landmark
-        if self.mode == 'eval':
-            relocalize_idxs = self.landmark_mode.copy()
-            relocalize_idxs[self.landmark_mode] &= ~reached_landmarks & ~reached_within_steps & ~final_goal_landmarks
-            self.set_paths(current_dsr, current_position, relocalize_idxs)
+        # # Relocalize agent which has failed to reach current landmark in steps_per_landmark
+        # if self.mode == 'eval':
+        #     relocalize_idxs = self.landmark_mode.copy()
+        #     relocalize_idxs[self.landmark_mode] &= ~reached_landmarks & ~reached_within_steps & ~final_goal_landmarks
+        #     self.set_paths(current_dsr, current_position, relocalize_idxs)
         
         if self.mode != 'eval':
             # # In training, log landmarks are truly reached 
@@ -733,6 +737,7 @@ class Landmarks(object):
             for end_position, end_landmark in zip(end_positions, end_landmarks):
                 self.eval_end_pos[tuple(end_position)] = end_landmark
             self.eval_distances.extend(end_distance.tolist())
+            self.eval_times_reached_goal += reached_goal_landmarks.sum()
         else:
             # In train, log end/start distance to goal ratio
             start_positions = self.start_positions[self.landmark_mode][reached_goal_landmarks | steps_limit_reached]
