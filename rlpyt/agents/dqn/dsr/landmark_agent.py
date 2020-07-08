@@ -125,6 +125,14 @@ class LandmarkAgent(FeatureDSRAgent):
             self.landmarks.generate_graph()
 
     @torch.no_grad()
+    def get_norms(self):
+        start_features_norm = torch.norm(self.landmarks.features[1], p=2).item()
+        start_s_features_norm = torch.norm(self.landmarks.dsr[1], p=2).item()
+        goal_features_norm = torch.norm(self.landmarks.features[0], p=2).item()
+        goal_s_features_norm = torch.norm(self.landmarks.dsr[0], p=2).item()
+        return start_features_norm, start_s_features_norm, goal_features_norm, goal_s_features_norm
+
+    @torch.no_grad()
     def step(self, observation, prev_action, prev_reward, position=None):
         # Default exploration (uniform random) policy
         action = torch.randint_like(prev_action, high=self.distribution.dim)

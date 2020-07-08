@@ -516,6 +516,11 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                 # Update representations of landmarks
                 if (itr + 1) % self.update_landmarks_interval_itrs == 0:
                     self.agent.update_landmarks(itr)
+                    start_features_norm, start_s_features_norm, goal_features_norm, goal_s_features_norm = self.agent.get_norms()
+                    logger.record_tabular_stat('StartFeaturesNorm', start_features_norm, itr)
+                    logger.record_tabular_stat('StartSuccessorFeaturesNorm', start_s_features_norm, itr)
+                    logger.record_tabular_stat('GoalFeaturesNorm', goal_features_norm, itr)
+                    logger.record_tabular_stat('GoalSuccessorFeaturesNorm', goal_s_features_norm, itr)
 
                 # Evaluate agent
                 if (itr + 1) % self.log_interval_itrs == 0:
@@ -627,12 +632,14 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                                    np.average(oracle_overall_success_rates), itr)
         logger.record_tabular_stat('IntervalLandmarkSuccessRate',
                                    np.average(oracle_interval_success_rates), itr)
-
-        G = nx.from_numpy_array(oracle_edges.astype(int))
+        
+        figure = plt.figure(figsize=(7, 7))
+        oracle_edges = np.maximum(oracle_edges, oracle_edges.T)
+        G = nx.from_numpy_array(oracle_edges.astype(int), create_using=nx.DiGraph)
         pos = nx.circular_layout(G)
 
         nx.draw_networkx_nodes(G, pos, node_size=600)
-        nx.draw_networkx_edges(G, pos, edgelist=G.edges, width=6, edge_color='black')
+        nx.draw_networkx_edges(G, pos, edgelist=G.edges, width=2, edge_color='black')
 
         edge_labels = nx.get_edge_attributes(G, 'weight')
         for k, _ in edge_labels.items():
@@ -643,7 +650,7 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
             edge_labels[k] = edge_label
 
         nx.draw_networkx_labels(G, pos, font_size=8, font_family='sans-serif')
-        nx.draw_networkx_edge_labels(G, pos, font_size=10, font_family='sans-serif', edge_labels=edge_labels)
+        nx.draw_networkx_edge_labels(G, pos, font_size=6, font_family='sans-serif', edge_labels=edge_labels, connectionstyle='arc3,rad=0.1')
         plt.axis('off')
         save_image('Oracle landmarks graph', itr)
         plt.close()
@@ -696,14 +703,14 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                 non_zero_edges[index] = edge_info
         
         nx.draw_networkx_nodes(G, pos, node_size=600)
-        nx.draw_networkx_edges(G, pos, edgelist=non_zero_edges, width=6, edge_color='black')
-        nx.draw_networkx_edges(G, pos, edgelist=zero_edges, width=6, edge_color='red')
+        nx.draw_networkx_edges(G, pos, edgelist=non_zero_edges, width=2, edge_color='black', connectionstyle='arc3,rad=0.1')
+        nx.draw_networkx_edges(G, pos, edgelist=zero_edges, width=2, edge_color='red', connectionstyle='arc3,rad=0.1')
 
         edge_labels = nx.get_edge_attributes(G, 'weight')
         for k, v in edge_labels.items():
             edge_labels[k] = round(v, 3)
         nx.draw_networkx_labels(G, pos, font_size=8, font_family='sans-serif')
-        nx.draw_networkx_edge_labels(G, pos, font_size=10, font_family='sans-serif', edge_labels=edge_labels)
+        nx.draw_networkx_edge_labels(G, pos, font_size=6, font_family='sans-serif', edge_labels=edge_labels)
         plt.axis('off')
         save_image('Landmarks graph', itr)
         plt.close()

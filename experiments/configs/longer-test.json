@@ -19,7 +19,7 @@
         "use_soft_q": false
     },
     "landmarks": {
-        "max_landmarks": 20,
+        "max_landmarks": 3,
         "add_threshold": 0.90,
         "landmark_mode_interval": 50,
         "steps_per_landmark": 10,
@@ -81,5 +81,5 @@
     "seed": 333,
     "tabular": false,
     "feature": "TCF",
-    "samplers": 1
+    "samplers": 4
 }

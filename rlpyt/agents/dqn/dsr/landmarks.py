@@ -27,6 +27,7 @@ class Landmarks(object):
                  use_oracle_start=False,
                  landmark_paths=1,
                  reach_threshold=0.99,
+                 eval_final_reach_threshold=0.99,
                  affinity_decay=0.9,
                  oracle_edge_threshold=7
                 ):
@@ -132,8 +133,8 @@ class Landmarks(object):
         self.successes = (self.successes * self.affinity_decay)
         self.attempts = (self.attempts * self.affinity_decay)
 
-        self.interval_successes = (self.interval_successes * self.affinity_decay)
-        self.interval_attempts = (self.interval_attempts * self.affinity_decay)
+        # self.interval_successes = (self.interval_successes * self.affinity_decay)
+        # self.interval_attempts = (self.interval_attempts * self.affinity_decay)
 
         # # Prune landmarks that do not meet similarity requirement
         # landmark_similarities = torch.matmul(self.norm_dsr, self.norm_dsr.T)
@@ -297,19 +298,27 @@ class Landmarks(object):
 
                 # Replace existing landmark
                 else:
-                    # Find two landmarks most similar to each other, select one most similar to candidate
-                    landmark_similarities = torch.matmul(self.norm_dsr, self.norm_dsr.T)
+                    # # Find two landmarks most similar to each other, select one most similar to candidate
+                    # landmark_similarities = torch.matmul(self.norm_dsr, self.norm_dsr.T)
 
-                    # Do not replace initial landmarks (first two indices)
-                    landmark_similarities[0:2, :] = -2
-                    landmark_similarities[:, 0:2] = -2
-                    landmark_similarities[range(self.num_landmarks), range(self.num_landmarks)] = -2
-                    idx = landmark_similarities.argmax().item()
-                    a, b = (idx // self.num_landmarks), (idx % self.num_landmarks)
-                    if similarity[a] > similarity[b]:
-                        replace_idx = a
-                    else:
-                        replace_idx = b
+                    # # Do not replace initial landmarks (first two indices)
+                    # landmark_similarities[0:2, :] = -2
+                    # landmark_similarities[:, 0:2] = -2
+                    # landmark_similarities[range(self.num_landmarks), range(self.num_landmarks)] = -2
+                    # idx = landmark_similarities.argmax().item()
+                    # a, b = (idx // self.num_landmarks), (idx % self.num_landmarks)
+                    # if similarity[a] > similarity[b]:
+                    #     replace_idx = a
+                    # else:
+                    #     replace_idx = b
+
+                    success_rates = self.successes / np.clip(self.attempts, 1, None)
+                    landmark_success_rates = success_rates.max(axis=0)
+                    landmark_attempts = -1 * self.attempts.sum(axis=0)
+
+                    candidates = list(zip(landmark_success_rates[2:], landmark_attempts[2:], range(2, self.num_landmarks)))
+                    replace_idx = sorted(candidates)[0][2] 
+
                     self.observations[replace_idx] = observation
                     self.set_features(features, replace_idx)
                     self.set_dsr(dsr, replace_idx)
@@ -378,7 +387,6 @@ class Landmarks(object):
         oracle_edges = np.zeros((N, N), dtype=bool)
         observations = self.observations.cpu().detach().numpy()
 
-
         for i in range(N):
             for j in range(i + 1, N):
                 pos_i = self.positions[i]
@@ -400,9 +408,9 @@ class Landmarks(object):
                             edge_exists = True
                         elif num_same_doors == (num_doors - 1):
                             if room_i == 0:
-                                edge_exists = door_states_compared[room_i]
+                                edge_exists = not door_states_compared[room_i]
                             elif room_i == (num_rooms - 1):
-                                edge_exists = door_states_compared[room_i - 1]
+                                edge_exists = not door_states_compared[room_i - 1]
                             else:
                                 edge_exists = door_states_compared[room_i] ^ door_states_compared[room_i - 1]
                     elif abs(room_i - room_j) == 1:
@@ -475,8 +483,8 @@ class Landmarks(object):
         # Augment G with edges until it is connected
         # Edges are sorted by success rate, then similarity
         self.zero_edge_indices = set()
-        G = nx.from_numpy_array(landmark_distances)
-        if not nx.is_connected(G):
+        G = nx.from_numpy_array(landmark_distances, create_using=nx.DiGraph)
+        if not nx.is_strongly_connected(G):
             avail = []
             for index, x in np.ndenumerate(similarities):
                 if non_edges[index]:
@@ -491,12 +499,12 @@ class Landmarks(object):
 
                 landmark_distances[(u, v)] = dist
                 
-                G = nx.from_numpy_array(landmark_distances)
+                G = nx.from_numpy_array(landmark_distances, create_using=nx.DiGraph)
 
                 if success_rate <= 0:
                     self.zero_edge_indices.add((u, v))
 
-                if nx.is_connected(G):
+                if nx.is_strongly_connected(G):
                     break
         
         self.graph = G
@@ -656,12 +664,9 @@ class Landmarks(object):
         landmark_similarity = torch.sum(norm_dsr * self.norm_dsr[current_landmarks], dim=1)
         reached_landmarks = landmark_similarity > self.reach_threshold
         
-        # If eval mode, final landmark localization based on observation equivalence
+        # If eval mode, final landmark localization is stricter
         if self.mode == 'eval':
-            final_goal_idxs = np.arange(len(reached_landmarks))[final_goal_landmarks]
-            for idx in final_goal_idxs:
-                reached_landmarks[idx] = torch.allclose(current_observation[self.landmark_mode][idx],
-                                                        self.observations[current_landmarks[idx]])
+            reached_landmarks[final_goal_landmarks] = landmark_similarity > self.eval_final_reach_threshold
 
         reached_landmarks = reached_landmarks.detach().cpu().numpy() 
 
@@ -700,21 +705,15 @@ class Landmarks(object):
             success_last_landmarks = last_landmarks[successful_transitions]
             success_current_landmarks = current_landmarks[successful_transitions]
             self.successes[success_last_landmarks, success_current_landmarks] += 1
-            self.successes[success_current_landmarks, success_last_landmarks] += 1
             self.attempts[success_last_landmarks, success_current_landmarks] += 1
-            self.attempts[success_current_landmarks, success_last_landmarks] += 1
             self.interval_successes[success_last_landmarks, success_current_landmarks] += 1
-            self.interval_successes[success_current_landmarks, success_last_landmarks] += 1
             self.interval_attempts[success_last_landmarks, success_current_landmarks] += 1
-            self.interval_attempts[success_current_landmarks, success_last_landmarks] += 1
 
             failed_transitions = reached_last_landmarks & ~reached_landmarks & (~reached_within_steps | steps_limit_reached)
             fail_last_landmarks = last_landmarks[failed_transitions]
             fail_current_landmarks = current_landmarks[failed_transitions]
             self.attempts[fail_last_landmarks, fail_current_landmarks] += 1
-            self.attempts[fail_current_landmarks, fail_last_landmarks] += 1
             self.interval_attempts[fail_last_landmarks, fail_current_landmarks] += 1
-            self.interval_attempts[fail_current_landmarks, fail_last_landmarks] += 1
 
         # If reached (not goal) landmark, move to next landmark
         reached_non_goal_landmarks = reached_landmarks & ~final_goal_landmarks
