@@ -19,7 +19,6 @@ class Landmarks(object):
                  landmarks_per_update=None,
                  landmark_mode_interval=100,
                  steps_per_landmark=10,
-                 eval_steps=100,
                  success_threshold=0,
                  sim_threshold=0.9,
                  max_attempt_threshold=10,
@@ -27,7 +26,6 @@ class Landmarks(object):
                  use_oracle_start=False,
                  landmark_paths=1,
                  reach_threshold=0.99,
-                 eval_final_reach_threshold=0.99,
                  affinity_decay=0.9,
                  oracle_edge_threshold=7
                 ):
@@ -78,7 +76,6 @@ class Landmarks(object):
 
         self.eval_end_pos = {}
         self.eval_distances = []
-        self.eval_times_reached_goal = 0
 
         self.reset_logging()
 
@@ -650,6 +647,16 @@ class Landmarks(object):
             # if self.mode != 'eval':
             #     self.landmark_attempts[:path_length] += 1
 
+    def log_eval(self, idx, pos):
+        # In eval, log end position trying to reach goal and distance away from goal
+        current_idx = self.path_idxs[idx]
+        current_landmark = self.paths[idx, current_idx]
+        self.eval_end_pos[tuple(pos)] = current_landmark
+
+        goal_pos = self.positions[idx]
+        end_distance = self.oracle_distance_matrix[pos[0], pos[1], goal_pos[0], goal_pos[1]]
+        self.eval_distances.append(end_distance)
+
     def get_landmarks_data(self, current_observation, current_dsr, current_position):
         if not np.any(self.landmark_mode):
             return None, self.landmark_mode
@@ -664,9 +671,9 @@ class Landmarks(object):
         landmark_similarity = torch.sum(norm_dsr * self.norm_dsr[current_landmarks], dim=1)
         reached_landmarks = landmark_similarity > self.reach_threshold
         
-        # If eval mode, final landmark localization is stricter
+        # If eval mode, keep trying to reach goal
         if self.mode == 'eval':
-            reached_landmarks[final_goal_landmarks] = landmark_similarity > self.eval_final_reach_threshold
+            reached_landmarks[final_goal_landmarks] = False
 
         reached_landmarks = reached_landmarks.detach().cpu().numpy() 
 
@@ -678,12 +685,12 @@ class Landmarks(object):
         # Increment the current landmark's visitation count
         self.visitations[current_landmarks[reached_landmarks]] += 1
 
-        if self.mode == 'eval':
-            steps_limit = self.eval_steps
-        else:
+        if self.mode != 'eval':
             steps_limit = self.path_lengths[self.landmark_mode] * self.steps_per_landmark
+            steps_limit_reached = self.landmark_steps[self.landmark_mode] >= steps_limit
+        else:
+            steps_limit_reached = False
 
-        steps_limit_reached = self.landmark_steps[self.landmark_mode] >= steps_limit
         reached_within_steps = self.current_landmark_steps[self.landmark_mode] < self.steps_per_landmark
 
         # # Relocalize agent which has failed to reach current landmark in steps_per_landmark
@@ -730,14 +737,7 @@ class Landmarks(object):
         goal_positions = self.positions[goal_landmarks]
         end_distance = self.oracle_distance_matrix[end_positions[:, 0], end_positions[:, 1], goal_positions[:, 0], goal_positions[:, 1]]
 
-        if self.mode == 'eval':
-            # In eval, log end position trying to reach goal and distance away from goal
-            end_landmarks = current_landmarks[reached_goal_landmarks | steps_limit_reached]
-            for end_position, end_landmark in zip(end_positions, end_landmarks):
-                self.eval_end_pos[tuple(end_position)] = end_landmark
-            self.eval_distances.extend(end_distance.tolist())
-            self.eval_times_reached_goal += reached_goal_landmarks.sum()
-        else:
+        if self.mode != 'eval':
             # In train, log end/start distance to goal ratio
             start_positions = self.start_positions[self.landmark_mode][reached_goal_landmarks | steps_limit_reached]
             start_distance = self.oracle_distance_matrix[start_positions[:, 0], start_positions[:, 1], goal_positions[:, 0], goal_positions[:, 1]]

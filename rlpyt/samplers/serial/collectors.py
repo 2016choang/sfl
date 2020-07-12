@@ -103,8 +103,8 @@ class SerialLandmarksEvalCollector(BaseEvalCollector):
             for b, env in enumerate(self.envs):
                 o, r, d, env_info = env.step(action[b])
                 self.env_positions[b] = env.agent_pos
-                if not self.agent.get_landmark_mode(b):
-                    d = True
+                if d:
+                    self.agent.log_eval(b, self.env_positions[b])
                 traj_infos[b].step(observation[b], action[b], r, d,
                     agent_info[b], env_info)
                 if getattr(env_info, "traj_done", d):

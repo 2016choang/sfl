@@ -388,19 +388,16 @@ class MinigridMultiRoomOracleWrapper(Wrapper):
 class MinigridMultiRoomLandmarkWrapper(Wrapper):
     # 0 -- right, 1 -- down, 2 -- left, 3 -- up
 
-    def __init__(self, env, true_goal_pos=[16, 19], use_doors=False):
+    def __init__(self, env, use_doors=False):
         self.env = env
         self.use_doors = use_doors
 
         self.observation_space = env.observation_space
         
         if self.use_doors:
-            self.action_space = Discrete(5)
-        else:
             self.action_space = Discrete(4)
-
-        # TODO: Hard-coded state next to goal state for now!
-        self.true_goal_pos = np.array(true_goal_pos)
+        else:
+            self.action_space = Discrete(3)
 
         self.visited = np.zeros((self.env.grid.height, self.env.grid.width), dtype=int)
 
@@ -544,7 +541,7 @@ class MinigridMultiRoomLandmarkWrapper(Wrapper):
 
             self.env.env.unwrapped.agent_pos = open_door_pos
             self.env.env.unwrapped.agent_dir = exit_door_direction
-            self.env.step(4)
+            self.env.step(3)
 
             self.exit_door_directions.append(exit_door_direction)
 
@@ -576,6 +573,7 @@ class MinigridMultiRoomWrapper(Wrapper):
                  max_steps=500,
                  terminate=False,
                  start_pos=None,
+                 true_goal_pos=[16, 19],
                  reset_same=False,
                  reset_episodes=1):
         super().__init__(env)
@@ -585,7 +583,7 @@ class MinigridMultiRoomWrapper(Wrapper):
         self.size = size
         self.encoding = encoding
 
-        self.steps_remaining = max_steps
+        self.num_steps = 0
         self.max_steps = max_steps
         self.terminate = terminate
 
@@ -594,6 +592,7 @@ class MinigridMultiRoomWrapper(Wrapper):
             self.start_pos = np.array(start_pos)
         else:
             self.start_pos = None
+        self.true_goal_pos = np.array(true_goal_pos)
         self.reset_episodes = reset_episodes
         self.episodes = 0
 
@@ -606,7 +605,7 @@ class MinigridMultiRoomWrapper(Wrapper):
         else:
             raise NotImplementedError
 
-        self.action_space = Discrete(5)
+        self.action_space = Discrete(4)
 
     def get_current_state(self):
         self.env.step(0)
@@ -633,22 +632,30 @@ class MinigridMultiRoomWrapper(Wrapper):
         return self.env.place_agent(room.top, room.size)
 
     def step(self, action):
-        # 0 -- right, 1 -- down, 2 -- left, 3 -- up, 4 - toggle doors
-        if action == 4:
-            obs, reward, done, info = self.env.step(5)
+        # 0 -- turn left, 1 -- turn right, 2 -- move forward, 3 -- toggle door
+        if action == 3:
+            obs, _, _, info = self.env.step(5)
         else:
-            self.env.unwrapped.agent_dir = action
-            obs, reward, done, info = self.env.step(2)
+            obs, _, _, info = self.env.step(action)
 
-        self.steps_remaining -= 1        
+        reward = 0
+        done = (self.env.unwrapped.agent_pos == self.true_goal_pos).all()
+        
+        if done:
+            reward = self._reward()
+
+        self.num_steps += 1
         if not self.terminate or not done:
-            done = self.steps_remaining == 0
+            done = self.num_steps >= self.max_steps
         
         obs = self.get_obs(obs)
         return obs, reward, done, info
 
+    def _reward(self):
+        return 1 - 0.9 * (self.num_steps / self.max_steps)
+
     def reset_episode(self):
-        self.steps_remaining = self.max_steps
+        self.num_steps = 0
 
     def reset(self, **kwargs):
         self.env.reset()
@@ -1000,7 +1007,8 @@ def make(*args, info_example=None, mode=None, minigrid_config=None, **kwargs):
                     env = FullyObsWrapper(env)
                 else:
                     env = RGBImgObsWrapper(env)
-            env = MinigridMultiRoomWrapper(env, num_rooms=num_rooms, size=size, encoding=encoding, max_steps=max_steps, terminate=terminate, start_pos=start_pos, reset_same=reset_same, reset_episodes=reset_episodes)
+            env = MinigridMultiRoomWrapper(env, num_rooms=num_rooms, size=size, encoding=encoding, max_steps=max_steps, terminate=terminate,
+                                           start_pos=start_pos, true_goal_pos=true_goal_pos, reset_same=reset_same, reset_episodes=reset_episodes)
             
             oracle = minigrid_config.get('oracle', False)
             if oracle:
@@ -1008,7 +1016,7 @@ def make(*args, info_example=None, mode=None, minigrid_config=None, **kwargs):
                 env = MinigridMultiRoomOracleWrapper(env, epsilon=epsilon)
             else:
                 use_doors = minigrid_config.get('use_doors', False)
-                env = MinigridMultiRoomLandmarkWrapper(env, true_goal_pos, use_doors)
+                env = MinigridMultiRoomLandmarkWrapper(env, use_doors)
             return GymEnvWrapper(env)
         elif mode == 'fourroom':
             goal_pos = minigrid_config.get('goal_pos', None)

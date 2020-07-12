@@ -552,8 +552,6 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                         save_image('Eval visitations and end positions', itr)
                         plt.close()
                 
-                        logger.record_tabular_stat('PercentReachedGoal',
-                                                   self.agent.landmarks.eval_times_reached_goal / len(eval_traj_infos), itr)
                     self.agent.sample_mode(itr)
 
                 # Log successor features information

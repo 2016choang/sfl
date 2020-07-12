@@ -23,7 +23,6 @@
         "add_threshold": 0.90,
         "landmark_mode_interval": 50,
         "steps_per_landmark": 10,
-        "eval_steps": 80,
         "success_threshold": 0.01,
         "sim_threshold": 1,
         "max_attempt_threshold": 10,
@@ -47,7 +46,7 @@
         "margin": 2.0
     },
     "env": {
-        "max_steps": 160,
+        "max_steps": 80,
         "start_pos": [11, 9],
         "reset_same": true,
         "terminate": false,
@@ -59,10 +58,10 @@
         "seed": 1
     },
     "eval_env": {
-        "max_steps": 160,
+        "max_steps": 80,
         "start_pos": [11, 9],
         "reset_same": true,
-        "terminate": false,
+        "terminate": true,
         "encoding": "obj",
         "use_doors": true,
         "num_rooms": 4,
