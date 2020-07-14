@@ -603,11 +603,14 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                                        np.average(self.agent.landmarks.dist_ratio_start_landmark), itr)
 
         # 7. Statistics related to success rates of transitions between landmarks
+        overall_success_rates = self.agent.landmarks.successes / np.clip(self.agent.landmarks.attempts, 1, None)
+        interval_success_rates = self.agent.landmarks.interval_successes / np.clip(self.agent.landmarks.interval_attempts, 1, None)
+
         if hasattr(env, 'rooms'):
             oracle_edges = self.agent.landmarks.get_oracle_edges(env)
             figure = plt.figure(figsize=(7, 7))
-            oracle_edges = np.maximum(oracle_edges, oracle_edges.T)
-            G = nx.from_numpy_array(oracle_edges.astype(int), create_using=nx.DiGraph)
+            oracle_edges_matrix = np.maximum(oracle_edges, oracle_edges.T)
+            G = nx.from_numpy_array(oracle_edges_matrix.astype(int), create_using=nx.DiGraph)
             pos = nx.circular_layout(G)
 
             nx.draw_networkx_nodes(G, pos, node_size=600)
@@ -629,9 +632,7 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         else:
             oracle_edges = True
 
-        overall_success_rates = self.agent.landmarks.successes / np.clip(self.agent.landmarks.attempts, 1, None)
         oracle_overall_success_rates = overall_success_rates[oracle_edges & (self.agent.landmarks.attempts > 0)]
-        interval_success_rates = self.agent.landmarks.interval_successes / np.clip(self.agent.landmarks.interval_attempts, 1, None)
         oracle_interval_success_rates = interval_success_rates[oracle_edges & (self.agent.landmarks.interval_attempts > 0)]
         logger.record_tabular_stat('OverallLandmarkSuccessRate',
                                    np.average(oracle_overall_success_rates), itr)
