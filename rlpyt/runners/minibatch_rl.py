@@ -438,28 +438,10 @@ class MinibatchDSREval(MinibatchRlEval):
                         continue
 
                     action = q_values[x, y].argmax()
-                    dx = 0
-                    dy = 0
-                    if action == 0:
-                        dx = 0.35
-                    elif action == 1:
-                        dy = 0.35
-                    elif action == 2:
-                        dx = -0.35
-                    elif action == 3:
-                        dy = -0.35
-                    else:
-                        pass
-
-                    if dx == 0 and dy == 0:
-                        circle = plt.Circle((x, y), 0.2, color='yellow')
-                        plt.gca().add_artist(circle)
-                    else:
-                        plt.arrow(x - dx, y - dy, dx, dy, head_width=0.3, head_length=0.3, fc='k', ec='k')
+                    plt.text(x - 0.25, y + 0.25, str(action), fontsize=6)
         plt.colorbar()
         save_image('Subgoal Policy', itr)
         plt.close()
-
 
 class MinibatchLandmarkDSREval(MinibatchDSREval):
     _eval = True
@@ -484,7 +466,7 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         train_envs = len(self.sampler.collector.envs)
         eval_envs = len(self.sampler.eval_collector.envs)
         initialize_landmarks = self.sampler.eval_collector.envs[0].get_initial_landmarks()
-        oracle_distance_matrix = self.sampler.collector.envs[0].get_oracle_distance_matrix()        
+        oracle_distance_matrix = self.sampler.collector.envs[0].oracle_distance_matrix        
         self.agent.initialize_landmarks(train_envs, eval_envs, initialize_landmarks, oracle_distance_matrix)
         return n_itr
 
@@ -543,10 +525,10 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                         figure = plt.figure(figsize=(7, 7))
                         plt.imshow(eval_grid)
                         for pos, landmark in self.agent.landmarks.eval_end_pos.items():
-                            plt.text(pos[0] -0.25, pos[1] + 0.25, str(landmark), fontsize=6)
+                            plt.text(pos[0] - 0.25, pos[1] + 0.25, str(landmark), fontsize=6)
                         circle = plt.Circle(tuple(eval_env.start_pos), 0.2, color='r')
                         plt.gca().add_artist(circle)
-                        circle = plt.Circle(tuple(eval_env.goal_pos), 0.2, color='purple')
+                        circle = plt.Circle(tuple(eval_env.true_goal_pos), 0.2, color='purple')
                         plt.gca().add_artist(circle)
                         plt.colorbar()
                         save_image('Eval visitations and end positions', itr)
@@ -621,7 +603,32 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                                        np.average(self.agent.landmarks.dist_ratio_start_landmark), itr)
 
         # 7. Statistics related to success rates of transitions between landmarks
-        oracle_edges = self.agent.landmarks.get_oracle_edges(env)
+        if hasattr(env, 'rooms'):
+            oracle_edges = self.agent.landmarks.get_oracle_edges(env)
+            figure = plt.figure(figsize=(7, 7))
+            oracle_edges = np.maximum(oracle_edges, oracle_edges.T)
+            G = nx.from_numpy_array(oracle_edges.astype(int), create_using=nx.DiGraph)
+            pos = nx.circular_layout(G)
+
+            nx.draw_networkx_nodes(G, pos, node_size=600)
+            nx.draw_networkx_edges(G, pos, edgelist=G.edges, width=2, edge_color='black')
+
+            edge_labels = nx.get_edge_attributes(G, 'weight')
+            for k, _ in edge_labels.items():
+                if self.agent.landmarks.attempts[k] > 0:
+                    edge_label = round(overall_success_rates[k], 3)
+                else:
+                    edge_label = -1
+                edge_labels[k] = edge_label
+
+            nx.draw_networkx_labels(G, pos, font_size=8, font_family='sans-serif')
+            nx.draw_networkx_edge_labels(G, pos, font_size=6, font_family='sans-serif', edge_labels=edge_labels, connectionstyle='arc3,rad=0.1')
+            plt.axis('off')
+            save_image('Oracle landmarks graph', itr)
+            plt.close()
+        else:
+            oracle_edges = True
+
         overall_success_rates = self.agent.landmarks.successes / np.clip(self.agent.landmarks.attempts, 1, None)
         oracle_overall_success_rates = overall_success_rates[oracle_edges & (self.agent.landmarks.attempts > 0)]
         interval_success_rates = self.agent.landmarks.interval_successes / np.clip(self.agent.landmarks.interval_attempts, 1, None)
@@ -631,28 +638,6 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         logger.record_tabular_stat('IntervalLandmarkSuccessRate',
                                    np.average(oracle_interval_success_rates), itr)
         
-        figure = plt.figure(figsize=(7, 7))
-        oracle_edges = np.maximum(oracle_edges, oracle_edges.T)
-        G = nx.from_numpy_array(oracle_edges.astype(int), create_using=nx.DiGraph)
-        pos = nx.circular_layout(G)
-
-        nx.draw_networkx_nodes(G, pos, node_size=600)
-        nx.draw_networkx_edges(G, pos, edgelist=G.edges, width=2, edge_color='black')
-
-        edge_labels = nx.get_edge_attributes(G, 'weight')
-        for k, _ in edge_labels.items():
-            if self.agent.landmarks.attempts[k] > 0:
-                edge_label = round(overall_success_rates[k], 3)
-            else:
-                edge_label = -1
-            edge_labels[k] = edge_label
-
-        nx.draw_networkx_labels(G, pos, font_size=8, font_family='sans-serif')
-        nx.draw_networkx_edge_labels(G, pos, font_size=6, font_family='sans-serif', edge_labels=edge_labels, connectionstyle='arc3,rad=0.1')
-        plt.axis('off')
-        save_image('Oracle landmarks graph', itr)
-        plt.close()
-
         # 8. Visitation counts of landmarks
         figure = plt.figure(figsize=(7, 7))
         visitations = self.agent.landmarks.visitations
@@ -678,7 +663,7 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
             plt.text(pos[1] -0.25, pos[0] + 0.25, ','.join(map(str, nodes)), fontsize=6)
         circle = plt.Circle(tuple(env.start_pos), 0.2, color='r')
         plt.gca().add_artist(circle)
-        circle = plt.Circle(tuple(env.goal_pos), 0.2, color='purple')
+        circle = plt.Circle(tuple(env.true_goal_pos), 0.2, color='purple')
         plt.gca().add_artist(circle)
         plt.colorbar()
         save_image('Landmarks', itr)

@@ -16,6 +16,7 @@ class TCFModel(torch.nn.Module):
             feature_size=64,
             norm_output=True,
             alpha=10.0,
+            initial_stride=2,
             simple_encoder=False
             ):
         super().__init__()
@@ -27,7 +28,7 @@ class TCFModel(torch.nn.Module):
         self.alpha = alpha
 
         embedding_c = 32
-        embedding_s = ((h - 3) // 2) + 1 - 3 + 1
+        embedding_s = ((h - 3) // initial_stride) + 1 - 3 + 1
 
         conv_embedding_size = embedding_c * embedding_s * embedding_s
 
@@ -40,7 +41,7 @@ class TCFModel(torch.nn.Module):
             )
         else:
             self.encoder = nn.Sequential(
-                nn.Conv2d(c, 32, (3, 3), stride=2),
+                nn.Conv2d(c, 32, (3, 3), stride=initial_stride),
                 nn.ReLU(),
                 nn.Conv2d(32, embedding_c, (3, 3), stride=1),
                 nn.ReLU(),

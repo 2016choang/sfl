@@ -226,7 +226,6 @@ class MinigridImageWrapper(Wrapper):
         else:
             return resized
 
-
 class MinigridMultiRoomOracleWrapper(Wrapper):
     # 0 -- right, 1 -- down, 2 -- left, 3 -- up
 
@@ -384,52 +383,102 @@ class MinigridMultiRoomOracleWrapper(Wrapper):
         self.env.steps_remaining = self.env.max_steps
         return obs
 
-
-class MinigridMultiRoomLandmarkWrapper(Wrapper):
-    # 0 -- right, 1 -- down, 2 -- left, 3 -- up
-
-    def __init__(self, env, use_doors=False):
+class MinigridGeneralWrapper(Wrapper):
+    
+    def __init__(self,
+                 env,
+                 all_actions=True,
+                 size=(25, 25),
+                 encoding='RGB',
+                 max_steps=500,
+                 terminate=False,
+                 start_pos=None,
+                 true_goal_pos=[16, 19],
+                 reset_same=False,
+                 reset_episodes=1):
+        super().__init__(env)
         self.env = env
-        self.use_doors = use_doors
-
-        self.observation_space = env.observation_space
         
-        if self.use_doors:
-            self.action_space = Discrete(4)
+        self.size = size
+        self.encoding = encoding
+
+        self.num_steps = 0
+        self.max_steps = max_steps
+        self.terminate = terminate
+
+        self.reset_same = reset_same
+        if start_pos is not None:
+            self.start_pos = np.array(start_pos)
         else:
-            self.action_space = Discrete(3)
+            self.start_pos = None
+        self.true_goal_pos = np.array(true_goal_pos)
+        self.reset_episodes = reset_episodes
+        self.episodes = 0
+
+        if self.encoding == 'gray':
+            self.observation_space = Box(0, 1, size)
+        elif self.encoding == 'RGB':
+            self.observation_space = Box(0, 1, (*size, 3))
+        elif self.encoding == 'obj':
+            self.observation_space = self.env.observation_space['image']
+        else:
+            raise NotImplementedError
+
+        self.all_actions = all_actions
+        if self.all_actions:
+            self.action_space = Discrete(6)
+        else:
+            self.action_space = Discrete(4)
 
         self.visited = np.zeros((self.env.grid.height, self.env.grid.width), dtype=int)
+        self._oracle_distance_matrix = None
+    
+    def compute_oracle_distance_matrix(self):
+        h, w = self.env.grid.height, self.env.grid.width
 
-        self.oracle_distance_matrix = None
+        dist_matrix = np.zeros((h * w, h * w))
+        valid = self.get_possible_pos()
 
-    def get_oracle_landmarks(self):
-        self.reset()
-        states = []
-        self.env.unwrapped.agent_pos = self.true_goal_pos
-        states.append((self.get_current_state()[0], self.env.unwrapped.agent_pos))
-
-        for room in self.env.rooms:
-            x = room.top[0] + (room.size[0] - 1) // 2
-            y = room.top[1] + (room.size[1] - 1) // 2
-            self.env.unwrapped.agent_pos = np.array([x, y])
-            states.append((self.env.get_current_state()[0], self.env.unwrapped.agent_pos))
+        for pos in valid:
+            x, y = pos
+            true_pos = y * w + x
             
-            if room.exitDoorPos is not None:
-                self.env.unwrapped.agent_pos = np.array(room.exitDoorPos)
-                states.append((self.env.get_current_state()[0], self.env.unwrapped.agent_pos))
-        
-        return states
+            for adjacent in [[x-1, y], [x, y-1], [x+1, y], [x, y+1]]:
+                adj_x, adj_y = adjacent
+                if (adj_x, adj_y) in valid:
+                    true_adj_pos = adj_y * w + adj_x
+                    dist_matrix[true_pos, true_adj_pos] = 1
 
-    def get_current_state(self):
-        return self.env.get_current_state()
-        
+        G = nx.from_numpy_array(dist_matrix)
+        lengths = nx.shortest_path_length(G)
+        true_dist = np.zeros((w, h, w, h)) - 1
+
+        for source, targets in lengths:
+            source_x, source_y = source % w, source // w
+            for target, dist in targets.items():
+                target_x, target_y = target % w, target // w
+                true_dist[source_x, source_y, target_x, target_y] = dist
+            
+        return true_dist
+
+    def get_possible_pos(self):
+        raise NotImplementedError
+
+    def clear_env(self):
+        raise NotImplementedError
+
+    @property
+    def oracle_distance_matrix(self):
+        if self._oracle_distance_matrix is None:
+            self._oracle_distance_matrix = self.compute_oracle_distance_matrix()
+        return self._oracle_distance_matrix
+
     def get_initial_landmarks(self):
         return [self.get_goal_state(), self.get_start_state()]
 
     def get_start_state(self):
         self.reset()
-        self.env.episodes -= 1  # does not count towards number of episodes per start position
+        self.episodes -= 1  # does not count towards number of episodes per start position
 
         # self.env.unwrapped.agent_pos = self.env.unwrapped.goal_pos
         # TODO: Hard-coded state next to goal state for now!
@@ -440,8 +489,8 @@ class MinigridMultiRoomLandmarkWrapper(Wrapper):
 
     def get_goal_state(self):
         self.reset()
-        self.open_doors()
-        self.env.episodes -= 1  # does not count towards number of episodes per start position
+        self.clear_env()
+        self.episodes -= 1  # does not count towards number of episodes per start position
 
         # self.env.unwrapped.agent_pos = self.env.unwrapped.goal_pos
         # TODO: Hard-coded state next to goal state for now!
@@ -450,46 +499,132 @@ class MinigridMultiRoomLandmarkWrapper(Wrapper):
         self.reset_episode()
         return (obs, self.true_goal_pos)
 
-    def get_oracle_distance_matrix(self):
-        if self.oracle_distance_matrix is None:
-            h, w = self.env.grid.height, self.env.grid.width
-
-            dist_matrix = np.zeros((h * w, h * w))
-            valid = set()
-
-            for room in self.env.rooms:
-                start_x, start_y = room.top
-                size_x, size_y = room.size
-                for x in range(start_x + 1, start_x + size_x - 1):
-                    for y in range(start_y + 1, start_y + size_y - 1):
-                        valid.add((x, y))
-                
-                if room.exitDoorPos is not None:
-                    valid.add(room.exitDoorPos)
-
-            for pos in valid:
-                x, y = pos
-                true_pos = y * w + x
-                
-                for adjacent in [[x-1, y], [x, y-1], [x+1, y], [x, y+1]]:
-                    adj_x, adj_y = adjacent
-                    if (adj_x, adj_y) in valid:
-                        true_adj_pos = adj_y * w + adj_x
-                        dist_matrix[true_pos, true_adj_pos] = 1
-
-            G = nx.from_numpy_array(dist_matrix)
-            lengths = nx.shortest_path_length(G)
-            true_dist = np.zeros((w, h, w, h)) - 1
-
-            for source, targets in lengths:
-                source_x, source_y = source % w, source // w
-                for target, dist in targets.items():
-                    target_x, target_y = target % w, target // w
-                    true_dist[source_x, source_y, target_x, target_y] = dist
-            
-            self.oracle_distance_matrix = true_dist
+    def get_current_state(self):
+        self.env.step(0)
+        obs, reward, done, info = self.env.step(1)
+        obs = self.get_obs(obs)
+        return obs, reward, done, info
         
-        return self.oracle_distance_matrix
+    def step(self, action):
+        if not self.all_actions and action == 3:
+            # 0 -- turn left, 1 -- turn right, 2 -- move forward, 3 -- toggle door
+            obs, _, _, info = self.env.step(5)
+        else:
+            obs, _, _, info = self.env.step(action)
+
+        self.visited[tuple(self.env.unwrapped.agent_pos)] += 1
+
+        reward = 0
+        done = (self.env.unwrapped.agent_pos == self.true_goal_pos).all()
+        
+        if done:
+            reward = self._reward()
+
+        self.num_steps += 1
+        if not self.terminate or not done:
+            done = self.num_steps >= self.max_steps
+        
+        obs = self.get_obs(obs)
+        return obs, reward, done, info
+
+    def _reward(self):
+        return 1 - 0.9 * (self.num_steps / self.max_steps)
+
+    def reset_episode(self):
+        self.num_steps = 0
+
+    def get_random_start(self):
+        raise NotImplementedError
+
+    def reset(self, **kwargs):
+        self.env.reset()
+
+        if self.reset_same or self.episodes != self.reset_episodes:
+            if self.start_pos is None:
+                self.start_pos = self.get_random_start()
+            self.env.unwrapped.agent_pos = self.start_pos
+        else:
+            self.start_pos = self.get_random_start()
+            self.env.unwrapped.agent_pos = self.start_pos
+            self.episodes = 0
+        
+        self.env.step(0)
+        obs, _, _, _ = self.env.step(1)
+        self.visited[tuple(self.env.unwrapped.agent_pos)] += 1
+        self.reset_episode()
+        
+        self.episodes += 1
+        return self.get_obs(obs) 
+
+    def get_obs(self, obs):
+        if self.encoding == 'obj':
+            return obs['image']
+        else:
+            resized = resize(obs['image'], self.size, anti_aliasing=True)
+            if self.encoding == 'gray':
+                return np.dot(resized, [0.2989, 0.5870, 0.1140])
+            else:
+                return resized
+
+class MinigridDoorKeyWrapper(MinigridGeneralWrapper):
+
+    def get_random_start(self):
+        return self.env.place_agent()
+
+    def get_possible_pos(self):
+        positions = set()
+        for i in range(self.env.grid.width):
+            for j in range(self.env.grid.height):
+                if not isinstance(self.env.grid.get(i, j), Wall):
+                    positions.add((i, j))
+        return positions
+    
+    def clear_env(self):
+        for i in range(self.env.grid.width):
+            for j in range(self.env.grid.height):
+                obj = self.env.grid.get(i, j)
+                if isinstance(obj, Key):
+                    key_pos = (i, j)
+                if isinstance(obj, Door):
+                    door_pos = (i, j)
+
+        # Pick up key
+        if self.env.grid.get(key_pos[0] - 1, key_pos[1]) is None:
+            self.env.unwrapped.agent_pos = np.array([key_pos[0] - 1, key_pos[1]])
+            self.env.unwrapped.agent_dir = 0
+        else:
+            self.env.unwrapped.agent_pos = np.array([key_pos[0] + 1, key_pos[1]])
+            self.env.unwrapped.agent_dir = 2    
+        self.env.step(3)
+
+        # Open door
+        if self.env.grid.get(door_pos[0] - 1, door_pos[1]) is None:
+            self.env.unwrapped.agent_pos = np.array([door_pos[0] - 1, door_pos[1]])
+            self.env.unwrapped.agent_dir = 0
+        else:
+            self.env.unwrapped.agent_pos = np.array([door_pos[0], door_pos[1] - 1])
+            self.env.unwrapped.agent_dir = 1
+        self.env.step(5)
+
+class MinigridMultiRoomWrapper(MinigridGeneralWrapper):
+    
+    def get_random_start(self):
+        room = self.env.rooms[np.random.randint(self.num_rooms)]
+        return self.env.place_agent(room.top, room.size)
+
+    def get_possible_pos(self):
+        positions = set()
+        for room in self.env.rooms:
+            start_x, start_y = room.top
+            size_x, size_y = room.size
+            for x in range(start_x + 1, start_x + size_x - 1):
+                for y in range(start_y + 1, start_y + size_y - 1):
+                    positions.add((x, y))
+            
+            if room.exitDoorPos is not None:
+                positions.add(room.exitDoorPos)
+
+        return positions
 
     def get_room(self, pos):
         for i, room in enumerate(self.env.rooms):
@@ -505,17 +640,7 @@ class MinigridMultiRoomLandmarkWrapper(Wrapper):
     def get_doors(self):
         return [room.exitDoorPos for room in self.env.rooms[:-1]]
 
-    def step(self, action):
-        obs, reward, done, info = self.env.step(action)
-
-        self.visited[tuple(self.env.unwrapped.agent_pos)] += 1
-
-        return obs, reward, done, info
-
-    def reset_episode(self):
-        self.env.reset_episode()
-    
-    def open_doors(self):
+    def clear_env(self):
         self.exit_door_directions = []
         for room in self.env.rooms[:-1]:
             top_left = np.array(room.top)
@@ -545,146 +670,23 @@ class MinigridMultiRoomLandmarkWrapper(Wrapper):
 
             self.exit_door_directions.append(exit_door_direction)
 
-    def reset(self, **kwargs):
-        self.env.reset()
-        if not self.use_doors:
-            org_dir = self.env.unwrapped.agent_dir
-            org_pos = self.env.unwrapped.agent_pos.copy()
+    def get_oracle_landmarks(self):
+        self.reset()
+        states = []
+        self.env.unwrapped.agent_pos = self.true_goal_pos
+        states.append((self.get_current_state()[0], self.env.unwrapped.agent_pos))
 
-            self.open_doors()
-
-            self.env.unwrapped.agent_dir = org_dir
-            self.env.unwrapped.agent_pos = org_pos
-        
-        self.visited[tuple(self.env.unwrapped.agent_pos)] += 1
-
-        obs = self.get_current_state()[0]
-        self.reset_episode()
-        return obs
-
-
-class MinigridMultiRoomWrapper(Wrapper):
-    
-    def __init__(self,
-                 env,
-                 num_rooms=10,
-                 size=(25, 25),
-                 encoding='RGB',
-                 max_steps=500,
-                 terminate=False,
-                 start_pos=None,
-                 true_goal_pos=[16, 19],
-                 reset_same=False,
-                 reset_episodes=1):
-        super().__init__(env)
-        self.num_rooms = num_rooms
-        self.env = env
-        
-        self.size = size
-        self.encoding = encoding
-
-        self.num_steps = 0
-        self.max_steps = max_steps
-        self.terminate = terminate
-
-        self.reset_same = reset_same
-        if start_pos is not None:
-            self.start_pos = np.array(start_pos)
-        else:
-            self.start_pos = None
-        self.true_goal_pos = np.array(true_goal_pos)
-        self.reset_episodes = reset_episodes
-        self.episodes = 0
-
-        if self.encoding == 'gray':
-            self.observation_space = Box(0, 1, size)
-        elif self.encoding == 'RGB':
-            self.observation_space = Box(0, 1, (*size, 3))
-        elif self.encoding == 'obj':
-            self.observation_space = self.env.observation_space['image']
-        else:
-            raise NotImplementedError
-
-        self.action_space = Discrete(4)
-
-    def get_current_state(self):
-        self.env.step(0)
-        obs, reward, done, info = self.env.step(1)
-        obs = self.get_obs(obs)
-        return obs, reward, done, info
-        
-    def get_possible_pos(self):
-        positions = set()
         for room in self.env.rooms:
-            start_x, start_y = room.top
-            size_x, size_y = room.size
-            for x in range(start_x + 1, start_x + size_x - 1):
-                for y in range(start_y + 1, start_y + size_y - 1):
-                    positions.add((x, y))
+            x = room.top[0] + (room.size[0] - 1) // 2
+            y = room.top[1] + (room.size[1] - 1) // 2
+            self.env.unwrapped.agent_pos = np.array([x, y])
+            states.append((self.env.get_current_state()[0], self.env.unwrapped.agent_pos))
             
             if room.exitDoorPos is not None:
-                positions.add(room.exitDoorPos)
-
-        return positions
-
-    def get_random_room_start(self):
-        room = self.env.rooms[np.random.randint(self.num_rooms)]
-        return self.env.place_agent(room.top, room.size)
-
-    def step(self, action):
-        # 0 -- turn left, 1 -- turn right, 2 -- move forward, 3 -- toggle door
-        if action == 3:
-            obs, _, _, info = self.env.step(5)
-        else:
-            obs, _, _, info = self.env.step(action)
-
-        reward = 0
-        done = (self.env.unwrapped.agent_pos == self.true_goal_pos).all()
+                self.env.unwrapped.agent_pos = np.array(room.exitDoorPos)
+                states.append((self.env.get_current_state()[0], self.env.unwrapped.agent_pos))
         
-        if done:
-            reward = self._reward()
-
-        self.num_steps += 1
-        if not self.terminate or not done:
-            done = self.num_steps >= self.max_steps
-        
-        obs = self.get_obs(obs)
-        return obs, reward, done, info
-
-    def _reward(self):
-        return 1 - 0.9 * (self.num_steps / self.max_steps)
-
-    def reset_episode(self):
-        self.num_steps = 0
-
-    def reset(self, **kwargs):
-        self.env.reset()
-
-        if self.reset_same or self.episodes != self.reset_episodes:
-            if self.start_pos is None:
-                self.start_pos = self.get_random_room_start()
-            self.env.unwrapped.agent_pos = self.start_pos
-        else:
-            self.start_pos = self.get_random_room_start()
-            self.env.unwrapped.agent_pos = self.start_pos
-            self.episodes = 0
-        
-        self.env.step(0)
-        obs, _, _, _ = self.env.step(1)
-        self.reset_episode()
-        
-        self.episodes += 1
-        return self.get_obs(obs) 
-
-    def get_obs(self, obs):
-        if self.encoding == 'obj':
-            return obs['image']
-        else:
-            resized = resize(obs['image'], self.size, anti_aliasing=True)
-            if self.encoding == 'gray':
-                return np.dot(resized, [0.2989, 0.5870, 0.1140])
-            else:
-                return resized
+        return states
 
 class MinigridFeatureWrapper(Wrapper):
     
@@ -734,7 +736,6 @@ class MinigridFeatureWrapper(Wrapper):
     def get_obs(self, pos, direction):
         return self.feature_map[pos[0], pos[1], direction]
 
-
 class MinigridActionFeatureWrapper(Wrapper):
     
     def __init__(self, env, num_features=64, fixed_feature_file=None, terminate=False, reset_same=False, reset_episodes=1):
@@ -783,7 +784,6 @@ class MinigridActionFeatureWrapper(Wrapper):
     def get_obs(self, pos, direction):
         return self.feature_map[pos[0], pos[1], direction]
 
-
 class MinigridTabularFeatureWrapper(Wrapper):
     
     def __init__(self, env, num_features=8, sigma=1, reset_same=False, reset_episodes=1):
@@ -829,7 +829,6 @@ class MinigridTabularFeatureWrapper(Wrapper):
             "features": self.feature_map[tuple(pos)]
         }
         
-
 class MinigridOneHotWrapper(Wrapper):
     
     def __init__(self, env, reset_same=False, reset_episodes=1):
@@ -869,7 +868,6 @@ class MinigridOneHotWrapper(Wrapper):
 
     def get_obs(self, pos):
         return self.one_hot[pos[0] * 19 + pos[1]]
-
 
 class FourRoomsWrapper(Wrapper):
     
@@ -948,8 +946,6 @@ class FourRoomsWrapper(Wrapper):
         self.visited[tuple(self.env.unwrapped.agent_pos)] += 1
         return obs
 
-
-
 class EnvInfoWrapper(Wrapper):
 
     def __init__(self, env, info_example):
@@ -971,7 +967,6 @@ def infill_info(info, sometimes_info):
             infill_info(info[k], v)
     return info
 
-
 def make(*args, info_example=None, mode=None, minigrid_config=None, **kwargs):
     if minigrid_config is not None:
         num_features = minigrid_config.get('num_features', 64)
@@ -989,6 +984,8 @@ def make(*args, info_example=None, mode=None, minigrid_config=None, **kwargs):
         seed = minigrid_config.get('seed', 0)
         start_pos = minigrid_config.get('start_pos', None)
         true_goal_pos = minigrid_config.get('true_goal_pos', [16, 19])
+        encoding = minigrid_config.get('encoding', 'RGB')
+        all_actions = minigrid_config.get('all_actions', True)
 
         if mode == 'multiroom':
             num_rooms = minigrid_config.get('num_rooms', 10)
@@ -1002,21 +999,29 @@ def make(*args, info_example=None, mode=None, minigrid_config=None, **kwargs):
                 tile_size = minigrid_config.get('tile_size', 1)
                 env = RGBImgPartialObsWrapper(env, tile_size=tile_size)
             else:
-                encoding = minigrid_config.get('encoding', 'RGB')
                 if encoding == 'obj':
                     env = FullyObsWrapper(env)
                 else:
                     env = RGBImgObsWrapper(env)
-            env = MinigridMultiRoomWrapper(env, num_rooms=num_rooms, size=size, encoding=encoding, max_steps=max_steps, terminate=terminate,
+            
+            env = MinigridMultiRoomWrapper(env, all_actions=all_actions, size=size, encoding=encoding, max_steps=max_steps, terminate=terminate,
                                            start_pos=start_pos, true_goal_pos=true_goal_pos, reset_same=reset_same, reset_episodes=reset_episodes)
             
             oracle = minigrid_config.get('oracle', False)
             if oracle:
                 epsilon = minigrid_config.get('epsilon', 0.05)
                 env = MinigridMultiRoomOracleWrapper(env, epsilon=epsilon)
+            return GymEnvWrapper(env)
+        elif mode == 'doorkey':
+            env = gym.make(*args, **kwargs)
+            env.max_steps = max_steps
+            env = ReseedWrapper(env, seeds=[seed])
+            if encoding == 'obj':
+                env = FullyObsWrapper(env)
             else:
-                use_doors = minigrid_config.get('use_doors', False)
-                env = MinigridMultiRoomLandmarkWrapper(env, use_doors)
+                env = RGBImgObsWrapper(env)
+            env = MinigridDoorKeyWrapper(env, all_actions=all_actions, size=size, encoding=encoding, max_steps=max_steps, terminate=terminate,
+                                         start_pos=start_pos, true_goal_pos=true_goal_pos, reset_same=reset_same, reset_episodes=reset_episodes)
             return GymEnvWrapper(env)
         elif mode == 'fourroom':
             goal_pos = minigrid_config.get('goal_pos', None)

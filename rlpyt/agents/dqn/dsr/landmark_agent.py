@@ -70,7 +70,7 @@ class LandmarkAgent(FeatureDSRAgent):
         self.eval_envs = eval_envs 
 
         # Add initial landmarks
-        for obs, pos in initial_landmarks:                 
+        for obs, pos in initial_landmarks: 
             observation = torchify_buffer(obs).unsqueeze(0).float()
 
             model_inputs = buffer_to(observation,

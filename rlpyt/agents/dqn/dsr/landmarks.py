@@ -670,17 +670,21 @@ class Landmarks(object):
         norm_dsr = norm_dsr.mean(dim=1) / torch.norm(norm_dsr.mean(dim=1), p=2, keepdim=True)
         landmark_similarity = torch.sum(norm_dsr * self.norm_dsr[current_landmarks], dim=1)
         reached_landmarks = landmark_similarity > self.reach_threshold
-        
-        # If eval mode, keep trying to reach goal
-        if self.mode == 'eval':
-            reached_landmarks[final_goal_landmarks] = False
-
-        reached_landmarks = reached_landmarks.detach().cpu().numpy() 
 
         # # Localization based on observation equivalence
         # reached_landmarks = self.landmark_mode[self.landmark_mode]
         # for i, observation in enumerate(current_observation[self.landmark_mode]):
         #     reached_landmarks[i] = torch.allclose(observation, self.observations[current_landmarks[i]])
+
+        for i, observation in enumerate(current_observation[self.landmark_mode]):
+            if current_landmarks[i] == 0:
+                reached_landmarks[i] = torch.allclose(observation, self.observations[current_landmarks[i]])
+
+        # If eval mode, keep trying to reach goal until episode terminates
+        if self.mode == 'eval':
+            reached_landmarks[final_goal_landmarks] = False
+
+        reached_landmarks = reached_landmarks.detach().cpu().numpy() 
 
         # Increment the current landmark's visitation count
         self.visitations[current_landmarks[reached_landmarks]] += 1

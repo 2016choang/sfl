@@ -27,7 +27,6 @@ from rlpyt.utils.seed import set_seed
 
 
 def build_and_train(config_file,
-                    env_id="MiniGrid-FourRooms-v0",
                     run_ID=0,
                     cuda_idx=None,
                     snapshot_gap=5000,
@@ -39,6 +38,7 @@ def build_and_train(config_file,
     except ValueError:
         raise ValueError('Unable to read config file {}'.format(config_file))
 
+    env_id = config['env_id']
     mode = config['mode']
     tabular = config['tabular']
     seed = config['seed']
@@ -105,7 +105,6 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--config', help='config file')
-    parser.add_argument('--env_id', help='environment ID', default='MiniGrid-FourRooms-v0')
     parser.add_argument('--run_ID', help='run identifier (logging)', type=int, default=0)
     parser.add_argument('--cuda_idx', help='gpu to use ', type=int, default=0)
     parser.add_argument('--snapshot_gap', help='iterations between snapshots', type=int, default=10000)
@@ -114,7 +113,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     build_and_train(
         config_file=args.config,
-        env_id=args.env_id,
         run_ID=args.run_ID,
         cuda_idx=args.cuda_idx,
         snapshot_gap=args.snapshot_gap,
