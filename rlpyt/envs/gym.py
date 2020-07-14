@@ -666,7 +666,7 @@ class MinigridMultiRoomWrapper(MinigridGeneralWrapper):
 
             self.env.env.unwrapped.agent_pos = open_door_pos
             self.env.env.unwrapped.agent_dir = exit_door_direction
-            self.env.step(3)
+            self.env.step(5)
 
             self.exit_door_directions.append(exit_door_direction)
 
