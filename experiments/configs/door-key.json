@@ -74,7 +74,7 @@
         "log_landmarks_interval_steps": 1e4
     },
     "env_id": "MiniGrid-DoorKey-8x8-v0",
-    "mode": "multiroom",
+    "mode": "doorkey",
     "seed": 333,
     "tabular": false,
     "feature": "TCF",
