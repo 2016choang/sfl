@@ -73,6 +73,7 @@
         "update_landmarks_interval_steps": 1e3,
         "log_landmarks_interval_steps": 1e4
     },
+    "env_id": "MiniGrid-DoorKey-8x8-v0",
     "mode": "multiroom",
     "seed": 333,
     "tabular": false,
