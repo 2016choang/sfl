@@ -606,6 +606,70 @@ class MinigridDoorKeyWrapper(MinigridGeneralWrapper):
             self.env.unwrapped.agent_dir = 1
         self.env.step(5)
 
+class MinigridKeyCorridorWrapper(MinigridGeneralWrapper):
+
+    def get_random_start(self):
+        return self.env.place_agent()
+
+    def get_possible_pos(self):
+        positions = set()
+        for i in range(self.env.grid.width):
+            for j in range(self.env.grid.height):
+                if not isinstance(self.env.grid.get(i, j), Wall):
+                    positions.add((i, j))
+        return positions
+    
+    def clear_env(self):
+        for i in range(self.env.grid.width):
+            for j in range(self.env.grid.height):
+                obj = self.env.grid.get(i, j)
+                if isinstance(obj, Key):
+                    key_pos = (i, j)
+                if isinstance(obj, Ball):
+                    ball_pos = (i, j)
+        
+        start_room_top = self.env.room_from_pos(*self.start_pos).top
+
+        doors_to_key = []
+        key_room = self.env.room_from_pos(*key_pos)
+        rooms_stack = [key_room]
+        visited_rooms = set()
+        while rooms_stack:
+            current_room = rooms_stack.pop()
+            visited_rooms.add(current_room.top)
+            if current_room.top == start_room_top:
+                break
+            
+            dead_end = True
+            for i, doors in enumerate(current_room.doors):
+                if doors is not None and current_room.neighbors[i].top not in visited_rooms:
+                    dead_end = False
+                    doors_to_key.append(current_room.door_pos[i])
+                    rooms_stack.append(current_room.neighbors[i])
+            
+            if dead_end:
+                doors_to_key.pop()
+        
+        doors_to_ball = []
+
+        # Pick up key
+        if self.env.grid.get(key_pos[0] - 1, key_pos[1]) is None:
+            self.env.unwrapped.agent_pos = np.array([key_pos[0] - 1, key_pos[1]])
+            self.env.unwrapped.agent_dir = 0
+        else:
+            self.env.unwrapped.agent_pos = np.array([key_pos[0] + 1, key_pos[1]])
+            self.env.unwrapped.agent_dir = 2    
+        self.env.step(3)
+
+        # Open door
+        if self.env.grid.get(door_pos[0] - 1, door_pos[1]) is None:
+            self.env.unwrapped.agent_pos = np.array([door_pos[0] - 1, door_pos[1]])
+            self.env.unwrapped.agent_dir = 0
+        else:
+            self.env.unwrapped.agent_pos = np.array([door_pos[0], door_pos[1] - 1])
+            self.env.unwrapped.agent_dir = 1
+        self.env.step(5)
+
 class MinigridMultiRoomWrapper(MinigridGeneralWrapper):
     
     def get_random_start(self):
