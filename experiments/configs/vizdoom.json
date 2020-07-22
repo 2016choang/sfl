@@ -1,8 +1,8 @@
 {
     "agent": {
-        "eps_init": 0.1,
-        "eps_final": 0.1,
-        "eps_eval": 0.1,
+        "eps_init": 0.05,
+        "eps_final": 0.05,
+        "eps_eval": 0.05,
         "model_kwargs": {
             "feature_size": 512,
             "dsr_params": {
@@ -34,7 +34,7 @@
     "algo": {
         "discount": 0.99,
         "batch_size": 128,
-        "min_steps_learn": 1000,
+        "min_steps_learn": 5000,
         "learning_rate": 1e-4,
         "replay_size": 20000,
         "delta_clip": 1,
@@ -42,7 +42,7 @@
         "feature_learning_rate": 1e-4,
         "pos_threshold": 10,
         "neg_close_threshold": 50,
-        "neg_far_threshold": 200,
+        "neg_far_threshold": 100,
         "margin": 2.0
     },
     "env": {
@@ -64,5 +64,5 @@
     },
     "seed": 333,
     "feature": "TCF",
-    "samplers": 8
+    "samplers": 4
 }
