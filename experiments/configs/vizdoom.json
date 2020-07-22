@@ -19,10 +19,10 @@
         "use_soft_q": false
     },
     "landmarks": {
-        "max_landmarks": 20,
-        "add_threshold": 0.80,
-        "landmark_mode_interval": 50,
-        "steps_per_landmark": 10,
+        "max_landmarks": 75,
+        "add_threshold": 0.60,
+        "landmark_mode_interval": 100,
+        "steps_per_landmark": 5,
         "success_threshold": 0.01,
         "sim_threshold": 1,
         "max_attempt_threshold": 10,
@@ -35,14 +35,14 @@
         "discount": 0.99,
         "batch_size": 128,
         "min_steps_learn": 1000,
-        "learning_rate": 1e-3,
+        "learning_rate": 1e-4,
         "replay_size": 20000,
         "delta_clip": 1,
         "min_steps_dsr_learn": 20000,
-        "feature_learning_rate": 1e-3,
-        "pos_threshold": 2,
-        "neg_close_threshold": 10,
-        "neg_far_threshold": 15,
+        "feature_learning_rate": 1e-4,
+        "pos_threshold": 10,
+        "neg_close_threshold": 50,
+        "neg_far_threshold": 200,
         "margin": 2.0
     },
     "env": {
@@ -64,5 +64,5 @@
     },
     "seed": 333,
     "feature": "TCF",
-    "samplers": 1
+    "samplers": 8
 }
