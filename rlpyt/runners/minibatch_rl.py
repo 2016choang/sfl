@@ -509,31 +509,7 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                     eval_traj_infos, eval_time = self.evaluate_agent(itr)
                     self.log_diagnostics(itr, eval_traj_infos, eval_time)
                     self.algo.update_scheduler(self._opt_infos)
-
-                    # Log 
-                    if self.agent.landmarks:
-                        summary_writer = logger.get_tf_summary_writer()
-                        eval_path_str = '\n'.join(','.join(map(str, path)) + ' ({:.3f})'.format(self.agent.landmarks.path_p[i]) for i, path in enumerate(self.agent.landmarks.possible_paths))
-                        summary_writer.add_text("Path to goal", eval_path_str, itr)
-                        logger.record_tabular_stat('EndDistanceToGoal', np.average(self.agent.landmarks.eval_distances), itr)
-
-                        eval_env = self.sampler.eval_collector.envs[0]
-                        eval_grid = eval_env.visited.T.copy()
-
-                        # State visitation heatmap in evaluation mode and
-                        # agent's end position after executing landmark mode
-                        figure = plt.figure(figsize=(7, 7))
-                        plt.imshow(eval_grid)
-                        for pos, landmark in self.agent.landmarks.eval_end_pos.items():
-                            plt.text(pos[0] - 0.25, pos[1] + 0.25, str(landmark), fontsize=6)
-                        circle = plt.Circle(tuple(eval_env.start_pos), 0.2, color='r')
-                        plt.gca().add_artist(circle)
-                        circle = plt.Circle(tuple(eval_env.true_goal_pos), 0.2, color='purple')
-                        plt.gca().add_artist(circle)
-                        plt.colorbar()
-                        save_image('Eval visitations and end positions', itr)
-                        plt.close()
-                
+                    self.log_eval_landmarks(itr)
                     self.agent.sample_mode(itr)
 
                 # Log successor features information
@@ -545,6 +521,31 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                     self.log_landmarks(itr)
 
         self.shutdown()
+
+    def log_eval_landmarks(self, itr):
+        # Log eval landmarks information
+        if self.agent.landmarks:
+            summary_writer = logger.get_tf_summary_writer()
+            eval_path_str = '\n'.join(','.join(map(str, path)) + ' ({:.3f})'.format(self.agent.landmarks.path_p[i]) for i, path in enumerate(self.agent.landmarks.possible_paths))
+            summary_writer.add_text("Path to goal", eval_path_str, itr)
+            logger.record_tabular_stat('EndDistanceToGoal', np.average(self.agent.landmarks.eval_distances), itr)
+
+            eval_env = self.sampler.eval_collector.envs[0]
+            eval_grid = eval_env.visited.T.copy()
+
+            # State visitation heatmap in evaluation mode and
+            # agent's end position after executing landmark mode
+            figure = plt.figure(figsize=(7, 7))
+            plt.imshow(eval_grid)
+            for pos, landmark in self.agent.landmarks.eval_end_pos.items():
+                plt.text(pos[0] - 0.25, pos[1] + 0.25, str(landmark), fontsize=6)
+            circle = plt.Circle(tuple(eval_env.start_pos), 0.2, color='r')
+            plt.gca().add_artist(circle)
+            circle = plt.Circle(tuple(eval_env.true_goal_pos), 0.2, color='purple')
+            plt.gca().add_artist(circle)
+            plt.colorbar()
+            save_image('Eval visitations and end positions', itr)
+            plt.close()
 
     @torch.no_grad()
     def log_landmarks(self, itr):
@@ -712,13 +713,185 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
 
         self.agent.reset_logging()
 
-    def evaluate_agent(self, itr):
-        # Evaluate agent using landmark mode
-        if itr > 0:
-            self.pbar.stop()
-        logger.log("Evaluating agent...")
-        eval_time = -time.time()
-        traj_infos = self.sampler.evaluate_agent(itr)
-        eval_time += time.time()
-        logger.log("Evaluation runs complete.")
-        return traj_infos, eval_time
+class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
+    _eval = True
+
+    def log_diagnostics(self, itr, eval_traj_infos, eval_time):
+        super().log_diagnostics(itr, eval_traj_infos, eval_time)
+        env = self.sampler.collector.envs[0]
+        state_entropy = entropy(env.visited_interval.flatten(), base=2)
+        if not np.isnan(state_entropy):
+            logger.record_tabular_stat('Interval Entropy', state_entropy, itr)
+
+    def log_dsr(self, itr):
+        # 1. Render actual environment
+        env = self.sampler.collector.envs[0]
+        if itr < self.min_itr_landmark_mode:
+            figure = plt.figure(figsize=(7, 7))
+            env.plot_topdown()
+            save_image('Environment', itr)
+            plt.close()
+
+        # 2. Heatmap of state vistations during training interval
+        figure = plt.figure(figsize=(7, 7))
+        plt.imshow(env.visited_interval.T, origin='lower')
+        plt.colorbar()
+        save_image('State Visitation Heatmap (Interval)', itr)
+        plt.close()
+
+        env.reset_logging()
+
+        # 3. Heatmap of state vistations during training overall
+        figure = plt.figure(figsize=(7, 7))
+        plt.imshow(env.visited.T, origin='lower')
+        plt.colorbar()
+        save_image('State Visitation Heatmap (Overall)', itr)
+        plt.close()
+
+        # Retrieve feature and successor feature representations for all states
+        features, s_features, positions = self.agent.get_representations(env)
+        torch.save(features, os.path.join(logger.get_snapshot_dir(), 'features_itr_{}.pt'.format(itr)))
+        torch.save(s_features, os.path.join(logger.get_snapshot_dir(), 'dsr_itr_{}.pt'.format(itr)))
+        
+        # subgoal_index = 0
+
+        # 4. Distance visualization in feature space
+        features_similarity = self.agent.get_representation_similarity(features, mean_axes=1)
+        
+        figure = plt.figure(figsize=(7, 7))
+        env.plot_topdown()
+        plt.scatter(positions[:, 0], positions[:, 1], s=64, c=features_similarity)
+        plt.colorbar()
+        save_image('Cosine Similarity in Feature Space', itr)
+        plt.close()
+
+        # 5. Distance visualization in SF space
+        s_features_similarity = self.agent.get_representation_similarity(s_features, mean_axes=(1, 2))
+        q_values = self.agent.get_q_values(s_features, mean_axes=1)
+
+        figure = plt.figure(figsize=(7, 7))
+        env.plot_topdown()
+        plt.scatter(positions[:, 0], positions[:, 1], s=64, c=s_features_similarity)
+
+        for i, position in enumerate(positions):
+            x, y = position
+            action = q_values[i].argmax()
+            plt.text(x - 1, y - 1, str(action), fontsize=6)
+
+        plt.colorbar()
+        save_image('Cosine Similarity in SF Space', itr)
+        plt.close()
+
+    def log_eval_landmarks(self, itr):
+        # Log eval landmarks information
+        if self.agent.landmarks:
+            summary_writer = logger.get_tf_summary_writer()
+            eval_path_str = '\n'.join(','.join(map(str, path)) + ' ({:.3f})'.format(self.agent.landmarks.path_p[i]) for i, path in enumerate(self.agent.landmarks.possible_paths))
+            summary_writer.add_text("Path to goal", eval_path_str, itr)
+
+            eval_env = self.sampler.eval_collector.envs[0]
+            
+            # State visitation heatmap in evaluation mode
+            figure = plt.figure(figsize=(7, 7))
+            plt.imshow(eval_env.visited.T, origin='lower')
+            plt.colorbar()
+            save_image('Eval visitations', itr)
+            plt.close()
+
+            # agent's end position after executing landmark mode
+            figure = plt.figure(figsize=(7, 7))
+            eval_env.reset()
+            eval_env.plot_topdown()
+            for pos, landmark in self.agent.landmarks.eval_end_pos.items():
+                plt.text(pos[0] - 0.25, pos[1] + 0.25, str(landmark), fontsize=6)
+            save_image('Eval end positions', itr)
+            plt.close()
+
+    @torch.no_grad()
+    def log_landmarks(self, itr):
+        # If no landmark info to log
+        if not self.agent.landmarks:
+            return
+
+        env = self.sampler.collector.envs[0]
+
+        # Save landmarks data
+        self.agent.landmarks.save(os.path.join(logger.get_snapshot_dir(), 'landmarks_itr_{}.npz'.format(itr)))
+
+        # 1. Statistics related to adding/removing landmarks
+        logger.record_tabular_stat('LandmarksAdded', self.agent.landmarks.landmark_adds, itr)
+        logger.record_tabular_stat('LandmarksRemoved', self.agent.landmarks.landmark_removes, itr)
+        
+        # 2. Statistics related to success rates of transitions between landmarks
+        overall_success_rates = self.agent.landmarks.successes / np.clip(self.agent.landmarks.attempts, 1, None)
+        interval_success_rates = self.agent.landmarks.interval_successes / np.clip(self.agent.landmarks.interval_attempts, 1, None)
+
+        oracle_overall_success_rates = overall_success_rates[(self.agent.landmarks.attempts > 0)]
+        oracle_interval_success_rates = interval_success_rates[(self.agent.landmarks.interval_attempts > 0)]
+        logger.record_tabular_stat('OverallLandmarkSuccessRate',
+                                   np.average(oracle_overall_success_rates), itr)
+        logger.record_tabular_stat('IntervalLandmarkSuccessRate',
+                                   np.average(oracle_interval_success_rates), itr)
+        
+        # 3. Visitation counts of landmarks
+        figure = plt.figure(figsize=(7, 7))
+        visitations = self.agent.landmarks.visitations
+        plt.bar(np.arange(len(visitations)), visitations)
+        plt.xlabel('Landmark')
+        plt.ylabel('Visitations')
+        save_image('Landmark visitation counts', itr)
+        plt.close()
+
+        # 4. Landmarks by spatial location
+        node_labels = defaultdict(list)
+        for i, position in enumerate(map(tuple, self.agent.landmarks.positions)):
+            node_labels[position[1], position[0]].append(i)
+
+        figure = plt.figure(figsize=(7, 7))
+        env.plot_topdown()
+        for pos, nodes in node_labels.items():
+            plt.text(pos[1] -0.25, pos[0] + 0.25, ','.join(map(str, nodes)), fontsize=6)
+        save_image('Landmarks', itr)
+        plt.close()
+
+        # 10. Landmarks graph
+        #       - black edges have had successful transitions between their incident nodes
+        #       - red edges were used to connect the graph and do not have any successful transitions
+        figure = plt.figure(figsize=(7, 7))
+
+        G = self.agent.eval_landmarks.graph
+        pos = nx.circular_layout(G)
+
+        non_zero_edges = {}
+        zero_edges = {}
+        for index, edge_info in dict(G.edges).items():
+            if self.agent.eval_landmarks.zero_edge_indices is not None and index in self.agent.eval_landmarks.zero_edge_indices:
+                zero_edges[index] = edge_info
+            else:
+                non_zero_edges[index] = edge_info
+        
+        nx.draw_networkx_nodes(G, pos, node_size=600)
+        nx.draw_networkx_edges(G, pos, edgelist=non_zero_edges, width=2, edge_color='black', connectionstyle='arc3,rad=0.1')
+        nx.draw_networkx_edges(G, pos, edgelist=zero_edges, width=2, edge_color='red', connectionstyle='arc3,rad=0.1')
+
+        edge_labels = nx.get_edge_attributes(G, 'weight')
+        for k, v in edge_labels.items():
+            edge_labels[k] = round(v, 3)
+        nx.draw_networkx_labels(G, pos, font_size=8, font_family='sans-serif')
+        nx.draw_networkx_edge_labels(G, pos, font_size=6, font_family='sans-serif', edge_labels=edge_labels)
+        plt.axis('off')
+        save_image('Landmarks graph', itr)
+        plt.close()
+
+        # 11. Neighbors of the goal landmark
+        summary_writer = logger.get_tf_summary_writer()
+        goal_neighbors = ', '.join('({}, {:.3f})'.format(node, data['weight']) for node, data in G[0].items())
+        summary_writer.add_text("Goal neighbors", goal_neighbors, itr)
+
+        # 12. Landmarks add threshold (dynamically adjusted)
+        logger.record_tabular_stat('Add Threshold', self.agent.landmarks.add_threshold, itr)
+
+        # 13. Landmarks low attempt threshold
+        logger.record_tabular_stat('Low Attempt Threshold', self.agent.landmarks.get_low_attempt_threshold(use_max=False), itr)
+
+        self.agent.reset_logging()

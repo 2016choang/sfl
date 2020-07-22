@@ -8,7 +8,7 @@ from rlpyt.agents.dqn.dsr.dsr_agent import DsrAgent, AgentInfo
 from rlpyt.agents.dqn.mixin import Mixin
 from rlpyt.models.dqn.dsr.idf_model import IDFModel
 from rlpyt.models.dqn.dsr.tcf_model import TCFModel
-from rlpyt.models.dqn.dsr.grid_dsr_model import GridDsrModel
+from rlpyt.models.dqn.dsr.dsr_model import DsrModel
 from rlpyt.models.utils import strip_ddp_state_dict
 from rlpyt.utils.buffer import buffer_to
 from rlpyt.utils.quick_args import save__init__args
@@ -16,12 +16,10 @@ from rlpyt.utils.quick_args import save__init__args
 
 class FeatureDSRAgent(Mixin, DsrAgent):
 
-    def __init__(self, feature_model_kwargs={}, initial_feature_model_state_dict=None, **kwargs):
+    def __init__(self, featureModelCls=None, feature_model_kwargs={}, initial_feature_model_state_dict=None, **kwargs):
         save__init__args(locals())
-        ModelCls = GridDsrModel
+        ModelCls = DsrModel
         super().__init__(ModelCls=ModelCls, **kwargs)
-
-        self.featureModelCls = None
 
     def to_device(self, cuda_idx=None):
         super().to_device(cuda_idx)
@@ -171,9 +169,6 @@ class FeatureDSRAgent(Mixin, DsrAgent):
     
 
 class IDFDSRAgent:
-
-    def __init__(self):
-        self.featureModelCls = IDFModel
 
     def inverse_dynamics(self, observation, next_observation):
         model_inputs = buffer_to(observation,

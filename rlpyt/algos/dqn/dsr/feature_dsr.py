@@ -184,6 +184,7 @@ class LandmarkTCFDSR(FeatureDSR):
             done=examples["done"],
             mode=examples["agent_info"].mode,
         )
+
         replay_kwargs = dict(
             example=example_to_buffer,
             size=self.replay_size,

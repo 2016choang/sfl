@@ -208,13 +208,54 @@ class LandmarkAgent(FeatureDSRAgent):
         self.landmarks.log_eval(idx, pos)
 
 class LandmarkIDFAgent(LandmarkAgent, IDFDSRAgent):
+    pass
 
-    def __init__(self, **kwargs):
-        LandmarkAgent.__init__(self, **kwargs)
-        IDFDSRAgent.__init__(self)
+class LandmarkVizDoomAgent(LandmarkAgent):
 
-class LandmarkTCFAgent(LandmarkAgent, TCFDSRAgent):
+    @torch.no_grad()
+    def get_representations(self, env):
+        # Get features and SFs of sample states
+        
+        features = []
+        s_features = []
+        positions = []
 
-    def __init__(self, **kwargs):
-        LandmarkAgent.__init__(self, **kwargs)
-        TCFDSRAgent.__init__(self)
+        for state, position in env.sample_states:
+            model_inputs = buffer_to(torch.Tensor(state).unsqueeze(0),
+                    device=self.device)            
+            current_features = self.feature_model(model_inputs, mode='encode')
+            features.append(current_features)
+
+            model_inputs = buffer_to(current_features,
+                device=self.device)
+            current_s_features = self.model(model_inputs, mode='dsr')
+            s_features.append(current_s_features)
+
+            positions.append(position)
+
+        return torch.stack(features), torch.stack(s_features), np.stack(positions)
+
+    def get_representation_similarity(self, representation, mean_axes=None, subgoal_index=0):
+        representation = representation.cpu().detach().numpy()
+        if mean_axes:
+            representation_matrix = representation.mean(axis=mean_axes)
+        else:
+            representation_matrix = representation
+        representation_matrix = representation_matrix / np.linalg.norm(representation_matrix, ord=2, axis=-1, keepdims=True)
+
+        subgoal_representation = representation_matrix[subgoal_index]
+        similarity = np.matmul(representation_matrix, subgoal_representation)
+        return similarity
+
+    @torch.no_grad()
+    def get_q_values(self, representation, mean_axes=None, subgoal_index=0):
+        representation = representation.cpu().detach().numpy()
+        if mean_axes:
+            representation_matrix = representation.mean(axis=mean_axes)
+        else:
+            representation_matrix = representation
+        representation_matrix = representation_matrix / np.linalg.norm(representation_matrix, ord=2, axis=-1, keepdims=True)
+
+        subgoal_representation = representation_matrix[subgoal_index].mean(axis=0)
+        q_values = np.matmul(representation_matrix, subgoal_representation)
+        return q_values

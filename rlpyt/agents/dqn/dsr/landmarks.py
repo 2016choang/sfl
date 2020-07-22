@@ -612,31 +612,32 @@ class Landmarks(object):
             cur_x, cur_y = start_pos
 
             # Find correct start landmark based on true distances
-            closest_landmark = None
-            min_dist = None
-            for i, pos in enumerate(self.positions):
-                dist = self.oracle_distance_matrix[cur_x, cur_y, pos[0], pos[1]]
-                if min_dist is None or dist < min_dist:
-                    min_dist = dist
-                    closest_landmark = i
+            if self.oracle_distance_matrix:
+                closest_landmark = None
+                min_dist = None
+                for i, pos in enumerate(self.positions):
+                    dist = self.oracle_distance_matrix[cur_x, cur_y, pos[0], pos[1]]
+                    if min_dist is None or dist < min_dist:
+                        min_dist = dist
+                        closest_landmark = i
 
-                if i == start_landmark:
-                    chosen_landmark_dist = dist
+                    if i == start_landmark:
+                        chosen_landmark_dist = dist
 
-            # Log if selected landmark is correct
-            self.total_landmark_paths += 1
-            if start_landmark == closest_landmark:
-                self.correct_start_landmark += 1
+                # Log if selected landmark is correct
+                self.total_landmark_paths += 1
+                if start_landmark == closest_landmark:
+                    self.correct_start_landmark += 1
 
-            # Log ratio of distance to selected landmark / correct landmark
-            if chosen_landmark_dist:
-                self.dist_ratio_start_landmark.append(min_dist / chosen_landmark_dist)
-            else:
-                self.dist_ratio_start_landmark.append(1)
+                # Log ratio of distance to selected landmark / correct landmark
+                if chosen_landmark_dist:
+                    self.dist_ratio_start_landmark.append(min_dist / chosen_landmark_dist)
+                else:
+                    self.dist_ratio_start_landmark.append(1)
 
-            # ORACLE: Use correct start landmark
-            if self.use_oracle_start:
-                start_landmark = closest_landmark
+                # ORACLE: Use correct start landmark
+                if self.use_oracle_start:
+                    start_landmark = closest_landmark
 
             path = self.generate_path(start_landmark, goal_landmark)
             path_length = len(path)
@@ -653,9 +654,10 @@ class Landmarks(object):
         current_landmark = self.paths[idx, current_idx]
         self.eval_end_pos[tuple(pos)] = current_landmark
 
-        goal_pos = self.positions[idx]
-        end_distance = self.oracle_distance_matrix[pos[0], pos[1], goal_pos[0], goal_pos[1]]
-        self.eval_distances.append(end_distance)
+        if self.oracle_distance_matrix:
+            goal_pos = self.positions[idx]
+            end_distance = self.oracle_distance_matrix[pos[0], pos[1], goal_pos[0], goal_pos[1]]
+            self.eval_distances.append(end_distance)
 
     def get_landmarks_data(self, current_observation, current_dsr, current_position):
         if not np.any(self.landmark_mode):
@@ -739,10 +741,10 @@ class Landmarks(object):
         goal_landmarks = self.paths[self.landmark_mode, self.path_lengths[self.landmark_mode] - 1]
         goal_landmarks = goal_landmarks[reached_goal_landmarks | steps_limit_reached]
         goal_positions = self.positions[goal_landmarks]
-        end_distance = self.oracle_distance_matrix[end_positions[:, 0], end_positions[:, 1], goal_positions[:, 0], goal_positions[:, 1]]
 
-        if self.mode != 'eval':
+        if self.mode != 'eval' and self.oracle_distance_matrix:
             # In train, log end/start distance to goal ratio
+            end_distance = self.oracle_distance_matrix[end_positions[:, 0], end_positions[:, 1], goal_positions[:, 0], goal_positions[:, 1]]
             start_positions = self.start_positions[self.landmark_mode][reached_goal_landmarks | steps_limit_reached]
             start_distance = self.oracle_distance_matrix[start_positions[:, 0], start_positions[:, 1], goal_positions[:, 0], goal_positions[:, 1]]
             dist_completed = end_distance / np.clip(start_distance, a_min=1, a_max=None)
