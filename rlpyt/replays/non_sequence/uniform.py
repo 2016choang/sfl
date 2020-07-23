@@ -143,8 +143,8 @@ class UniformTripletReplayBuffer(BaseReplayBuffer):
 
     def sample_batch(self, batch_B):
         t = self.t
-        high = self.T if self._buffer_full else t - self.neg_far_threshold
-        low = 0 if self._buffer_full else self.neg_far_threshold
+        high = self.T if self._buffer_full else t - self.neg_close_threshold
+        low = 0 if self._buffer_full else self.neg_close_threshold
         anchor_idxs = np.random.randint(low=low, high=high, size=(batch_B,))
         # anchor_idxs[anchor_idxs >= t] += t # min for invalid high t.
         anchor_idxs = anchor_idxs % self.T

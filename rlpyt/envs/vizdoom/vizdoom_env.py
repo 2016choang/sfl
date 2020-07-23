@@ -1,10 +1,11 @@
-from collections import namedtuple
+from collections import deque, namedtuple
 import math
+import os
+import time
 
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
-import os
 import vizdoom as vzd
 
 from rlpyt.envs.base import Env, EnvStep
@@ -32,7 +33,6 @@ class VizDoomEnv(Env):
         # init VizDoom game
         self.game = vzd.DoomGame()
         self.game.load_config(config)
-        self.game.set_window_visible(False)
         self.game.set_seed(seed)
         self.game.init()
 
@@ -67,14 +67,26 @@ class VizDoomEnv(Env):
             sample_state = self.get_obs_at(centroid)
             self.sample_states.append(sample_state)
 
+        self.record_files = None
+        self.current_record_file = None
+
+    def set_record_files(self, files):
+        self.record_files = deque(files)
+
     def reset_logging(self):
         self.visited += self.visited_interval
         self.visited_interval[:] = 0
 
     def reset(self):
         self._reset_obs()
-        self.game.new_episode()
+        if self.record_files:
+            self.current_record_file = self.record_files.popleft()
+            self.game.new_episode(self.current_record_file)
+        else:
+            self.game.new_episode()
         self.state = self.game.get_state()
+        if self.state is None:
+            import pdb; pdb.set_trace()
 
         x, y = self.state.game_variables[:2]
         x = int(round(x - self.min_x)) // 50
@@ -102,6 +114,10 @@ class VizDoomEnv(Env):
             y = int(round(y - self.min_y)) // 50
             self.visited_interval[x, y] += 1
         else:
+            if self.current_record_file:
+                self.game.close()
+                self.game.init()
+                self.current_record_file = None
             # NOTE: when done, screen_buffer is invalid
             new_obs = np.uint8(np.zeros(self._observation_space.shape[1:]))
 
@@ -120,10 +136,10 @@ class VizDoomEnv(Env):
         return [(self.goal_state, self.goal_position), (self.start_state, self.start_position)]
 
     def set_start_state(self):
-        self.start_state, self.start_position = self.get_cur_obs()
+        self.start_state, self.start_position = self.get_obs_at(full=False)
     
     def set_goal_state(self, position, angle=0):
-        self.goal_state, self.goal_position = self.get_obs_at(position, angle)
+        self.goal_state, self.goal_position = self.get_obs_at(position, angle, full=True)
 
     ###########################################################################
     # Helpers
@@ -136,28 +152,31 @@ class VizDoomEnv(Env):
     def _reset_obs(self):
         self._obs[:] = 0
 
-    def get_cur_obs(self):
+    def get_obs_at(self, position=None, angle=None, full=False):
         state = self.game.get_state()
+
+        if position:
+            self.game.send_game_command('warp {} {}'.format(*position))
+
+        turn_delta = 0
+        if angle:
+            cur_angle = self.game.get_game_variable(vzd.GameVariable.ANGLE)    
+            turn_delta = int(cur_angle - angle)
+
+        if position or angle:
+            self.game.make_action([0, 0, 0, 0, 0, turn_delta])
+            state = self.game.get_state()
+
         new_obs = state.screen_buffer
         position = state.game_variables[:2]
 
         img = cv2.resize(new_obs, (W, H), cv2.INTER_LINEAR)
-        return np.repeat(img[np.newaxis], self.num_img_obs, axis=0), position
-
-    def get_obs_at(self, position, angle=0):
-        state = self.game.get_state()
-        cur_angle = self.game.get_game_variable(vzd.GameVariable.ANGLE)    
-        turn_delta = int(cur_angle - angle)
-
-        self.game.send_game_command('warp {} {}'.format(*position))
-        self.game.make_action([0, 0, 0, 0, 0, turn_delta])
-        state = self.game.get_state()
-
-        new_obs = state.screen_buffer
-        position = state.game_variables[:2]
-
-        img = cv2.resize(new_obs, (W, H), cv2.INTER_LINEAR)
-        return np.repeat(img[np.newaxis], self.num_img_obs, axis=0), position
+        if full:
+            return np.repeat(img[np.newaxis], self.num_img_obs, axis=0), position
+        else:
+            new_obs = np.uint8(np.zeros(self._observation_space.shape))
+            new_obs[-1] = img
+            return new_obs, position
 
     def plot_topdown(self):
         state = self.game.get_state()

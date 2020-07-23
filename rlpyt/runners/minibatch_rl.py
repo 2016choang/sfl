@@ -716,6 +716,11 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
 class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
     _eval = True
 
+    def evaluate_agent(self, itr):
+        # Save first evaluation run to file
+        self.sampler.eval_collector.envs[0].set_record_files([os.path.join(logger.get_snapshot_dir(), 'eval_run_0_itr_{}.lmp'.format(itr))])
+        return super().evaluate_agent(itr)
+
     def log_diagnostics(self, itr, eval_traj_infos, eval_time):
         super().log_diagnostics(itr, eval_traj_infos, eval_time)
         env = self.sampler.collector.envs[0]
@@ -753,10 +758,11 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         torch.save(features, os.path.join(logger.get_snapshot_dir(), 'features_itr_{}.pt'.format(itr)))
         torch.save(s_features, os.path.join(logger.get_snapshot_dir(), 'dsr_itr_{}.pt'.format(itr)))
         
-        # subgoal_index = 0
+        # Compare to start landmark
+        subgoal_index = 1
 
         # 4. Distance visualization in feature space
-        features_similarity = self.agent.get_representation_similarity(features, mean_axes=1)
+        features_similarity = self.agent.get_representation_similarity(features, mean_axes=1, subgoal_index=subgoal_index)
         
         figure = plt.figure(figsize=(7, 7))
         env.plot_topdown()
@@ -766,8 +772,8 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         plt.close()
 
         # 5. Distance visualization in SF space
-        s_features_similarity = self.agent.get_representation_similarity(s_features, mean_axes=(1, 2))
-        q_values = self.agent.get_q_values(s_features, mean_axes=1)
+        s_features_similarity = self.agent.get_representation_similarity(s_features, mean_axes=(1, 2), subgoal_index=subgoal_index)
+        q_values = self.agent.get_q_values(s_features, mean_axes=1, subgoal_index=subgoal_index)
 
         figure = plt.figure(figsize=(7, 7))
         env.plot_topdown()
@@ -793,17 +799,19 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
             
             # State visitation heatmap in evaluation mode
             figure = plt.figure(figsize=(7, 7))
-            plt.imshow(eval_env.visited.T, origin='lower')
+            plt.imshow(eval_env.visited_interval.T, origin='lower')
             plt.colorbar()
             save_image('Eval visitations', itr)
             plt.close()
+
+            eval_env.reset_logging()
 
             # agent's end position after executing landmark mode
             figure = plt.figure(figsize=(7, 7))
             eval_env.reset()
             eval_env.plot_topdown()
             for pos, landmark in self.agent.landmarks.eval_end_pos.items():
-                plt.text(pos[0] - 0.25, pos[1] + 0.25, str(landmark), fontsize=6)
+                plt.text(pos[0] - 0.25, pos[1] + 0.25, str(landmark), fontsize=10)
             save_image('Eval end positions', itr)
             plt.close()
 
@@ -850,7 +858,7 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         figure = plt.figure(figsize=(7, 7))
         env.plot_topdown()
         for pos, nodes in node_labels.items():
-            plt.text(pos[1] -0.25, pos[0] + 0.25, ','.join(map(str, nodes)), fontsize=6)
+            plt.text(pos[1] -0.25, pos[0] + 0.25, ','.join(map(str, nodes)), fontsize=10)
         save_image('Landmarks', itr)
         plt.close()
 
@@ -872,7 +880,7 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         
         nx.draw_networkx_nodes(G, pos, node_size=600)
         nx.draw_networkx_edges(G, pos, edgelist=non_zero_edges, width=2, edge_color='black', connectionstyle='arc3,rad=0.1')
-        nx.draw_networkx_edges(G, pos, edgelist=zero_edges, width=2, edge_color='red', connectionstyle='arc3,rad=0.1')
+        # nx.draw_networkx_edges(G, pos, edgelist=zero_edges, width=2, edge_color='red', connectionstyle='arc3,rad=0.1')
 
         edge_labels = nx.get_edge_attributes(G, 'weight')
         for k, v in edge_labels.items():

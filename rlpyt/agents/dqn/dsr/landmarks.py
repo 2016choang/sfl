@@ -19,6 +19,7 @@ class Landmarks(object):
                  landmarks_per_update=None,
                  landmark_mode_interval=100,
                  steps_per_landmark=10,
+                 max_landmark_mode_steps=500,
                  success_threshold=0,
                  sim_threshold=0.9,
                  max_attempt_threshold=10,
@@ -692,7 +693,7 @@ class Landmarks(object):
         self.visitations[current_landmarks[reached_landmarks]] += 1
 
         if self.mode != 'eval':
-            steps_limit = self.path_lengths[self.landmark_mode] * self.steps_per_landmark
+            steps_limit = np.minimum(self.path_lengths[self.landmark_mode] * self.steps_per_landmark, self.max_landmark_mode_steps)
             steps_limit_reached = self.landmark_steps[self.landmark_mode] >= steps_limit
         else:
             steps_limit_reached = False
