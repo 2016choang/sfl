@@ -63,43 +63,28 @@ class LandmarkAgent(FeatureDSRAgent):
         return self._eval_landmarks
 
     @torch.no_grad()
-    def initialize_landmarks(self, train_envs, eval_envs, initial_landmarks, oracle_distance_matrix):
+    def initialize_landmarks(self, train_envs, eval_envs, oracle_distance_matrix):
         # Create Landmarks object
         self._landmarks.initialize(train_envs)
         self._landmarks.oracle_distance_matrix = oracle_distance_matrix
         self.eval_envs = eval_envs 
 
-        # Add initial landmarks
-        for obs, pos in initial_landmarks: 
-            observation = torchify_buffer(obs).unsqueeze(0).float()
-
-            model_inputs = buffer_to(observation,
-                    device=self.device)
-            features = self.feature_model(model_inputs, mode='encode')
-
-            model_inputs = buffer_to(features,
-                    device=self.device)
-            dsr = self.model(model_inputs, mode='dsr')
-
-            self._landmarks.force_add_landmark(observation, features, dsr, pos)
-
-        self._landmarks.generate_graph()
-
     @torch.no_grad()
     def update_landmarks(self, itr):
         if self.landmarks:
             # Update features and successor features of existing landmarks
-            observation = self.landmarks.observations
-            model_inputs = buffer_to(observation,
-                device=self.device)
-            features = self.feature_model(model_inputs, mode='encode')
-            self.landmarks.set_features(features)
-            model_inputs = buffer_to(features,
-                device=self.device)
-            dsr = self.model(model_inputs, mode='dsr')
-            self.landmarks.set_dsr(dsr)
+            if self.landmarks.num_landmarks > 0:
+                observation = self.landmarks.observations
+                model_inputs = buffer_to(observation,
+                    device=self.device)
+                features = self.feature_model(model_inputs, mode='encode')
+                self.landmarks.set_features(features)
+                model_inputs = buffer_to(features,
+                    device=self.device)
+                dsr = self.model(model_inputs, mode='dsr')
+                self.landmarks.set_dsr(dsr)
 
-            self.landmarks.update()
+                self.landmarks.update()
 
             # Add new landmarks
             if self.landmarks.potential_landmarks:
@@ -118,11 +103,12 @@ class LandmarkAgent(FeatureDSRAgent):
 
                 self.landmarks.add_landmarks(observation, features, dsr, position)
 
-            # Reset landmark mode for all environments
-            self.reset()
+            if self.landmarks.num_landmarks > 0:
+                # Reset landmark mode for all environments
+                self.reset()
 
-            # Generate landmark graph
-            self.landmarks.generate_graph()
+                # Generate landmark graph
+                self.landmarks.generate_graph()
 
     @torch.no_grad()
     def get_norms(self):
@@ -174,7 +160,7 @@ class LandmarkAgent(FeatureDSRAgent):
                 action[landmark_mode] = landmark_action
 
             # Try to enter landmark mode in training
-            if self._mode != 'eval':
+            if self._mode != 'eval' and self.landmarks.num_landmarks > 0:
                 self.landmarks.enter_landmark_mode()
             
             mode = torch.from_numpy(landmark_mode)
@@ -183,12 +169,12 @@ class LandmarkAgent(FeatureDSRAgent):
         return AgentStep(action=action, agent_info=agent_info)
 
     def reset(self):
-        if self.landmarks:
+        if self.landmarks and self.landmarks.num_landmarks > 0:
             # Always start in landmarks mode
             self.landmarks.enter_landmark_mode(override=-1)
 
     def reset_one(self, idx):
-        if self.landmarks:
+        if self.landmarks and self.landmarks.num_landmarks > 0:
             # Always start in landmarks mode
             self.landmarks.enter_landmark_mode(override=idx)
     
@@ -198,11 +184,28 @@ class LandmarkAgent(FeatureDSRAgent):
         else:
             return False
 
-    def eval_mode(self, itr):
+    def eval_mode(self, itr, goal_info=None):
         super().eval_mode(itr)
         self._eval_landmarks = copy.deepcopy(self._landmarks)
         self._eval_landmarks.initialize(self.eval_envs, 'eval')
-        self._eval_landmarks.generate_graph()
+        if self._eval_landmarks:
+            if self._eval_landmarks.num_landmarks > 0:
+                self._eval_landmarks.generate_graph()
+            if goal_info:
+                obs, pos = goal_info
+
+                observation = torchify_buffer(obs).unsqueeze(0).float()
+
+                model_inputs = buffer_to(observation,
+                        device=self.device)
+                features = self.feature_model(model_inputs, mode='encode')
+
+                model_inputs = buffer_to(features,
+                        device=self.device)
+                dsr = self.model(model_inputs, mode='dsr')
+
+                self._eval_landmarks.force_add_landmark(observation, features, dsr, pos)
+                self._eval_landmarks.connect_goal()
     
     def log_eval(self, idx, pos):
         self.landmarks.log_eval(idx, pos)

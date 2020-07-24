@@ -465,9 +465,8 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         n_itr = super().startup()
         train_envs = len(self.sampler.collector.envs)
         eval_envs = len(self.sampler.eval_collector.envs)
-        initialize_landmarks = self.sampler.eval_collector.envs[0].get_initial_landmarks()
         oracle_distance_matrix = self.sampler.collector.envs[0].oracle_distance_matrix        
-        self.agent.initialize_landmarks(train_envs, eval_envs, initialize_landmarks, oracle_distance_matrix)
+        self.agent.initialize_landmarks(train_envs, eval_envs, oracle_distance_matrix)
         return n_itr
 
     def train(self):
@@ -498,11 +497,11 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                 # Update representations of landmarks
                 if (itr + 1) % self.update_landmarks_interval_itrs == 0:
                     self.agent.update_landmarks(itr)
-                    start_features_norm, start_s_features_norm, goal_features_norm, goal_s_features_norm = self.agent.get_norms()
-                    logger.record_tabular_stat('StartFeaturesNorm', start_features_norm, itr)
-                    logger.record_tabular_stat('StartSuccessorFeaturesNorm', start_s_features_norm, itr)
-                    logger.record_tabular_stat('GoalFeaturesNorm', goal_features_norm, itr)
-                    logger.record_tabular_stat('GoalSuccessorFeaturesNorm', goal_s_features_norm, itr)
+                    # start_features_norm, start_s_features_norm, goal_features_norm, goal_s_features_norm = self.agent.get_norms()
+                    # logger.record_tabular_stat('StartFeaturesNorm', start_features_norm, itr)
+                    # logger.record_tabular_stat('StartSuccessorFeaturesNorm', start_s_features_norm, itr)
+                    # logger.record_tabular_stat('GoalFeaturesNorm', goal_features_norm, itr)
+                    # logger.record_tabular_stat('GoalSuccessorFeaturesNorm', goal_s_features_norm, itr)
 
                 # Evaluate agent
                 if (itr + 1) % self.log_interval_itrs == 0:
@@ -718,8 +717,17 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
 
     def evaluate_agent(self, itr):
         # Save first evaluation run to file
-        self.sampler.eval_collector.envs[0].set_record_files([os.path.join(logger.get_snapshot_dir(), 'eval_run_0_itr_{}.lmp'.format(itr))])
-        return super().evaluate_agent(itr)
+        eval_env = self.sampler.eval_collector.envs[0]
+        eval_env.set_record_files([os.path.join(logger.get_snapshot_dir(), 'eval_run_0_itr_{}.lmp'.format(itr))])
+        if itr > 0:
+            self.pbar.stop()
+        logger.log("Evaluating agent...")
+        self.agent.eval_mode(itr, eval_env.goal_info)  # Might be agent in sampler.
+        eval_time = -time.time()
+        traj_infos = self.sampler.evaluate_agent(itr)
+        eval_time += time.time()
+        logger.log("Evaluation runs complete.")
+        return traj_infos, eval_time
 
     def log_diagnostics(self, itr, eval_traj_infos, eval_time):
         super().log_diagnostics(itr, eval_traj_infos, eval_time)
@@ -758,8 +766,8 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         torch.save(features, os.path.join(logger.get_snapshot_dir(), 'features_itr_{}.pt'.format(itr)))
         torch.save(s_features, os.path.join(logger.get_snapshot_dir(), 'dsr_itr_{}.pt'.format(itr)))
         
-        # Compare to start landmark
-        subgoal_index = 1
+        # Compare to goal landmark
+        subgoal_index = 0
 
         # 4. Distance visualization in feature space
         features_similarity = self.agent.get_representation_similarity(features, mean_axes=1, subgoal_index=subgoal_index)
@@ -818,7 +826,7 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
     @torch.no_grad()
     def log_landmarks(self, itr):
         # If no landmark info to log
-        if not self.agent.landmarks:
+        if not self.agent.landmarks or self.agent.landmarks.num_landmarks == 0:
             return
 
         env = self.sampler.collector.envs[0]

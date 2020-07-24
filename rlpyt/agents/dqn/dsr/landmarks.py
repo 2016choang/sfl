@@ -64,7 +64,7 @@ class Landmarks(object):
         self.mode = mode
 
         # Landmark mode metadata
-        self.landmark_mode = np.full(self.num_envs, True, dtype=bool)
+        self.landmark_mode = np.full(self.num_envs, mode == 'eval', dtype=bool)
         self.explore_steps = np.full(self.num_envs, 0, dtype=int)
         self.landmark_steps = np.full(self.num_envs, 0, dtype=int)
         self.current_landmark_steps = np.full(self.num_envs, 0, dtype=int)
@@ -118,13 +118,13 @@ class Landmarks(object):
     def save(self, filename):
         # Save landmarks data to a file
         np.savez(filename,
-                 observations=self.observations.cpu().detach().numpy(),
-                 features=self.features.cpu().detach().numpy(),
-                 dsr=self.dsr.cpu().detach().numpy(),
-                 visitations=self.visitations,
-                 positions=self.positions,
-                 successes=self.successes,
-                 attempts=self.attempts)
+                observations=self.observations.cpu().detach().numpy(),
+                features=self.features.cpu().detach().numpy(),
+                dsr=self.dsr.cpu().detach().numpy(),
+                visitations=self.visitations,
+                positions=self.positions,
+                successes=self.successes,
+                attempts=self.attempts)
 
     def update(self):
         # Decay empirical transition data by affinity_decay factor
@@ -207,12 +207,15 @@ class Landmarks(object):
         potential_dsr = dsr[self.landmark_mode]
         potential_position = position[self.landmark_mode]
 
-        norm_dsr = potential_dsr.mean(dim=1) / torch.norm(potential_dsr.mean(dim=1), p=2, keepdim=True)
-        similarity = torch.matmul(self.norm_dsr, norm_dsr.T)
+        if self.num_landmarks > 0:
+            norm_dsr = potential_dsr.mean(dim=1) / torch.norm(potential_dsr.mean(dim=1), p=2, keepdim=True)
+            similarity = torch.matmul(self.norm_dsr, norm_dsr.T)
 
-        # Potential landmarks under similarity threshold w.r.t. existing landmarks
-        potential_idxs = torch.sum(similarity < self.add_threshold, dim=0) >= self.num_landmarks
-        potential_idxs = potential_idxs.cpu().numpy()
+            # Potential landmarks under similarity threshold w.r.t. existing landmarks
+            potential_idxs = torch.sum(similarity < self.add_threshold, dim=0) >= self.num_landmarks
+            potential_idxs = potential_idxs.cpu().numpy()
+        else:
+            potential_idxs = np.ones(len(potential_observation), dtype=bool)
 
         if np.any(potential_idxs):
             if self.potential_landmarks:
@@ -481,6 +484,7 @@ class Landmarks(object):
         # Augment G with edges until it is connected
         # Edges are sorted by success rate, then similarity
         self.zero_edge_indices = set()
+        self.landmark_distances = landmark_distances
         G = nx.from_numpy_array(landmark_distances, create_using=nx.DiGraph)
         if not nx.is_strongly_connected(G):
             avail = []
@@ -497,6 +501,7 @@ class Landmarks(object):
 
                 landmark_distances[(u, v)] = dist
                 
+                self.landmark_distances = landmark_distances
                 G = nx.from_numpy_array(landmark_distances, create_using=nx.DiGraph)
 
                 if success_rate <= 0:
@@ -507,6 +512,20 @@ class Landmarks(object):
         
         self.graph = G
         return self.graph
+    
+    def connect_goal(self):
+        if self.num_landmarks > 1:
+            self.landmark_distances = np.append(self.landmark_distances, np.zeros((self.num_landmarks - 1, 1)), axis=1)
+            self.landmark_distances = np.append(self.landmark_distances, np.zeros((1, self.num_landmarks)), axis=0)
+            similarity_to_goal = (self.norm_dsr[-1] * self.norm_dsr[:-1]).sum(dim=1)
+            closest_to_goal = similarity_to_goal.argmax().item()
+
+            self.landmark_distances[closest_to_goal, -1] = 1
+            self.landmark_distances[-1, closest_to_goal] = 1
+        else:
+            self.landmark_distances = np.ones((1, 1))
+
+        self.graph = nx.from_numpy_array(self.landmark_distances, create_using=nx.DiGraph)
 
     def get_path_weight(self, nodes, weight):
         # Get weight of path
@@ -582,7 +601,8 @@ class Landmarks(object):
 
         if relocalize_idxs is None:
             if self.mode == 'eval':
-                goal_landmarks = np.full(sum(set_paths_idxs), 0, dtype=int)
+                # Goal landmark is set as the last landmark to be added
+                goal_landmarks = np.full(sum(set_paths_idxs), self.num_landmarks - 1, dtype=int)
             else:
                 # Select goal landmarks with probability given by inverse of visitation count
                 # visitations = np.clip(self.visitations, 1, None)
