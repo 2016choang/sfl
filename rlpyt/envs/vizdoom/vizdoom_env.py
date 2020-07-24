@@ -45,6 +45,7 @@ class VizDoomEnv(Env):
         self._obs = np.zeros(shape=obs_shape, dtype="uint8")
 
         self.game.new_episode()
+        self.set_start_state()
         self.set_goal_state(goal_position, goal_angle)
 
         state = self.game.get_state()
@@ -58,7 +59,7 @@ class VizDoomEnv(Env):
         self.visited = np.zeros((x_len, y_len), dtype=int)
         self.visited_interval = np.zeros((x_len, y_len), dtype=int)
 
-        self.sample_states = [self.goal_info]
+        self.sample_states = [self.start_info, self.goal_info]
 
         for s in state.sectors:
             sector_lines = np.array([[l.x1, l.x2, l.y1, l.y2] for l in s.lines])
@@ -201,6 +202,10 @@ class VizDoomEnv(Env):
     def oracle_distance_matrix(self):
         return None
     
+    @property
+    def start_info(self):
+        return (self.start_state, self.start_position)
+
     @property
     def goal_info(self):
         return (self.goal_state, self.goal_position)
