@@ -203,29 +203,25 @@ class Landmarks(object):
         self.interval_attempts = self.interval_attempts[:self.num_landmarks, :self.num_landmarks]
 
     def add_potential_landmark(self, observation, dsr, position):
-        potential_observation = observation[self.landmark_mode]
-        potential_dsr = dsr[self.landmark_mode]
-        potential_position = position[self.landmark_mode]
-
         if self.num_landmarks > 0:
-            norm_dsr = potential_dsr.mean(dim=1) / torch.norm(potential_dsr.mean(dim=1), p=2, keepdim=True)
+            norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, keepdim=True)
             similarity = torch.matmul(self.norm_dsr, norm_dsr.T)
 
             # Potential landmarks under similarity threshold w.r.t. existing landmarks
             potential_idxs = torch.sum(similarity < self.add_threshold, dim=0) >= self.num_landmarks
             potential_idxs = potential_idxs.cpu().numpy()
         else:
-            potential_idxs = np.ones(len(potential_observation), dtype=bool)
+            potential_idxs = np.ones(len(observation), dtype=bool)
 
         if np.any(potential_idxs):
             if self.potential_landmarks:
                 self.potential_landmarks['observation'] = torch.cat((self.potential_landmarks['observation'],
-                                                                     potential_observation[potential_idxs]), dim=0)
+                                                                     observation[potential_idxs]), dim=0)
                 self.potential_landmarks['positions'] = np.append(self.potential_landmarks['positions'],
-                                                                  potential_position[potential_idxs], axis=0)
+                                                                  position[potential_idxs], axis=0)
             else:
-                self.potential_landmarks['observation'] = potential_observation[potential_idxs].clone()
-                self.potential_landmarks['positions'] = potential_position[potential_idxs].copy()
+                self.potential_landmarks['observation'] = observation[potential_idxs].clone()
+                self.potential_landmarks['positions'] = position[potential_idxs].copy()
         
         self.potential_landmark_adds += sum(potential_idxs)
 
@@ -267,6 +263,8 @@ class Landmarks(object):
             self.visitations = np.array([0])
             self.successes = np.array([[0]])
             self.attempts = np.array([[0]])
+            self.interval_successes = np.array([[0]])
+            self.interval_attempts = np.array([[0]])
             self.landmark_adds += 1
             self.num_landmarks += 1
             return True
@@ -430,7 +428,10 @@ class Landmarks(object):
         return oracle_edges
 
     def get_low_attempt_threshold(self, use_max=True):
-        threshold = np.percentile(self.attempts[np.triu_indices(self.num_landmarks, k=1)], self.percentile_attempt_threshold)
+        if self.num_landmarks > 1:
+            threshold = np.percentile(self.attempts[np.triu_indices(self.num_landmarks, k=1)], self.percentile_attempt_threshold)
+        else:
+            threshold = self.max_attempt_threshold
         if use_max:
             threshold = min(threshold, self.max_attempt_threshold)
         return threshold
@@ -607,7 +608,6 @@ class Landmarks(object):
                 # Select goal landmarks with probability given by inverse of visitation count
                 # visitations = np.clip(self.visitations, 1, None)
                 visitations = np.clip(self.successes.sum(axis=1), 1, None)
-                visitations[0] = max(visitations[1:].min(), visitations[0])
 
                 inverse_visitations = 1. / visitations
                 landmark_probabilities = inverse_visitations / inverse_visitations.sum()
@@ -681,7 +681,7 @@ class Landmarks(object):
             self.eval_distances.append(end_distance)
 
     def get_landmarks_data(self, current_observation, current_dsr, current_position):
-        if not np.any(self.landmark_mode):
+        if not np.any(self.landmark_mode) or self.num_landmarks == 0:
             return None, self.landmark_mode
 
         current_idxs = self.path_idxs[self.landmark_mode]
