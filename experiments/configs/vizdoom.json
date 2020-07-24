@@ -20,9 +20,9 @@
     },
     "landmarks": {
         "max_landmarks": 50,
-        "add_threshold": 0.50,
+        "add_threshold": 0.60,
         "landmark_mode_interval": 100,
-        "steps_per_landmark": 20,
+        "steps_per_landmark": 10,
         "max_landmark_mode_steps": 200,
         "success_threshold": 0.01,
         "sim_threshold": 1,
@@ -35,14 +35,14 @@
     "algo": {
         "discount": 0.99,
         "batch_size": 128,
-        "min_steps_learn": 2000,
-        "learning_rate": 1e-4,
+        "min_steps_learn": 1000,
+        "learning_rate": 2.5e-4,
         "replay_size": 20000,
         "delta_clip": 1,
-        "min_steps_dsr_learn": 15000,
-        "feature_learning_rate": 1e-4,
-        "pos_threshold": 20,
-        "neg_close_threshold": 100,
+        "min_steps_dsr_learn": 10000,
+        "feature_learning_rate": 2.5e-4,
+        "pos_threshold": 10,
+        "neg_close_threshold": 50,
         "neg_far_threshold": 600,
         "margin": 2.0
     },
@@ -63,8 +63,8 @@
     "runner": {
         "log_interval_steps": 1e4,
         "log_dsr_interval_steps": 1e4,
-        "min_steps_landmark_mode": 30000,
-        "update_landmarks_interval_steps": 2500,
+        "min_steps_landmark_mode": 20000,
+        "update_landmarks_interval_steps": 1000,
         "log_landmarks_interval_steps": 1e4
     },
     "seed": 333,
