@@ -37,7 +37,15 @@ class VizDoomEnv(Env):
         self.game.init()
 
         # Spaces
-        self._action_set = [[0, 0, 1], [1, 0, 1], [0, 1, 1], [0, 0, 0]] 
+        self._action_set = [
+            [1, 0, 0, 0, 0, 0],
+            [0, 1, 0, 0, 0, 0],
+            [0, 0, 1, 0, 0, 0],
+            [0, 0, 0, 1, 0, 0],
+            [0, 0, 0, 0, 1, 0],
+            [0, 0, 0, 0, 0, 1],
+            [0, 0, 0, 0, 0, 0]
+        ]
         self._action_space = IntBox(low=0, high=len(self._action_set), dtype='long')
         obs_shape = (num_img_obs, H, W)
         self._observation_space = IntBox(low=0, high=255, shape=obs_shape,
