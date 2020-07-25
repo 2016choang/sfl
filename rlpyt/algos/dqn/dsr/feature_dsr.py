@@ -164,6 +164,7 @@ class LandmarkTCFDSR(FeatureDSR):
         neg_close_threshold=15,
         neg_far_threshold=30,
         margin=2.0,
+        metric='L2',
         **kwargs):
         save__init__args(locals())
         super().__init__(**kwargs)
@@ -242,13 +243,21 @@ class LandmarkTCFDSR(FeatureDSR):
         pos_embeddings = self.agent.encode(samples.pos)
         neg_embeddings = self.agent.encode(samples.neg)
 
-        pos_dist = torch.norm(anchor_embeddings - pos_embeddings, p=2, dim=1)
-        neg_dist = torch.norm(anchor_embeddings - neg_embeddings, p=2, dim=1)
+        if self.metric == 'L2':
+            pos_dist = torch.norm(anchor_embeddings - pos_embeddings, p=2, dim=1)
+            neg_dist = torch.norm(anchor_embeddings - neg_embeddings, p=2, dim=1)
+            loss = torch.clamp(self.margin + pos_dist - neg_dist, min=0.0).mean()
+        elif self.metric == 'cos':
+            pos_dist = torch.sum(anchor_embeddings * pos_embeddings, dim=1)
+            neg_dist = torch.sum(anchor_embeddings * neg_embeddings, dim=1)
+            loss = torch.clamp(self.margin + neg_dist - pos_dist, min=0.0).mean()
+        else:
+            raise NotImplementedError
 
-        loss = torch.clamp(self.margin + pos_dist - neg_dist, min=0.0).mean()
         with torch.no_grad():
             feature_opt_info = {"posDistance": pos_dist.mean().item(),
                                 "negDistance": neg_dist.mean().item()}
+
         return loss, feature_opt_info
 
     def dsr_loss(self, samples):

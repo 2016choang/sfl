@@ -447,6 +447,7 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
     _eval = True
 
     def __init__(self,
+                 max_steps_sample=None,
                  min_steps_landmark_mode=2e4,
                  update_landmarks_interval_steps=1e3,
                  log_landmarks_interval_steps=1e4,
@@ -456,6 +457,10 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
 
     def get_n_itr(self):
         n_itr = super().get_n_itr()
+        if self.max_steps_sample:
+            self.max_itr_sample = max(int(self.max_steps_sample // self.itr_batch_size), 1)
+        else:
+            self.max_itr_sample = None
         self.min_itr_landmark_mode = max(int(self.min_steps_landmark_mode // self.itr_batch_size), 1)
         self.update_landmarks_interval_itrs = max(int(self.update_landmarks_interval_steps // self.itr_batch_size), 1)
         self.log_landmarks_interval_itrs = max(int(self.log_landmarks_interval_steps // self.itr_batch_size), 1)
@@ -484,9 +489,10 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                     self.agent.landmarks.activate()
                     self.agent.reset()
 
-                samples, traj_infos = self.sampler.obtain_samples(itr)
-                self.algo.append_feature_samples(samples)  # feature replay buffer (policy-agnostic)
-                self.algo.append_dsr_samples(samples)  # SF replay buffer (random)
+                if not self.max_itr_sample or itr < self.max_itr_sample:
+                    samples, traj_infos = self.sampler.obtain_samples(itr)
+                    self.algo.append_feature_samples(samples)  # feature replay buffer (policy-agnostic)
+                    self.algo.append_dsr_samples(samples)  # SF replay buffer (random)
 
                 # Train agent's neural networks
                 self.agent.train_mode(itr)
@@ -774,7 +780,7 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         
         figure = plt.figure(figsize=(7, 7))
         env.plot_topdown()
-        plt.scatter(positions[:, 0], positions[:, 1], s=64, c=features_similarity)
+        plt.scatter(positions[:, 0], positions[:, 1], s=100, c=features_similarity)
         plt.colorbar()
         save_image('Cosine Similarity in Feature Space', itr)
         plt.close()
@@ -785,7 +791,7 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
 
         figure = plt.figure(figsize=(7, 7))
         env.plot_topdown()
-        plt.scatter(positions[:, 0], positions[:, 1], s=64, c=s_features_similarity)
+        plt.scatter(positions[:, 0], positions[:, 1], s=100, c=s_features_similarity)
 
         for i, position in enumerate(positions):
             x, y = position
