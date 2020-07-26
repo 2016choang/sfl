@@ -93,8 +93,6 @@ class VizDoomEnv(Env):
         else:
             self.game.new_episode()
         self.state = self.game.get_state()
-        if self.state is None:
-            import pdb; pdb.set_trace()
 
         x, y = self.state.game_variables[:2]
         x = int(round(x - self.min_x)) // 50
@@ -150,7 +148,7 @@ class VizDoomEnv(Env):
     # Helpers
 
     def _update_obs(self, new_obs):
-        img = cv2.resize(new_obs, (W, H), cv2.INTER_LINEAR)
+        img = cv2.resize(new_obs, (W, H), interpolation=cv2.INTER_LINEAR)
         # NOTE: order OLDEST to NEWEST should match use in frame-wise buffer.
         self._obs = np.concatenate([self._obs[1:], img[np.newaxis]])
 
@@ -169,13 +167,13 @@ class VizDoomEnv(Env):
             turn_delta = int(cur_angle - angle)
 
         if position or angle:
-            self.game.make_action([0, 0, 0, 0, 0, turn_delta])
+            self.game.make_action([0, 0, 0, 0, 0, 0, turn_delta])
             state = self.game.get_state()
 
         new_obs = state.screen_buffer
         position = state.game_variables[:2]
 
-        img = cv2.resize(new_obs, (W, H), cv2.INTER_LINEAR)
+        img = cv2.resize(new_obs, (W, H), interpolation=cv2.INTER_LINEAR)
         if full:
             return np.repeat(img[np.newaxis], self.num_img_obs, axis=0), position
         else:
