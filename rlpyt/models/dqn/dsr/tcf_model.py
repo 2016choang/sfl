@@ -33,22 +33,35 @@ class VizDoomTCFModel(torch.nn.Module):
         self.alpha = alpha
 
         embedding_c = 64
-        embedding_h = 7
-        embedding_w = 7
+        embedding_h = 11 #7 # 10
+        embedding_w = 16 #7 # 10
 
         conv_embedding_size = embedding_c * embedding_h * embedding_w
 
         self.encoder = nn.Sequential(
-            nn.Conv2d(c, 32, (8, 8), 4),
+            nn.Conv2d(c, 64, (8, 8), 4),
             nn.ReLU(),
-            nn.Conv2d(32, 64, (4, 4), 2),
+            nn.Conv2d(64, 64, (5, 5), 2),
             nn.ReLU(),
             nn.Conv2d(64, embedding_c, (3, 3), 1),
             nn.ReLU(),
             nn.Flatten(),
             nn.Linear(conv_embedding_size, self.feature_size)
-        )
+        )        
 
+        # self.encoder = nn.Sequential(
+        #     nn.Conv2d(c, 64, (6, 6), 2),
+        #     nn.ReLU(),
+        #     nn.Conv2d(64, 64, (6, 6), 2, padding=2),
+        #     nn.ReLU(),
+        #     nn.Conv2d(64, 64, (6, 6), 2, padding=2),
+        #     nn.ReLU(),
+        #     nn.Flatten(),
+        #     nn.Linear(conv_embedding_size, 1024),
+        #     nn.ReLU(),
+        #     nn.Linear(1024, self.feature_size)
+        # )        
+        
     def forward(self, obs, next_obs=None, mode='encode'):
         x = obs.type(torch.float)
         if mode == 'encode':

@@ -43,7 +43,7 @@
         "feature_learning_rate": 2.5e-4,
         "pos_threshold": 10,
         "neg_close_threshold": 50,
-        "neg_far_threshold": 600,
+        "neg_far_threshold": 100,
         "margin": 2.0,
         "metric": "L2"
     },

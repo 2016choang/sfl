@@ -448,6 +448,8 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
 
     def __init__(self,
                  max_steps_sample=None,
+                 steps_sample_test=1e4,
+                 test_set_size=6e3,
                  min_steps_landmark_mode=2e4,
                  update_landmarks_interval_steps=1e3,
                  log_landmarks_interval_steps=1e4,
@@ -461,6 +463,7 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
             self.max_itr_sample = max(int(self.max_steps_sample // self.itr_batch_size), 1)
         else:
             self.max_itr_sample = None
+        self.itr_sample_test = max(int(self.steps_sample_test // self.itr_batch_size), 1)
         self.min_itr_landmark_mode = max(int(self.min_steps_landmark_mode // self.itr_batch_size), 1)
         self.update_landmarks_interval_itrs = max(int(self.update_landmarks_interval_steps // self.itr_batch_size), 1)
         self.log_landmarks_interval_itrs = max(int(self.log_landmarks_interval_steps // self.itr_batch_size), 1)
@@ -476,8 +479,17 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
 
     def train(self):
         n_itr = self.startup()
+
+        # Create test set
+        self.agent.sample_mode(1)
+        for _ in range(self.itr_sample_test):
+            samples, traj_infos = self.sampler.obtain_samples(1)
+            self.algo.append_test_feature_samples(samples)
+        self.algo.create_test_set(int(self.test_set_size))
+
         with logger.prefix(f"itr #0 "):
             eval_traj_infos, eval_time = self.evaluate_agent(0)
+            self.log_eval_features(0)
             self.log_diagnostics(0, eval_traj_infos, eval_time)
         
         # Main loop
@@ -512,6 +524,7 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                 # Evaluate agent
                 if (itr + 1) % self.log_interval_itrs == 0:
                     eval_traj_infos, eval_time = self.evaluate_agent(itr)
+                    self.log_eval_features(itr)
                     self.log_diagnostics(itr, eval_traj_infos, eval_time)
                     self.algo.update_scheduler(self._opt_infos)
                     self.log_eval_landmarks(itr)
@@ -526,6 +539,12 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                     self.log_landmarks(itr)
 
         self.shutdown()
+
+    def log_eval_features(self, itr):
+        eval_loss, eval_opt_info = self.algo.eval_feature_loss()
+        logger.record_tabular_stat('FeatureLossEval', np.average(eval_loss), itr)
+        for key, value in eval_opt_info.items():
+            logger.record_tabular_stat('{}Eval'.format(key), np.average(value), itr)
 
     def log_eval_landmarks(self, itr):
         # Log eval landmarks information
@@ -751,6 +770,13 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
             save_image('Environment', itr)
             plt.close()
 
+            figure = plt.figure(figsize=(7, 7))
+            env.plot_topdown()
+            plt.scatter(env.sample_sectors[:, 0], env.sample_sectors[:, 1], c=env.sample_sectors[:, 2], s=100)
+            plt.colorbar()
+            save_image('Sectors', itr)
+            plt.close()
+
         # 2. Heatmap of state vistations during training interval
         figure = plt.figure(figsize=(7, 7))
         plt.imshow(env.visited_interval.T, origin='lower')
@@ -785,7 +811,16 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         save_image('Cosine Similarity in Feature Space', itr)
         plt.close()
 
-        # 5. Distance visualization in SF space
+        # 5. T-SNE visualization of features
+        tsne_embeddings = self.agent.get_tsne(features, mean_axes=1)
+
+        figure = plt.figure(figsize=(7, 7))
+        plt.scatter(tsne_embeddings[:, 0], tsne_embeddings[:, 1], c=env.sample_sectors[:, 2])
+        plt.colorbar()
+        save_image('T-SNE of Features', itr)
+        plt.close()
+
+        # 6. Distance visualization in SF space
         s_features_similarity = self.agent.get_representation_similarity(s_features, mean_axes=(1, 2), subgoal_index=subgoal_index)
         q_values = self.agent.get_q_values(s_features, mean_axes=1, subgoal_index=subgoal_index)
 

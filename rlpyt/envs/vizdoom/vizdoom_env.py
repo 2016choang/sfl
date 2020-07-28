@@ -25,6 +25,7 @@ class VizDoomEnv(Env):
                  seed,
                  goal_position,
                  goal_angle=0,
+                 grayscale=True,
                  frame_skip=4,  # Frames per step (>=1).
                  num_img_obs=4,  # Number of (past) frames in observation (>=1).
                  ):
@@ -47,7 +48,10 @@ class VizDoomEnv(Env):
             [0, 0, 0, 0, 0, 0]
         ]
         self._action_space = IntBox(low=0, high=len(self._action_set), dtype='long')
-        obs_shape = (num_img_obs, H, W)
+        if self.grayscale:
+            obs_shape = (num_img_obs, H, W)
+        else:
+            obs_shape = (self.game.get_screen_channels(), self.game.get_screen_height(), self.game.get_screen_width())
         self._observation_space = IntBox(low=0, high=255, shape=obs_shape,
             dtype="uint8")
         self._obs = np.zeros(shape=obs_shape, dtype="uint8")
@@ -68,12 +72,24 @@ class VizDoomEnv(Env):
         self.visited_interval = np.zeros((x_len, y_len), dtype=int)
 
         self.sample_states = [self.start_info, self.goal_info]
+        self.sample_sectors = [(*self.start_info[1], 0), (*self.goal_info[1], 1)]
 
-        for s in state.sectors:
+        for i, s in enumerate(state.sectors, 2):
             sector_lines = np.array([[l.x1, l.x2, l.y1, l.y2] for l in s.lines])
-            centroid = (int(sector_lines[:, :2].mean()), int(sector_lines[:, 2:].mean()))
-            sample_state = self.get_obs_at(centroid)
-            self.sample_states.append(sample_state)
+            min_x = sector_lines[:, :2].min()
+            max_x = sector_lines[:, :2].max()
+            min_y = sector_lines[:, 2:].min()
+            max_y = sector_lines[:, 2:].max()
+
+            sample_x = np.random.uniform(min_x, max_x, 10)
+            sample_y = np.random.uniform(min_y, max_y, 10)
+            for x, y in zip(sample_x, sample_y):
+                sample_state = self.get_obs_at([x, y], goal_angle)
+                self.sample_states.append(sample_state)
+                centroid = (sector_lines[:, :2].mean(), sector_lines[:, 2:].mean())
+                self.sample_sectors.append((*centroid, i))
+
+        self.sample_sectors = np.array(self.sample_sectors)
 
         self.record_files = None
         self.current_record_file = None
@@ -125,7 +141,10 @@ class VizDoomEnv(Env):
                 self.game.init()
                 self.current_record_file = None
             # NOTE: when done, screen_buffer is invalid
-            new_obs = np.uint8(np.zeros(self._observation_space.shape[1:]))
+            if self.grayscale:
+                new_obs = np.uint8(np.zeros(self._observation_space.shape[1:]))
+            else:
+                new_obs = np.uint8(np.zeros(self._observation_space.shape))
 
         self._update_obs(new_obs)
         return EnvStep(self.get_obs(), reward, done, info)
@@ -148,9 +167,13 @@ class VizDoomEnv(Env):
     # Helpers
 
     def _update_obs(self, new_obs):
-        img = cv2.resize(new_obs, (W, H), interpolation=cv2.INTER_LINEAR)
-        # NOTE: order OLDEST to NEWEST should match use in frame-wise buffer.
-        self._obs = np.concatenate([self._obs[1:], img[np.newaxis]])
+        if self.grayscale:
+            new_obs = np.transpose(new_obs, [1, 2, 0])
+            img = cv2.resize(cv2.cvtColor(new_obs, cv2.COLOR_RGB2GRAY), (H, W), interpolation=cv2.INTER_LINEAR)
+            # NOTE: order OLDEST to NEWEST should match use in frame-wise buffer.
+            self._obs = np.concatenate([self._obs[1:], img[np.newaxis]])
+        else:
+            self._obs = new_obs
 
     def _reset_obs(self):
         self._obs[:] = 0
@@ -173,12 +196,16 @@ class VizDoomEnv(Env):
         new_obs = state.screen_buffer
         position = state.game_variables[:2]
 
-        img = cv2.resize(new_obs, (W, H), interpolation=cv2.INTER_LINEAR)
-        if full:
-            return np.repeat(img[np.newaxis], self.num_img_obs, axis=0), position
+        if self.grayscale:
+            new_obs = np.transpose(new_obs, [1, 2, 0])
+            img = cv2.resize(cv2.cvtColor(new_obs, cv2.COLOR_RGB2GRAY), (H, W), interpolation=cv2.INTER_LINEAR)
+            if full:
+                return np.repeat(img[np.newaxis], self.num_img_obs, axis=0), position
+            else:
+                new_obs = np.uint8(np.zeros(self._observation_space.shape))
+                new_obs[-1] = img
+                return new_obs, position
         else:
-            new_obs = np.uint8(np.zeros(self._observation_space.shape))
-            new_obs[-1] = img
             return new_obs, position
 
     def plot_topdown(self):

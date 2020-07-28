@@ -6,6 +6,7 @@ import networkx as nx
 import numpy as np
 from scipy.spatial import distance_matrix
 from scipy.sparse.csgraph import floyd_warshall
+from sklearn.manifold import TSNE
 from sklearn_extra.cluster import KMedoids
 import torch
 import torch.nn.functional as F
@@ -238,6 +239,7 @@ class LandmarkVizDoomAgent(LandmarkAgent):
 
         return torch.stack(features), torch.stack(s_features), np.stack(positions)
 
+    @torch.no_grad()
     def get_representation_similarity(self, representation, mean_axes=None, subgoal_index=0):
         representation = representation.cpu().detach().numpy()
         if mean_axes:
@@ -249,6 +251,18 @@ class LandmarkVizDoomAgent(LandmarkAgent):
         subgoal_representation = representation_matrix[subgoal_index]
         similarity = np.matmul(representation_matrix, subgoal_representation)
         return similarity
+    
+    @torch.no_grad()
+    def get_tsne(self, representation, mean_axes=None):
+        representation = representation.cpu().detach().numpy()
+        if mean_axes:
+            representation_matrix = representation.mean(axis=mean_axes)
+        else:
+            representation_matrix = representation
+        representation_matrix = representation_matrix / np.linalg.norm(representation_matrix, ord=2, axis=-1, keepdims=True)
+
+        embeddings = TSNE(n_components=2).fit_transform(representation_matrix)
+        return embeddings
 
     @torch.no_grad()
     def get_q_values(self, representation, mean_axes=None, subgoal_index=0):

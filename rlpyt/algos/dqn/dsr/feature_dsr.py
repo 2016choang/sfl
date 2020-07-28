@@ -1,4 +1,4 @@
-from collections import namedtuple
+from collections import defaultdict, namedtuple
 
 import torch
 import torch.nn as nn
@@ -208,6 +208,7 @@ class LandmarkTCFDSR(FeatureDSR):
             LandmarkUniformReplayBuffer)
         self.replay_buffer = ReplayCls(**replay_kwargs)
         self.feature_replay_buffer = None
+        self.test_replay_buffer = None
 
     def initialize_triplet_replay_buffer(self, examples, batch_spec, async_=False):
         example_to_buffer = SamplesToBuffer(
@@ -227,6 +228,13 @@ class LandmarkTCFDSR(FeatureDSR):
             neg_far_threshold=self.neg_far_threshold
         )
         self.feature_replay_buffer = UniformTripletReplayBuffer(**triplet_replay_kwargs)
+        self.test_feature_replay_buffer = UniformTripletReplayBuffer(**triplet_replay_kwargs)
+
+    def append_test_feature_samples(self, samples=None):
+        # Append samples to replay buffer used for training feature representation only
+        if samples is not None and self.test_feature_replay_buffer is not None:
+            samples_to_buffer = self.samples_to_buffer(samples)
+            self.test_feature_replay_buffer.append_samples(samples_to_buffer)
 
     def samples_to_buffer(self, samples):
         return SamplesToBuffer(
@@ -259,6 +267,23 @@ class LandmarkTCFDSR(FeatureDSR):
                                 "negDistance": neg_dist.mean().item()}
 
         return loss, feature_opt_info
+    
+    def create_test_set(self, size):
+        self.test_set_size = size
+        self.test_samples = self.test_feature_replay_buffer.sample_batch(size)
+    
+    @torch.no_grad()
+    def eval_feature_loss(self):
+        batches = self.test_set_size // self.batch_size
+        eval_losses = []
+        eval_opt_info = defaultdict(list)
+        for i in range(batches):
+            test_batch_samples = self.test_samples[i * self.batch_size: (i + 1) * self.batch_size]
+            batch_loss, batch_opt_info = self.feature_loss(test_batch_samples)
+            eval_losses.append(batch_loss)
+            for key, value in batch_opt_info.items(): 
+                eval_opt_info[key].append(value)
+        return eval_losses, eval_opt_info
 
     def dsr_loss(self, samples):
         """Samples have leading batch dimension [B,..] (but not time)."""

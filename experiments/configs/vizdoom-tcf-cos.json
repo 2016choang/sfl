@@ -44,25 +44,26 @@
         "pos_threshold": 10,
         "neg_close_threshold": 50,
         "neg_far_threshold": 600,
-        "margin": 0.5,
+        "margin": 0.2,
         "metric": "cos"
     },
     "env": {
         "goal_position": [1040, -300],
-        "config": "experiments/vizdoom/my_way_home.cfg",
+        "config": "experiments/vizdoom/my_way_home_SPTM.cfg",
         "goal_angle": 270,
         "seed": 0,
-        "num_img_obs": 1
+        "grayscale": false
     },
     "eval_env": {
         "goal_position": [1040, -300],
-        "config": "experiments/vizdoom/my_way_home.cfg",
+        "config": "experiments/vizdoom/my_way_home_SPTM.cfg",
         "goal_angle": 270,
         "seed": 0,
-        "num_img_obs": 1
+        "grayscale": false
     }, 
     "runner": {
-        "max_steps_sample": 2e4,
+        "steps_sample_test": 1e4,
+        "test_set_size": 6e3,
         "log_interval_steps": 1e4,
         "log_dsr_interval_steps": 1e4,
         "min_steps_landmark_mode": 1e7,
