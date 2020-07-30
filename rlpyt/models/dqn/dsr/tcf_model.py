@@ -1,10 +1,18 @@
+import keras
+import tensorflow as tf
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from rlpyt.utils.tensor import infer_leading_dims, restore_leading_dims
+from rlpyt.models.resnet import ResnetBuilder
 from rlpyt.models.mlp import MlpModel
 from rlpyt.models.utils import FUNCTION_MAP, Reshape
+from rlpyt.utils.tensor import infer_leading_dims, restore_leading_dims
+from rlpyt.utils.quick_args import save__init__args
+
+config = tf.ConfigProto()
+config.gpu_options.per_process_gpu_memory_fraction = 0.7
+keras.backend.tensorflow_backend.set_session(tf.Session(config=config))
 
 
 def normalize(x):
@@ -13,6 +21,33 @@ def normalize(x):
     normalization_constant = torch.sqrt(normp)
     output = torch.div(x, normalization_constant.view(-1, 1).expand_as(x))
     return output
+
+class FixedVizDoomModel(torch.nn.Module):
+
+    def __init__(
+            self,
+            fixed_weights_path,
+            **kwargs
+        ):
+        save__init__args(locals())
+        super().__init__()
+
+        self.fixed_model = ResnetBuilder.build_siamese_resnet_18((6, 120, 160), 2)
+        self.fixed_model.load_weights(self.fixed_weights_path)
+        self.fixed_model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+        self.encoder = nn.Linear(1, 1)
+    
+    def forward(self, obs, mode='encode'):
+        x = obs.type(torch.float)
+        lead_dim, T, B, img_shape = infer_leading_dims(x, 3)
+        x = x.view(T * B, *img_shape).cpu()
+        if mode == 'encode':
+            x = x.permute(0, 2, 3, 1)
+            x = self.fixed_model.layers[3].predict(x)
+            x = torch.from_numpy(x).to(device=obs.device)
+            return restore_leading_dims(x, lead_dim, T, B)
+        else:
+            raise ValueError('Invalid mode!')
 
 class VizDoomTCFModel(torch.nn.Module):
 

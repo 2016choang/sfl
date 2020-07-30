@@ -18,10 +18,10 @@ from rlpyt.samplers.serial.collectors import SerialLandmarksEvalCollector
 from rlpyt.samplers.parallel.cpu.collectors import CpuLandmarksCollector
 from rlpyt.envs.vizdoom.vizdoom_env import VizDoomEnv
 from rlpyt.algos.dqn.dsr.dsr import DSR
-from rlpyt.algos.dqn.dsr.feature_dsr import IDFDSR, LandmarkTCFDSR
+from rlpyt.algos.dqn.dsr.feature_dsr import IDFDSR, LandmarkTCFDSR, FixedFeatureDSR
 from rlpyt.agents.dqn.dsr.landmark_agent import LandmarkVizDoomAgent 
 from rlpyt.agents.dqn.dsr.landmarks import Landmarks
-from rlpyt.models.dqn.dsr.tcf_model import VizDoomTCFModel
+from rlpyt.models.dqn.dsr.tcf_model import VizDoomTCFModel, FixedVizDoomModel
 from rlpyt.runners.minibatch_rl import MinibatchVizDoomLandmarkDSREval
 from rlpyt.utils.logging.context import logger_context
 from rlpyt.utils.seed import set_seed
@@ -73,8 +73,10 @@ def build_and_train(config_file,
     feature = config['feature']
     agent_class = LandmarkVizDoomAgent
     if feature == 'TCF':
-        featureModelCls = VizDoomTCFModel
-        algo_class = LandmarkTCFDSR
+        # featureModelCls = VizDoomTCFModel
+        featureModelCls = FixedVizDoomModel
+        # algo_class = LandmarkTCFDSR
+        algo_class = FixedFeatureDSR
     else:
         raise NotImplementedError
 

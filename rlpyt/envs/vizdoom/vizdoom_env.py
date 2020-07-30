@@ -28,12 +28,16 @@ class VizDoomEnv(Env):
                  grayscale=True,
                  frame_skip=4,  # Frames per step (>=1).
                  num_img_obs=4,  # Number of (past) frames in observation (>=1).
+                 num_samples=100,
+                 map_id=None,
                  ):
         save__init__args(locals())
 
         # init VizDoom game
         self.game = vzd.DoomGame()
         self.game.load_config(config)
+        if map_id:
+            self.game.set_doom_map(map_id)
         self.game.set_seed(seed)
         self.game.init()
 
@@ -74,6 +78,8 @@ class VizDoomEnv(Env):
         self.sample_states = [self.start_info, self.goal_info]
         self.sample_sectors = [(*self.start_info[1], 0), (*self.goal_info[1], 1)]
 
+        samples_per_sector = num_samples // len(state.sectors)
+
         for i, s in enumerate(state.sectors, 2):
             sector_lines = np.array([[l.x1, l.x2, l.y1, l.y2] for l in s.lines])
             min_x = sector_lines[:, :2].min()
@@ -81,8 +87,8 @@ class VizDoomEnv(Env):
             min_y = sector_lines[:, 2:].min()
             max_y = sector_lines[:, 2:].max()
 
-            sample_x = np.random.uniform(min_x, max_x, 10)
-            sample_y = np.random.uniform(min_y, max_y, 10)
+            sample_x = np.random.uniform(min_x, max_x, samples_per_sector)
+            sample_y = np.random.uniform(min_y, max_y, samples_per_sector)
             for x, y in zip(sample_x, sample_y):
                 sample_state = self.get_obs_at([x, y], goal_angle)
                 self.sample_states.append(sample_state)

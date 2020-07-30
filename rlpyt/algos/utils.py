@@ -67,9 +67,11 @@ def discount_return_n_step(reward, done, n_step, discount, return_dest=None,
     return_ = return_dest if return_dest is not None else zeros(
         (rlen,) + reward.shape[1:], dtype=reward.dtype)
     done_n = done_n_dest if done_n_dest is not None else zeros(
-        (rlen,) + reward.shape[1:], dtype=done.dtype)
+        (rlen,) + done.shape[1:], dtype=done.dtype)
     return_[:] = reward[:rlen]  # 1-step return is current reward.
     done_n[:] = done[:rlen]  # True at time t if done any time by t + n - 1
+    for _ in range(len(reward.shape) - len(done_n.shape)):
+        done_n = np.expand_dims(done_n, -1)
     is_torch = isinstance(done, torch.Tensor)
     if is_torch:
         done_dtype = done.dtype

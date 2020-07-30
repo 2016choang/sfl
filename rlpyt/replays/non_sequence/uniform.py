@@ -3,6 +3,7 @@ import math
 import numpy as np
 
 from rlpyt.agents.base import AgentInputs
+from rlpyt.algos.utils import discount_return_n_step
 from rlpyt.replays.async_ import AsyncReplayBufferMixin
 from rlpyt.replays.base import BaseReplayBuffer
 from rlpyt.replays.non_sequence.n_step import NStepReturnBuffer
@@ -41,9 +42,51 @@ LandmarkSamplesFromReplay = namedarraytuple("LandmarkSamplesFromReplay",
 
 class LandmarkUniformReplayBuffer(UniformReplayBuffer):
     
-    def __init__(self, example, size, B, **kwargs):
-        super().__init__(example, size, B, kwargs)
+    def __init__(self, example, size, B, discount=False,**kwargs):
+        super().__init__(example, size, B, **kwargs)
+        self.discount = discount
+        if discount:
+            self.samples_observation_n = buffer_from_example(example.observation, (self.T, self.B),
+                share_memory=self.async_)
+        else:
+            self.samples_observation_n = self.samples.observation
         self.valid_idxs = np.arange(self.T, dtype=int)
+    
+    def compute_returns(self, T):
+        """e.g. if 2-step return, t-1 is first return written here, using reward
+        at t-1 and new reward at t (up through t-1+T from t+T)."""
+        if self.n_step_return == 1:
+            return  # return = reward, done_n = done
+        t, s = self.t, self.samples
+        nm1 = self.n_step_return - 1
+        if t - nm1 >= 0 and t + T <= self.T:  # No wrap (operate in-place).
+            reward = s.reward[t - nm1:t + T]
+            done = s.done[t - nm1:t + T]
+            return_dest = self.samples_return_[t - nm1: t - nm1 + T]
+            done_n_dest = self.samples_done_n[t - nm1: t - nm1 + T]
+            discount_return_n_step(reward, done, n_step=self.n_step_return,
+                discount=self.discount, return_dest=return_dest,
+                done_n_dest=done_n_dest)
+
+            observation = s.observation[t - nm1: t + T]
+            observation_dest = self.samples_observation_n[t - nm1: t - nm1 + T]
+            discount_return_n_step(observation, done, n_step=self.n_step_return,
+                discount=self.discount, return_dest=observation_dest)
+
+        else:  # Wrap (copies); Let it (wrongly) wrap at first call.
+            idxs = np.arange(t - nm1, t + T) % self.T
+            reward = s.reward[idxs]
+            done = s.done[idxs]
+            dest_idxs = idxs[:-nm1]
+            return_, done_n = discount_return_n_step(reward, done,
+                n_step=self.n_step_return, discount=self.discount)
+            self.samples_return_[dest_idxs] = return_
+            self.samples_done_n[dest_idxs] = done_n
+
+            observation = s.observation[idxs]
+            observation_, done_n = discount_return_n_step(observation, done,
+                n_step=self.n_step_return, discount=self.discount)
+            self.samples_observation_n[dest_idxs] = observation_
 
     def sample_idxs(self, batch_B):
         B_idxs = np.random.randint(low=0, high=self.B, size=(batch_B,))
@@ -71,7 +114,7 @@ class LandmarkUniformReplayBuffer(UniformReplayBuffer):
         target_T_idxs = (T_idxs + self.n_step_return) % self.T
         batch = LandmarkSamplesFromReplay(
             agent_inputs=AgentInputs(
-                observation=self.extract_observation(T_idxs, B_idxs),
+                observation=self.samples_observation_n[T_idxs, B_idxs],
                 prev_action=s.action[T_idxs - 1, B_idxs],
                 prev_reward=s.reward[T_idxs - 1, B_idxs],
             ),

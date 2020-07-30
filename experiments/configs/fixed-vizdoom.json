@@ -1,0 +1,70 @@
+{
+    "agent": {
+        "eps_init": 0.05,
+        "eps_final": 0.05,
+        "eps_eval": 0.05,
+        "model_kwargs": {
+            "feature_size": 512,
+            "dsr_params": {
+                "fc_sizes": [512, 512],
+                "nonlinearity": "relu"
+            }   
+        },
+        "feature_model_kwargs": {
+            "feature_size": 512,
+            "norm_output": true,
+            "alpha": 1.0,
+            "fixed_weights_path": "../sptm/experiments/0103_R/models/model_weights.h5"
+        },
+        "use_oracle_graph": false,
+        "use_soft_q": false
+    },
+    "landmarks": {
+        "max_landmarks": 50,
+        "add_threshold": 0.60,
+        "landmark_mode_interval": 100,
+        "steps_per_landmark": 10,
+        "max_landmark_mode_steps": 200,
+        "success_threshold": 0.01,
+        "sim_threshold": 1,
+        "max_attempt_threshold": 10,
+        "use_oracle_start": false,
+        "reach_threshold": 0.95,
+        "landmark_paths": 5,
+        "affinity_decay": 0.99
+    },
+    "algo": {
+        "discount": 0.99,
+        "batch_size": 128,
+        "min_steps_learn": 1000,
+        "learning_rate": 2.5e-4,
+        "replay_size": 20000,
+        "delta_clip": 1,
+        "min_steps_dsr_learn": 2000,
+        "n_step_return": 2
+    },
+    "env": {
+        "goal_position": [1040, -300],
+        "config": "experiments/vizdoom/my_way_home_SPTM.cfg",
+        "goal_angle": 270,
+        "seed": 0,
+        "grayscale": false
+    },
+    "eval_env": {
+        "goal_position": [1040, -300],
+        "config": "experiments/vizdoom/my_way_home_SPTM.cfg",
+        "goal_angle": 270,
+        "seed": 0,
+        "grayscale": false
+    }, 
+    "runner": {
+        "log_interval_steps": 1e4,
+        "log_dsr_interval_steps": 1e4,
+        "min_steps_landmark_mode": 1e7,
+        "update_landmarks_interval_steps": 1000,
+        "log_landmarks_interval_steps": 1e4
+    },
+    "seed": 333,
+    "feature": "TCF",
+    "samplers": 8
+}

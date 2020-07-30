@@ -3,10 +3,11 @@ from collections import defaultdict, namedtuple
 import torch
 import torch.nn as nn
 
-from rlpyt.algos.dqn.dsr.dsr import DSR
+from rlpyt.algos.dqn.dsr.dsr import DSR, OptInfo
 from rlpyt.replays.non_sequence.uniform import (UniformReplayBuffer,
     AsyncUniformReplayBuffer, LandmarkUniformReplayBuffer,
     UniformTripletReplayBuffer)
+from rlpyt.utils.buffer import torchify_buffer
 from rlpyt.utils.collections import namedarraytuple
 from rlpyt.utils.logging import logger
 from rlpyt.utils.misc import param_norm_
@@ -298,6 +299,176 @@ class LandmarkTCFDSR(FeatureDSR):
         with torch.no_grad():
             # 2a. encode target observations in feature space
             target_features = self.agent.encode(samples.target_inputs.observation)
+
+            # 2b. estimate target successor features given features
+            target_dsr = self.agent.target(target_features)
+
+            # next_qs = self.agent.q_estimate(target_dsr)
+            # next_a = torch.argmax(next_qs, dim=-1)
+            # random actions
+            next_a = torch.randint(high=target_dsr.shape[1], size=samples.action.shape)
+
+            target_s_features = select_at_indexes(next_a, target_dsr)
+
+        # 3. combine current features + discounted target successor features
+        done_n = samples.done_n.float().view(-1, 1)
+        disc_target_s_features = (self.discount ** self.n_step_return) * target_s_features
+        s_y = target_features + (1 - samples.target_done.float()).view(-1, 1) * disc_target_s_features
+        y = features * done_n + (1 - done_n) * s_y
+
+        delta = y - s_features
+        losses = 0.5 * delta ** 2
+        abs_delta = abs(delta)
+
+        if self.delta_clip is not None:  # Huber loss.
+            b = self.delta_clip * (abs_delta - self.delta_clip / 2)
+            losses = torch.where(abs_delta <= self.delta_clip, losses, b)
+        # if self.prioritized_replay:
+        #     losses *= samples.is_weights
+
+        # sum losses over feature vector such that each sample has a scalar loss (result: B x 1)
+        # losses = losses.sum(dim=1)
+
+        td_abs_errors = abs_delta.mean(axis=1).detach()
+        if self.delta_clip is not None:
+            td_abs_errors = torch.clamp(td_abs_errors, 0, self.delta_clip)
+        if not self.mid_batch_reset:
+            losses = torch.mean(losses, axis=1)
+            valid = valid_from_done(samples.done)
+            loss = valid_mean(losses, valid)
+            td_abs_errors *= valid
+        else:
+            loss = torch.mean(losses)
+        return loss, td_abs_errors
+
+class FixedFeatureDSR(DSR):
+    """Fixed feature DSR."""
+
+    def __init__(
+            self,
+            min_steps_dsr_learn=int(5e4),
+            **kwargs):
+        super().__init__(**kwargs)
+        save__init__args(locals())
+    
+    def initialize(self, agent, n_itr, batch_spec, mid_batch_reset, examples,
+            world_size=1, rank=0):
+        super().initialize(agent, n_itr, batch_spec, mid_batch_reset, examples,
+            world_size, rank)
+        self.min_itr_dsr_learn = int(self.min_steps_dsr_learn // self.sampler_bs)
+
+    def optim_initialize(self, rank=0):
+        """Called by async runner."""
+        self.rank = rank
+        self.dsr_optimizer = self.OptimCls(self.agent.dsr_parameters(),
+            lr=self.learning_rate, **self.optim_kwargs)
+        if self.initial_optim_state_dict is not None:
+            self.dsr_optimizer.load_state_dict(self.initial_optim_state_dict['dsr'])
+        # if self.prioritized_replay:
+        #     self.pri_beta_itr = max(1, self.pri_beta_steps // self.sampler_bs)
+
+    def samples_to_buffer(self, samples):
+        feature = self.agent.encode(samples.env.observation).cpu()
+        return SamplesToBuffer(
+            observation=feature,
+            action=samples.agent.action,
+            reward=samples.env.reward,
+            done=samples.env.done,
+            mode=samples.agent.agent_info.mode
+        )
+    
+    def initialize_replay_buffer(self, examples, batch_spec, async_=False):
+        obs = examples["observation"]
+        obs_pyt = torchify_buffer(obs)
+        feature = self.agent.encode(obs_pyt).squeeze(0).cpu()
+        example_to_buffer = SamplesToBuffer(
+            observation=feature,
+            action=examples["action"],
+            reward=examples["reward"],
+            done=examples["done"],
+            mode=examples["agent_info"].mode,
+        )
+
+        replay_kwargs = dict(
+            example=example_to_buffer,
+            size=self.replay_size,
+            B=batch_spec.B,
+            discount=self.discount,
+            n_step_return=self.n_step_return,
+        )
+        # if self.prioritized_replay:
+        #     replay_kwargs.update(dict(
+        #         alpha=self.pri_alpha,
+        #         beta=self.pri_beta_init,
+        #         default_priority=self.default_priority,
+        #     ))
+        #     ReplayCls = (AsyncPrioritizedReplayFrameBuffer if async_ else
+        #         PrioritizedReplayFrameBuffer)
+        # else:
+        # ReplayCls = (AsyncUniformReplayFrameBuffer if async_ else
+        #     UniformReplayFrameBuffer)
+        ReplayCls = (AsyncUniformReplayBuffer if async_ else
+            LandmarkUniformReplayBuffer)
+        self.replay_buffer = ReplayCls(**replay_kwargs)
+
+    def optim_state_dict(self):
+        """If carrying multiple optimizers, overwrite to return dict state_dicts."""
+        return {'dsr': self.dsr_optimizer.state_dict()}
+    
+    def append_feature_samples(self, samples=None):
+        pass
+
+    def append_dsr_samples(self, samples=None):
+        # Append samples to replay buffer used for training successor features
+        if samples is not None:
+            samples_to_buffer = self.samples_to_buffer(samples)
+            self.replay_buffer.append_samples(samples_to_buffer)
+    
+    def optimize_agent(self, itr, sampler_itr=None):
+        itr = itr if sampler_itr is None else sampler_itr  # Async uses sampler_itr.
+        opt_info = OptInfo(*([] for _ in range(len(OptInfo._fields))))
+        if itr < self.min_itr_learn:
+            # Not enough samples have been collected
+            return opt_info
+
+        for _ in range(self.updates_per_optimize):
+            samples_from_replay = self.replay_buffer.sample_batch(self.batch_size)
+
+            if itr >= self.min_itr_dsr_learn:
+                # Train successor feature representation
+                self.dsr_optimizer.zero_grad()
+
+                dsr_loss, td_abs_errors = self.dsr_loss(samples_from_replay)
+                dsr_loss.backward()
+                dsr_grad_norm = torch.nn.utils.clip_grad_norm_(
+                    self.agent.dsr_parameters(), self.clip_grad_norm)
+
+                self.dsr_optimizer.step()
+
+                opt_info.dsrLoss.append(dsr_loss.item())
+                opt_info.dsrGradNorm.append(dsr_grad_norm)
+                opt_info.tdAbsErr.extend(td_abs_errors[::8].numpy())  # Downsample.
+
+                self.update_counter += 1
+                if self.update_counter % self.target_update_interval == 0:
+                    self.agent.update_target()
+        
+        self.update_itr_hyperparams(itr)
+        return opt_info
+
+    def dsr_loss(self, samples):
+        """Samples have leading batch dimension [B,..] (but not time)."""
+        # 1a. encode observations in feature space
+        with torch.no_grad():
+            features = samples.agent_inputs.observation
+
+        # 1b. estimate successor features given features
+        dsr = self.agent(features)
+        s_features = select_at_indexes(samples.action, dsr)
+
+        with torch.no_grad():
+            # 2a. encode target observations in feature space
+            target_features = samples.target_inputs.observation
 
             # 2b. estimate target successor features given features
             target_dsr = self.agent.target(target_features)

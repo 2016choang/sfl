@@ -2,10 +2,9 @@
 import math
 import numpy as np
 
-
+from rlpyt.algos.utils import discount_return_n_step
 from rlpyt.replays.base import BaseReplayBuffer
 from rlpyt.utils.buffer import buffer_from_example, get_leading_dims
-from rlpyt.algos.utils import discount_return_n_step
 
 
 class BaseNStepReturnBuffer(BaseReplayBuffer):

@@ -480,16 +480,16 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
     def train(self):
         n_itr = self.startup()
 
-        # Create test set
-        self.agent.sample_mode(1)
-        for _ in range(self.itr_sample_test):
-            samples, traj_infos = self.sampler.obtain_samples(1)
-            self.algo.append_test_feature_samples(samples)
-        self.algo.create_test_set(int(self.test_set_size))
+        # # Create test set
+        # self.agent.sample_mode(1)
+        # for _ in range(self.itr_sample_test):
+        #     samples, traj_infos = self.sampler.obtain_samples(1)
+        #     self.algo.append_test_feature_samples(samples)
+        # self.algo.create_test_set(int(self.test_set_size))
 
         with logger.prefix(f"itr #0 "):
             eval_traj_infos, eval_time = self.evaluate_agent(0)
-            self.log_eval_features(0)
+            # self.log_eval_features(0)
             self.log_diagnostics(0, eval_traj_infos, eval_time)
         
         # Main loop
@@ -524,7 +524,7 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                 # Evaluate agent
                 if (itr + 1) % self.log_interval_itrs == 0:
                     eval_traj_infos, eval_time = self.evaluate_agent(itr)
-                    self.log_eval_features(itr)
+                    # self.log_eval_features(itr)
                     self.log_diagnostics(itr, eval_traj_infos, eval_time)
                     self.algo.update_scheduler(self._opt_infos)
                     self.log_eval_landmarks(itr)
