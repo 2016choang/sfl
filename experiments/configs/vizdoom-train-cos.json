@@ -11,8 +11,11 @@
             }   
         },
         "feature_model_kwargs": {
+            "fixed_weights_path": "../sptm/experiments/0103_R/models/model_weights.h5",
             "feature_size": 512,
-            "fixed_weights_path": "../sptm/experiments/0103_R/models/model_weights.h5"
+            "final_feature_size": 512,
+            "norm_output": true,
+            "alpha": 1.0
         },
         "use_oracle_graph": false,
         "use_soft_q": false
@@ -34,12 +37,18 @@
     "algo": {
         "discount": 0.99,
         "batch_size": 128,
-        "min_steps_learn": 1000,
-        "learning_rate": 1e-5,
+        "min_steps_learn": 2000,
+        "learning_rate": 2.5e-4,
         "replay_size": 100000,
         "delta_clip": 1,
-        "min_steps_dsr_learn": 1000,
-        "n_step_return": 5
+        "min_steps_dsr_learn": 10000000,
+        "feature_learning_rate": 2.5e-4,
+        "pos_threshold": 20,
+        "neg_close_threshold": 100,
+        "neg_far_threshold": 1000,
+        "margin": 0.2,
+        "metric": "cos",
+        "fixed_features": true
     },
     "env": {
         "goal_position": [595, 1200],
@@ -47,8 +56,7 @@
         "goal_angle": 270,
         "seed": 100,
         "grayscale": false,
-        "map_id": "map05",
-        "num_samples": -1
+        "map_id": "map05"
     },
     "eval_env": {
         "goal_position": [595, 1200],
@@ -56,12 +64,11 @@
         "goal_angle": 270,
         "seed": 100,
         "grayscale": false,
-        "map_id": "map05",
-        "num_samples": -1
+        "map_id": "map05"
     }, 
     "runner": {
         "log_interval_steps": 1e4,
-        "log_dsr_interval_steps": 3e3,
+        "log_dsr_interval_steps": 1e4,
         "min_steps_landmark_mode": 1e7,
         "update_landmarks_interval_steps": 1000,
         "log_landmarks_interval_steps": 1e4

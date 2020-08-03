@@ -764,18 +764,19 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
     def log_dsr(self, itr):
         # 1. Render actual environment
         env = self.sampler.collector.envs[0]
-        if itr < self.min_itr_landmark_mode:
+        if itr < (self.log_dsr_interval_itrs * 2):
             figure = plt.figure(figsize=(7, 7))
             env.plot_topdown()
             save_image('Environment', itr)
             plt.close()
 
-            figure = plt.figure(figsize=(7, 7))
-            env.plot_topdown()
-            plt.scatter(env.sample_sectors[:, 0], env.sample_sectors[:, 1], c=env.sample_sectors[:, 2], s=100)
-            plt.colorbar()
-            save_image('Sectors', itr)
-            plt.close()
+            if env.sample_sectors:
+                figure = plt.figure(figsize=(7, 7))
+                env.plot_topdown()
+                plt.scatter(env.sample_sectors[:, 0], env.sample_sectors[:, 1], c=env.sample_sectors[:, 2], s=100)
+                plt.colorbar()
+                save_image('Sectors', itr)
+                plt.close()
 
         # 2. Heatmap of state vistations during training interval
         figure = plt.figure(figsize=(7, 7))
@@ -798,44 +799,83 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         torch.save(features, os.path.join(logger.get_snapshot_dir(), 'features_itr_{}.pt'.format(itr)))
         torch.save(s_features, os.path.join(logger.get_snapshot_dir(), 'dsr_itr_{}.pt'.format(itr)))
         
-        # Compare to goal landmark
-        subgoal_index = 0
+        # Comparison index
+        subgoal_index = 250
+
+        similarity_thresholds = [0.80, 0.85, 0.90, 0.95]
 
         # 4. Distance visualization in feature space
         features_similarity = self.agent.get_representation_similarity(features, mean_axes=1, subgoal_index=subgoal_index)
         
         figure = plt.figure(figsize=(7, 7))
-        env.plot_topdown()
-        plt.scatter(positions[:, 0], positions[:, 1], s=100, c=features_similarity)
+        env.plot_topdown(objects=False)
+        plt.scatter(positions[:, 0], positions[:, 1], c=features_similarity)
+        plt.scatter(*positions[subgoal_index], label='Subgoal', marker='D', c='red')
         plt.colorbar()
+        plt.legend()
         save_image('Cosine Similarity in Feature Space', itr)
         plt.close()
 
-        # 5. T-SNE visualization of features
-        tsne_embeddings = self.agent.get_tsne(features, mean_axes=1)
-
+        # 5. Points with High Feature Similarity
         figure = plt.figure(figsize=(7, 7))
-        plt.scatter(tsne_embeddings[:, 0], tsne_embeddings[:, 1], c=env.sample_sectors[:, 2])
-        plt.colorbar()
-        save_image('T-SNE of Features', itr)
+        env.plot_topdown(objects=False)
+        for threshold in similarity_thresholds:
+            plt.scatter(positions[features_similarity > threshold, 0], positions[features_similarity > threshold, 1],
+                        label='Similarity > {}'.format(threshold))
+        plt.scatter(*positions[subgoal_index], label='Subgoal', marker='D')
+
+        plt.legend()
+        save_image('Points with High Feature Similarity', itr)
         plt.close()
+
+        # # 5. T-SNE visualization of features
+        # tsne_embeddings = self.agent.get_tsne(features, mean_axes=1)
+
+        # figure = plt.figure(figsize=(7, 7))
+        # plt.scatter(tsne_embeddings[:, 0], tsne_embeddings[:, 1], c=env.sample_sectors[:, 2])
+        # plt.colorbar()
+        # save_image('T-SNE of Features', itr)
+        # plt.close()
 
         # 6. Distance visualization in SF space
         s_features_similarity = self.agent.get_representation_similarity(s_features, mean_axes=(1, 2), subgoal_index=subgoal_index)
         q_values = self.agent.get_q_values(s_features, mean_axes=1, subgoal_index=subgoal_index)
 
         figure = plt.figure(figsize=(7, 7))
-        env.plot_topdown()
-        plt.scatter(positions[:, 0], positions[:, 1], s=100, c=s_features_similarity)
+        env.plot_topdown(objects=False)
+        plt.scatter(positions[:, 0], positions[:, 1], c=s_features_similarity)
+        plt.scatter(*positions[subgoal_index], label='Subgoal', marker='D', c='red')
 
-        for i, position in enumerate(positions):
-            x, y = position
-            action = q_values[i].argmax()
-            plt.text(x - 1, y - 1, str(action), fontsize=6)
+        # for i, position in enumerate(positions):
+        #     x, y = position
+        #     action = q_values[i].argmax()
+        #     plt.text(x - 1, y - 1, str(action), fontsize=6)
 
         plt.colorbar()
+        plt.legend()
         save_image('Cosine Similarity in SF Space', itr)
         plt.close()
+
+        # 7. Points with High SF Similarity
+        figure = plt.figure(figsize=(7, 7))
+        env.plot_topdown(objects=False)
+        for threshold in similarity_thresholds:
+            plt.scatter(positions[s_features_similarity > threshold, 0], positions[s_features_similarity > threshold, 1],
+                        label='Similarity > {}'.format(threshold))
+        plt.scatter(*positions[subgoal_index], label='Subgoal', marker='D')
+
+        plt.legend()
+        save_image('Points with High SF Similarity', itr)
+        plt.close()
+
+        # # 8. T-SNE visualization of successor features
+        # tsne_embeddings = self.agent.get_tsne(features, mean_axes=1)
+
+        # figure = plt.figure(figsize=(7, 7))
+        # plt.scatter(tsne_embeddings[:, 0], tsne_embeddings[:, 1], c=env.sample_sectors[:, 2])
+        # plt.colorbar()
+        # save_image('T-SNE of SF', itr)
+        # plt.close()
 
     def log_eval_landmarks(self, itr):
         # Log eval landmarks information

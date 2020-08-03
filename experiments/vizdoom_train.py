@@ -11,6 +11,8 @@ example.
 import copy
 import json
 
+import keras
+import tensorflow as tf
 import torch
 
 from rlpyt.samplers.serial.sampler import SerialSampler
@@ -18,7 +20,7 @@ from rlpyt.samplers.serial.collectors import SerialLandmarksEvalCollector
 from rlpyt.samplers.parallel.cpu.collectors import CpuLandmarksCollector
 from rlpyt.envs.vizdoom.vizdoom_env import VizDoomEnv
 from rlpyt.algos.dqn.dsr.dsr import DSR
-from rlpyt.algos.dqn.dsr.feature_dsr import IDFDSR, LandmarkTCFDSR, FixedFeatureDSR
+from rlpyt.algos.dqn.dsr.feature_dsr import IDFDSR, LandmarkTCFDSR, FixedFeatureDSR, PositionPrediction
 from rlpyt.agents.dqn.dsr.landmark_agent import LandmarkVizDoomAgent 
 from rlpyt.agents.dqn.dsr.landmarks import Landmarks
 from rlpyt.models.dqn.dsr.tcf_model import VizDoomTCFModel, FixedVizDoomModel
@@ -58,7 +60,7 @@ def build_and_train(config_file,
         batch_B=samplers,  # One environment (i.e. sampler Batch dimension).
         max_decorrelation_steps=0,
         eval_n_envs=1,
-        eval_max_steps=int(1e4),
+        eval_max_steps=int(1e1),
         eval_max_trajectories=1,
     )    
 
@@ -77,6 +79,7 @@ def build_and_train(config_file,
         featureModelCls = FixedVizDoomModel
         # algo_class = LandmarkTCFDSR
         algo_class = FixedFeatureDSR
+        # algo_class = PositionPrediction
     else:
         raise NotImplementedError
 
@@ -111,7 +114,13 @@ if __name__ == "__main__":
     parser.add_argument('--snapshot_gap', help='iterations between snapshots', type=int, default=10000)
     parser.add_argument('--steps', help='iterations', type=float, default=200000)
     parser.add_argument('--checkpoint', help='checkpoint file', default=None)
+    parser.add_argument('--gpu_fraction', help='gpu fraction', type=float, default=0.3)
     args = parser.parse_args()
+
+    config = tf.ConfigProto()
+    config.gpu_options.per_process_gpu_memory_fraction = args.gpu_fraction
+    keras.backend.tensorflow_backend.set_session(tf.Session(config=config))
+
     build_and_train(
         config_file=args.config,
         run_ID=args.run_ID,

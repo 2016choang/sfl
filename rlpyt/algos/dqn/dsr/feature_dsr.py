@@ -5,7 +5,7 @@ import torch.nn as nn
 
 from rlpyt.algos.dqn.dsr.dsr import DSR, OptInfo
 from rlpyt.replays.non_sequence.uniform import (UniformReplayBuffer,
-    AsyncUniformReplayBuffer, LandmarkUniformReplayBuffer,
+    AsyncUniformReplayBuffer, LandmarkUniformReplayBuffer, VizDoomLandmarkUniformReplayBuffer,
     UniformTripletReplayBuffer)
 from rlpyt.utils.buffer import torchify_buffer
 from rlpyt.utils.collections import namedarraytuple
@@ -15,7 +15,7 @@ from rlpyt.utils.quick_args import save__init__args
 from rlpyt.utils.tensor import select_at_indexes, valid_mean
 from rlpyt.algos.utils import valid_from_done
 
-FeatureOptInfo = namedtuple("FeateureOptInfo", ["featureLoss", "featureGradNorm",
+FeatureOptInfo = namedtuple("FeatureOptInfo", ["featureLoss", "featureGradNorm",
                                                 "dsrLoss", "dsrGradNorm", "tdAbsErr"])
 
 class FeatureDSR(DSR):
@@ -151,6 +151,56 @@ class IDFDSR(FeatureDSR):
             feature_opt_info = {'idfAccuracy': accuracy.item()}
         return loss, feature_opt_info
 
+VizDoomSamplesToBuffer = namedarraytuple("VizDoomSamplesToBuffer",
+    ["observation", "action", "reward", "done", "mode", "position"])
+
+class PositionPrediction(FeatureDSR):
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.l2_loss = nn.MSELoss()
+        self.opt_info_class = FeatureOptInfo
+        self.opt_info_fields = tuple(f for f in self.opt_info_class._fields)
+
+    def initialize_replay_buffer(self, examples, batch_spec, async_=False):
+        obs = examples["observation"]
+        obs_pyt = torchify_buffer(obs)
+        feature = self.agent.encode(obs_pyt).squeeze(0).cpu()
+        example_to_buffer = VizDoomSamplesToBuffer(
+            observation=feature,
+            action=examples["action"],
+            reward=examples["reward"],
+            done=examples["done"],
+            mode=examples["agent_info"].mode,
+            position=examples["env_info"].position
+        )
+
+        replay_kwargs = dict(
+            example=example_to_buffer,
+            size=self.replay_size,
+            B=batch_spec.B,
+            discount=self.discount,
+            n_step_return=self.n_step_return,
+        )
+        self.replay_buffer = VizDoomLandmarkUniformReplayBuffer(**replay_kwargs)
+        self.feature_replay_buffer = None
+        
+    def samples_to_buffer(self, samples):
+        feature = self.agent.encode(samples.env.observation).cpu()
+        return VizDoomSamplesToBuffer(
+            observation=feature,
+            action=samples.agent.action,
+            reward=samples.env.reward,
+            done=samples.env.done,
+            mode=samples.agent.agent_info.mode,
+            position=samples.env.env_info.position
+        )
+    
+    def feature_loss(self, samples):
+        pred_position = self.agent.encode(samples.agent_inputs.observation, mode='output')
+        loss = self.l2_loss(pred_position, samples.position.float())
+        return loss, {}
+
 
 TCFOptInfo = namedtuple("TCFOptInfo", ["posDistance", "negDistance"] + list(FeatureOptInfo._fields))
 SamplesToBuffer = namedarraytuple("SamplesToBuffer",
@@ -166,6 +216,7 @@ class LandmarkTCFDSR(FeatureDSR):
         neg_far_threshold=30,
         margin=2.0,
         metric='L2',
+        fixed_features=False,
         **kwargs):
         save__init__args(locals())
         super().__init__(**kwargs)
@@ -179,8 +230,12 @@ class LandmarkTCFDSR(FeatureDSR):
         self.initialize_triplet_replay_buffer(examples, batch_spec)
 
     def initialize_replay_buffer(self, examples, batch_spec, async_=False):
+        observation = examples["observation"]
+        if self.fixed_features:
+            obs_pyt = torchify_buffer(observation)
+            observation = self.agent.encode(obs_pyt).squeeze(0).cpu()
         example_to_buffer = SamplesToBuffer(
-            observation=examples["observation"],
+            observation=observation,
             action=examples["action"],
             reward=examples["reward"],
             done=examples["done"],
@@ -212,8 +267,12 @@ class LandmarkTCFDSR(FeatureDSR):
         self.test_replay_buffer = None
 
     def initialize_triplet_replay_buffer(self, examples, batch_spec, async_=False):
+        observation = examples["observation"]
+        if self.fixed_features:
+            obs_pyt = torchify_buffer(observation)
+            observation = self.agent.encode(obs_pyt).squeeze(0).cpu()
         example_to_buffer = SamplesToBuffer(
-            observation=examples["observation"],
+            observation=observation,
             action=examples["action"],
             reward=examples["reward"],
             done=examples["done"],
@@ -238,8 +297,11 @@ class LandmarkTCFDSR(FeatureDSR):
             self.test_feature_replay_buffer.append_samples(samples_to_buffer)
 
     def samples_to_buffer(self, samples):
+        observation = samples.env.observation
+        if self.fixed_features:
+            observation = self.agent.encode(observation).cpu()
         return SamplesToBuffer(
-            observation=samples.env.observation,
+            observation=observation,
             action=samples.agent.action,
             reward=samples.env.reward,
             done=samples.env.done,
@@ -248,9 +310,12 @@ class LandmarkTCFDSR(FeatureDSR):
 
     def feature_loss(self, samples):
         # Time contrastive loss
-        anchor_embeddings = self.agent.encode(samples.anchor)
-        pos_embeddings = self.agent.encode(samples.pos)
-        neg_embeddings = self.agent.encode(samples.neg)
+        mode = 'encode'
+        if self.fixed_features:
+            mode = 'output'
+        anchor_embeddings = self.agent.encode(samples.anchor, mode=mode)
+        pos_embeddings = self.agent.encode(samples.pos, mode=mode)
+        neg_embeddings = self.agent.encode(samples.neg, mode=mode)
 
         if self.metric == 'L2':
             pos_dist = torch.norm(anchor_embeddings - pos_embeddings, p=2, dim=1)
@@ -341,6 +406,7 @@ class LandmarkTCFDSR(FeatureDSR):
             loss = torch.mean(losses)
         return loss, td_abs_errors
 
+
 class FixedFeatureDSR(DSR):
     """Fixed feature DSR."""
 
@@ -377,17 +443,20 @@ class FixedFeatureDSR(DSR):
             mode=samples.agent.agent_info.mode
         )
     
-    def initialize_replay_buffer(self, examples, batch_spec, async_=False):
+    def example_to_buffer(self, examples):
         obs = examples["observation"]
         obs_pyt = torchify_buffer(obs)
         feature = self.agent.encode(obs_pyt).squeeze(0).cpu()
-        example_to_buffer = SamplesToBuffer(
+        return SamplesToBuffer(
             observation=feature,
             action=examples["action"],
             reward=examples["reward"],
             done=examples["done"],
             mode=examples["agent_info"].mode,
         )
+
+    def initialize_replay_buffer(self, examples, batch_spec, async_=False):
+        example_to_buffer = self.example_to_buffer(examples)
 
         replay_kwargs = dict(
             example=example_to_buffer,

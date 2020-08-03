@@ -34,11 +34,11 @@ class FeatureDSRAgent(Mixin, DsrAgent):
         if self.initial_feature_model_state_dict is not None:
             self.feature_model.load_state_dict(self.initial_feature_model_state_dict)
 
-    def encode(self, observation):
+    def encode(self, observation, mode='encode'):
         # Encode observation into feature representation
         model_inputs = buffer_to(observation,
             device=self.device)
-        features = self.feature_model(model_inputs, mode='encode')
+        features = self.feature_model(model_inputs, mode=mode)
         return features.cpu()
 
     def state_dict(self):
