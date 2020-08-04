@@ -218,15 +218,15 @@ class VizDoomEnv(Env):
     def get_obs_at(self, position=None, angle=None, full=False):
         state = self.game.get_state()
 
-        if position:
+        if position is not None:
             self.game.send_game_command('warp {} {}'.format(*position))
 
         turn_delta = 0
-        if angle:
+        if angle is not None:
             cur_angle = self.game.get_game_variable(vzd.GameVariable.ANGLE)    
             turn_delta = int(cur_angle - angle)
 
-        if position or angle:
+        if position is not None or angle is not None:
             self.game.make_action([0, 0, 0, 0, 0, 0, turn_delta])
             state = self.game.get_state()
 
