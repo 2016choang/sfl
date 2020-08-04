@@ -39,7 +39,7 @@
         "replay_size": 100000,
         "delta_clip": 1,
         "min_steps_dsr_learn": 1000,
-        "n_step_return": 5
+        "n_step_return": 10
     },
     "env": {
         "goal_position": [595, 1200],
@@ -61,7 +61,7 @@
     }, 
     "runner": {
         "log_interval_steps": 1e4,
-        "log_dsr_interval_steps": 1e4,
+        "log_dsr_interval_steps": 1e3,
         "min_steps_landmark_mode": 1e7,
         "update_landmarks_interval_steps": 1000,
         "log_landmarks_interval_steps": 1e4

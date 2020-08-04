@@ -96,8 +96,6 @@ class VizDoomEnv(Env):
             self.sample_positions.append(info.position)
         self.sample_states = np.array(self.sample_states)[::4]
         self.sample_positions = np.array(self.sample_positions)[::4]
-        self.sample_positions[:, 0] *= self.max_x
-        self.sample_positions[:, 1] *= self.max_y
     
     def generate_samples(self):
         state = self.game.get_state()
@@ -126,8 +124,6 @@ class VizDoomEnv(Env):
         self.sample_states = np.array(self.sample_states)
         self.sample_sectors = np.array(self.sample_sectors)
         self.sample_positions = np.array(self.sample_positions)
-        self.sample_positions[:, 0] *= self.max_x
-        self.sample_positions[:, 1] *= self.max_y
 
     def set_record_files(self, files):
         self.record_files = deque(files)

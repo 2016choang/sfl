@@ -810,7 +810,7 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         figure = plt.figure(figsize=(7, 7))
         env.plot_topdown(objects=False)
         plt.scatter(positions[:, 0], positions[:, 1], c=features_similarity)
-        plt.scatter(*positions[subgoal_index], label='Subgoal', marker='D', c='red')
+        plt.scatter(*positions[subgoal_index, :2], label='Subgoal', marker='D', c='red')
         plt.colorbar()
         plt.legend()
         save_image('Cosine Similarity in Feature Space', itr)
@@ -822,7 +822,7 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         for threshold in similarity_thresholds:
             plt.scatter(positions[features_similarity > threshold, 0], positions[features_similarity > threshold, 1],
                         label='Similarity > {}'.format(threshold))
-        plt.scatter(*positions[subgoal_index], label='Subgoal', marker='D')
+        plt.scatter(*positions[subgoal_index, :2], label='Subgoal', marker='D')
 
         plt.legend()
         save_image('Points with High Feature Similarity', itr)
@@ -844,7 +844,7 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         figure = plt.figure(figsize=(7, 7))
         env.plot_topdown(objects=False)
         plt.scatter(positions[:, 0], positions[:, 1], c=s_features_similarity)
-        plt.scatter(*positions[subgoal_index], label='Subgoal', marker='D', c='red')
+        plt.scatter(*positions[subgoal_index, :2], label='Subgoal', marker='D', c='red')
 
         # for i, position in enumerate(positions):
         #     x, y = position
@@ -862,7 +862,7 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         for threshold in similarity_thresholds:
             plt.scatter(positions[s_features_similarity > threshold, 0], positions[s_features_similarity > threshold, 1],
                         label='Similarity > {}'.format(threshold))
-        plt.scatter(*positions[subgoal_index], label='Subgoal', marker='D')
+        plt.scatter(*positions[subgoal_index, :2], label='Subgoal', marker='D')
 
         plt.legend()
         save_image('Points with High SF Similarity', itr)
