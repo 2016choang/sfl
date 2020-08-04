@@ -181,7 +181,7 @@ class VizDoomEnv(Env):
             else:
                 new_obs = np.uint8(np.zeros(self._observation_space.shape))
 
-        info = EnvInfo(traj_done=done, position=(x / self.max_x, y / self.max_y, theta))
+        info = EnvInfo(traj_done=done, position=(x, y, theta))
 
         self._update_obs(new_obs)
         return EnvStep(self.get_obs(), reward, done, info)
@@ -224,7 +224,7 @@ class VizDoomEnv(Env):
         turn_delta = 0
         if angle is not None:
             cur_angle = self.game.get_game_variable(vzd.GameVariable.ANGLE)    
-            turn_delta = int(cur_angle - angle)
+            turn_delta = int(angle - cur_angle)
 
         if position is not None or angle is not None:
             self.game.make_action([0, 0, 0, 0, 0, 0, turn_delta])
