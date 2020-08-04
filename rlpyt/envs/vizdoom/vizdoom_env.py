@@ -221,14 +221,12 @@ class VizDoomEnv(Env):
         if position is not None:
             self.game.send_game_command('warp {} {}'.format(*position))
 
-        turn_delta = 0
         if angle is not None:
             cur_angle = self.game.get_game_variable(vzd.GameVariable.ANGLE)    
-            turn_delta = int(angle - cur_angle)
+            turn_delta = int(cur_angle - angle)
+            self.game.make_action([0, 0, 0, 0, 0, 0, turn_delta], 1)
 
-        if position is not None or angle is not None:
-            self.game.make_action([0, 0, 0, 0, 0, 0, turn_delta])
-            state = self.game.get_state()
+        state = self.game.get_state()
 
         if self.game.is_episode_finished():
             position = np.array([0, 0, 0])
