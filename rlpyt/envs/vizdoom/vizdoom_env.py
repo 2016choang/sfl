@@ -165,7 +165,7 @@ class VizDoomEnv(Env):
         if not done:
             self.state = self.game.get_state()
             new_obs = self.state.screen_buffer
-            x, y = self.state.game_variables[:2]
+            x, y, theta = self.state.game_variables
             visited_x = int(round(x - self.min_x)) // 50
             visited_y = int(round(y - self.min_y)) // 50
             self.visited_interval[visited_x, visited_y] += 1
@@ -175,13 +175,13 @@ class VizDoomEnv(Env):
                 self.game.init()
                 self.current_record_file = None
             # NOTE: when done, screen_buffer is invalid
-            x, y = 0, 0
+            x, y, theta = 0, 0, 0
             if self.grayscale:
                 new_obs = np.uint8(np.zeros(self._observation_space.shape[1:]))
             else:
                 new_obs = np.uint8(np.zeros(self._observation_space.shape))
 
-        info = EnvInfo(traj_done=done, position=(x / self.max_x, y / self.max_y))
+        info = EnvInfo(traj_done=done, position=(x / self.max_x, y / self.max_y, theta))
 
         self._update_obs(new_obs)
         return EnvStep(self.get_obs(), reward, done, info)
@@ -231,7 +231,7 @@ class VizDoomEnv(Env):
             state = self.game.get_state()
 
         if self.game.is_episode_finished():
-            position = np.array([0, 0])
+            position = np.array([0, 0, 0])
             if self.grayscale:
                 new_obs = np.uint8(np.zeros(self._observation_space.shape[1:]))
             else:
@@ -239,7 +239,7 @@ class VizDoomEnv(Env):
             self.game.new_episode()
         else:
             new_obs = state.screen_buffer
-            position = state.game_variables[:2]
+            position = state.game_variables
 
         if self.grayscale:
             new_obs = np.transpose(new_obs, [1, 2, 0])
