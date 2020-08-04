@@ -35,11 +35,11 @@
         "discount": 0.99,
         "batch_size": 128,
         "min_steps_learn": 1000,
-        "learning_rate": 1e-5,
+        "learning_rate": 1e-4,
         "replay_size": 100000,
         "delta_clip": 1,
         "min_steps_dsr_learn": 1000,
-        "n_step_return": 10
+        "n_step_return": 5
     },
     "env": {
         "goal_position": [595, 1200],
