@@ -530,6 +530,7 @@ class FixedFeatureDSR(DSR):
         # 1a. encode observations in feature space
         with torch.no_grad():
             features = samples.agent_inputs.observation
+            features_n = samples.observation_n
 
         # 1b. estimate successor features given features
         dsr = self.agent(features)
@@ -550,10 +551,8 @@ class FixedFeatureDSR(DSR):
             target_s_features = select_at_indexes(next_a, target_dsr)
 
         # 3. combine current features + discounted target successor features
-        done_n = samples.done_n.float().view(-1, 1)
         disc_target_s_features = (self.discount ** self.n_step_return) * target_s_features
-        s_y = target_features + (1 - samples.target_done.float()).view(-1, 1) * disc_target_s_features
-        y = features * done_n + (1 - done_n) * s_y
+        y = features_n + (1 - samples.done_n.float().view(-1, 1)) * disc_target_s_features 
 
         delta = y - s_features
         losses = 0.5 * delta ** 2
