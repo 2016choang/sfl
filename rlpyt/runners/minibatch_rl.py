@@ -802,7 +802,7 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         # Comparison index
         subgoal_index = 250
 
-        similarity_thresholds = [0.80, 0.85, 0.90, 0.95]
+        percentiles = [90, 92.5, 95, 97.5]
 
         # 4. Distance visualization in feature space
         features_similarity = self.agent.get_representation_similarity(features, mean_axes=1, subgoal_index=subgoal_index)
@@ -816,12 +816,14 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         save_image('Cosine Similarity in Feature Space', itr)
         plt.close()
 
+        similarity_thresholds = np.percentile(features_similarity, percentiles)
+
         # 5. Points with High Feature Similarity
         figure = plt.figure(figsize=(7, 7))
         env.plot_topdown(objects=False)
         for threshold in similarity_thresholds:
             plt.scatter(positions[features_similarity > threshold, 0], positions[features_similarity > threshold, 1],
-                        label='Similarity > {}'.format(threshold))
+                        label='Similarity > {:.3f}'.format(threshold))
         plt.scatter(*positions[subgoal_index, :2], label='Subgoal', marker='D')
 
         plt.legend()
@@ -856,12 +858,14 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         save_image('Cosine Similarity in SF Space', itr)
         plt.close()
 
+        similarity_thresholds = np.percentile(s_features_similarity, percentiles)
+
         # 7. Points with High SF Similarity
         figure = plt.figure(figsize=(7, 7))
         env.plot_topdown(objects=False)
         for threshold in similarity_thresholds:
             plt.scatter(positions[s_features_similarity > threshold, 0], positions[s_features_similarity > threshold, 1],
-                        label='Similarity > {}'.format(threshold))
+                        label='Similarity > {:.3f}'.format(threshold))
         plt.scatter(*positions[subgoal_index, :2], label='Subgoal', marker='D')
 
         plt.legend()

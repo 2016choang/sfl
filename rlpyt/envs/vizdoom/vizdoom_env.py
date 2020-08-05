@@ -24,7 +24,7 @@ class VizDoomEnv(Env):
                  config,
                  seed,
                  goal_position,
-                 goal_angle=0,
+                 start_position=None,
                  grayscale=True,
                  frame_skip=4,  # Frames per step (>=1).
                  num_img_obs=4,  # Number of (past) frames in observation (>=1).
@@ -61,8 +61,8 @@ class VizDoomEnv(Env):
         self._obs = np.zeros(shape=obs_shape, dtype="uint8")
 
         self.game.new_episode()
-        self.set_start_state()
-        self.set_goal_state(goal_position, goal_angle)
+        self.set_start_state(start_position)
+        self.set_goal_state(goal_position)
 
         state = self.game.get_state()
         sector_lines = np.array([[l.x1, l.x2, l.y1, l.y2] for s in state.sectors for l in s.lines if l.is_blocking])
@@ -100,7 +100,7 @@ class VizDoomEnv(Env):
     def generate_samples(self):
         state = self.game.get_state()
         self.sample_states = [self.start_info, self.goal_info]
-        self.sample_sectors = [(*self.start_info[1], 0), (*self.goal_info[1], 1)]
+        self.sample_sectors = [(*self.start_info[1][:2], 0), (*self.goal_info[1][:2], 1)]
         self.sample_positions = [self.start_info[1], self.goal_info[1]]
 
         samples_per_sector = self.num_samples // len(state.sectors)
@@ -115,7 +115,7 @@ class VizDoomEnv(Env):
             sample_x = np.random.uniform(min_x, max_x, samples_per_sector)
             sample_y = np.random.uniform(min_y, max_y, samples_per_sector)
             for x, y in zip(sample_x, sample_y):
-                sample_state, position = self.get_obs_at([x, y], self.goal_angle)
+                sample_state, position = self.get_obs_at([x, y, 0])
                 self.sample_states.append(sample_state)
                 centroid = (sector_lines[:, :2].mean(), sector_lines[:, 2:].mean())
                 self.sample_sectors.append((*centroid, i))
@@ -139,6 +139,8 @@ class VizDoomEnv(Env):
             self.game.new_episode(self.current_record_file)
         else:
             self.game.new_episode()
+        if self.start_position is not None:
+            self.get_obs_at(self.start_position)
         self.state = self.game.get_state()
 
         x, y = self.state.game_variables[:2]
@@ -190,11 +192,11 @@ class VizDoomEnv(Env):
     def get_obs(self):
         return self._obs.copy()
 
-    def set_start_state(self):
-        self.start_state, self.start_position = self.get_obs_at(full=False)
+    def set_start_state(self, position):
+        self._start_info = self.get_obs_at(position, full=False)
     
-    def set_goal_state(self, position, angle=0):
-        self.goal_state, self.goal_position = self.get_obs_at(position, angle, full=True)
+    def set_goal_state(self, position):
+        self._goal_info = self.get_obs_at(position, full=True)
 
     ###########################################################################
     # Helpers
@@ -211,15 +213,13 @@ class VizDoomEnv(Env):
     def _reset_obs(self):
         self._obs[:] = 0
 
-    def get_obs_at(self, position=None, angle=None, full=False):
+    def get_obs_at(self, position=None, full=False):
         state = self.game.get_state()
 
         if position is not None:
-            self.game.send_game_command('warp {} {}'.format(*position))
-
-        if angle is not None:
+            self.game.send_game_command('warp {} {}'.format(position[0], position[1]))
             cur_angle = self.game.get_game_variable(vzd.GameVariable.ANGLE)    
-            turn_delta = int(cur_angle - angle)
+            turn_delta = int(cur_angle - position[2])
             self.game.make_action([0, 0, 0, 0, 0, 0, turn_delta], 1)
 
         state = self.game.get_state()
@@ -279,8 +279,8 @@ class VizDoomEnv(Env):
     
     @property
     def start_info(self):
-        return (self.start_state, self.start_position)
+        return self._start_info
 
     @property
     def goal_info(self):
-        return (self.goal_state, self.goal_position)
+        return self._goal_info

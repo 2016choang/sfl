@@ -34,7 +34,7 @@ class DSR(RlAlgorithm):
             discount=0.99,
             batch_size=32,
             min_steps_learn=int(5e4),
-            delta_clip=1.,
+            delta_clip=None,
             replay_size=int(1e6),
             replay_ratio=8,  # data_consumption / data_generation.
             target_update_interval=312,  # 312 * 32 = 1e4 env steps.

@@ -453,6 +453,7 @@ def record_tabular_misc_stat(key, values, itr=None, placement='back'):
         record_tabular(prefix + "Max" + suffix, np.max(values))
         if itr is not None and _tf_summary_writer is not None:
             _tf_summary_writer.add_scalar(prefix + "Average", np.average(values), itr)
+            _tf_summary_writer.add_scalar(prefix + "Std", np.std(values), itr)
             # for i, val in enumerate(values):
             #     _tf_summary_writer.add_scalar(prefix, np.average(val), itr + i)
     else:

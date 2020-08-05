@@ -35,25 +35,25 @@
         "discount": 0.99,
         "batch_size": 128,
         "min_steps_learn": 1000,
+        "delta_clip": 23.75,
         "learning_rate": 1e-4,
         "replay_size": 100000,
-        "delta_clip": 1,
         "min_steps_dsr_learn": 1000,
-        "n_step_return": 5
+        "n_step_return": 10
     },
     "env": {
-        "goal_position": [595, 1200],
+        "goal_position": [595, 1200, 270],
+        "start_position": [1000, 1000, 0],
         "config": "experiments/vizdoom/train_SPTM.cfg",
-        "goal_angle": 270,
         "seed": 100,
         "grayscale": false,
         "map_id": "map05",
         "num_samples": -1
     },
     "eval_env": {
-        "goal_position": [595, 1200],
+        "goal_position": [595, 1200, 270],
+        "start_position": [1000, 1000, 0],
         "config": "experiments/vizdoom/train_SPTM.cfg",
-        "goal_angle": 270,
         "seed": 100,
         "grayscale": false,
         "map_id": "map05",

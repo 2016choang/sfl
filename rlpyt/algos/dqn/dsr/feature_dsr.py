@@ -560,6 +560,7 @@ class FixedFeatureDSR(DSR):
 
         if self.delta_clip is not None:  # Huber loss.
             b = self.delta_clip * (abs_delta - self.delta_clip / 2)
+            print(abs_delta.mean())
             losses = torch.where(abs_delta <= self.delta_clip, losses, b)
         # if self.prioritized_replay:
         #     losses *= samples.is_weights
