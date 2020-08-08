@@ -79,7 +79,7 @@ class DsrAgent(EpsilonGreedyAgentMixin, BaseAgent):
     def target(self, observation):
         model_inputs = buffer_to(observation,
             device=self.device)
-        target_dsr = self.model(model_inputs, mode='dsr')
+        target_dsr = self.target_model(model_inputs, mode='dsr')
         return target_dsr.cpu()
 
     def update_target(self):

@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -23,7 +24,7 @@ class FixedVizDoomModel(torch.nn.Module):
             fixed_weights_path,
             feature_size=512,
             final_feature_size=None,
-            norm_output=False,
+            norm_output=True,
             alpha=10.0,
             **kwargs
         ):
@@ -33,6 +34,12 @@ class FixedVizDoomModel(torch.nn.Module):
         self.fixed_model = ResnetBuilder.build_siamese_resnet_18((6, 120, 160), 2)
         self.fixed_model.load_weights(self.fixed_weights_path)
         self.fixed_model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+
+        weights = self.fixed_model.layers[5].get_weights()
+        self.mean = weights[2][:512]
+        self.var = weights[3][:512] ** 2
+        self.divisor = np.sqrt(self.var + self.fixed_model.layers[5].epsilon)
+
         if self.final_feature_size:
             self.encoder = nn.Linear(self.feature_size, self.final_feature_size)
         else:
@@ -45,6 +52,8 @@ class FixedVizDoomModel(torch.nn.Module):
             x = x.view(T * B, *img_shape).cpu()
             x = x.permute(0, 2, 3, 1)
             x = self.fixed_model.layers[3].predict(x)
+            if self.norm_output:
+                x = (x - self.mean) / self.divisor
             x = torch.from_numpy(x).to(device=obs.device)
             return restore_leading_dims(x, lead_dim, T, B)
         elif mode == 'output':

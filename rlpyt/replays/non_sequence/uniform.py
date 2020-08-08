@@ -45,7 +45,7 @@ class LandmarkUniformReplayBuffer(UniformReplayBuffer):
     def __init__(self, example, size, B, discount=False,**kwargs):
         super().__init__(example, size, B, **kwargs)
         self.discount = discount
-        if discount:
+        if discount and self.n_step_return > 1:
             self.samples_observation_n = buffer_from_example(example.observation, (self.T, self.B),
                 share_memory=self.async_)
         else:

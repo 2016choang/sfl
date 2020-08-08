@@ -232,6 +232,7 @@ class LandmarkVizDoomAgent(LandmarkAgent):
             model_inputs = buffer_to(current_features,
                 device=self.device)
             current_s_features = self.model(model_inputs, mode='dsr')
+
             s_features.append(current_s_features)
 
         return torch.stack(features), torch.stack(s_features), env.sample_positions

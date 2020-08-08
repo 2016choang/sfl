@@ -452,6 +452,7 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                  test_set_size=6e3,
                  min_steps_landmark_mode=2e4,
                  update_landmarks_interval_steps=1e3,
+                 log_feature_info_interval_steps=1e3,
                  log_landmarks_interval_steps=1e4,
                  **kwargs):
         save__init__args(locals())
@@ -466,6 +467,7 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         self.itr_sample_test = max(int(self.steps_sample_test // self.itr_batch_size), 1)
         self.min_itr_landmark_mode = max(int(self.min_steps_landmark_mode // self.itr_batch_size), 1)
         self.update_landmarks_interval_itrs = max(int(self.update_landmarks_interval_steps // self.itr_batch_size), 1)
+        self.log_feature_info_interval_itrs = max(int(self.log_feature_info_interval_steps // self.itr_batch_size), 1)
         self.log_landmarks_interval_itrs = max(int(self.log_landmarks_interval_steps // self.itr_batch_size), 1)
         return n_itr
 
@@ -508,9 +510,12 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
 
                 # Train agent's neural networks
                 self.agent.train_mode(itr)
-                opt_info = self.algo.optimize_agent(itr)
+                opt_info, feature_info = self.algo.optimize_agent(itr)
                 logger.log_itr_info(itr, opt_info)
                 self.store_diagnostics(itr, traj_infos, opt_info)
+
+                if (itr + 1) % self.log_feature_info_interval_itrs == 0:
+                    self.log_feature_info(itr, feature_info)
                 
                 # Update representations of landmarks
                 if (itr + 1) % self.update_landmarks_interval_itrs == 0:
@@ -539,6 +544,9 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                     self.log_landmarks(itr)
 
         self.shutdown()
+
+    def log_feature_info(self, itr, feature_info):
+        pass
 
     def log_eval_features(self, itr):
         eval_loss, eval_opt_info = self.algo.eval_feature_loss()
@@ -761,6 +769,11 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         if not np.isnan(state_entropy):
             logger.record_tabular_stat('Interval Entropy', state_entropy, itr)
 
+    def log_feature_info(self, itr, feature_info):
+        summary_writer = logger.get_tf_summary_writer()
+        for key, value in feature_info.items():
+            summary_writer.add_histogram(key, value, itr)
+
     def log_dsr(self, itr):
         # 1. Render actual environment
         env = self.sampler.collector.envs[0]
@@ -796,8 +809,9 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
 
         # Retrieve feature and successor feature representations for all states
         features, s_features, positions = self.agent.get_representations(env)
-        torch.save(features, os.path.join(logger.get_snapshot_dir(), 'features_itr_{}.pt'.format(itr)))
-        torch.save(s_features, os.path.join(logger.get_snapshot_dir(), 'dsr_itr_{}.pt'.format(itr)))
+
+        # torch.save(features, os.path.join(logger.get_snapshot_dir(), 'features_itr_{}.pt'.format(itr)))
+        # torch.save(s_features, os.path.join(logger.get_snapshot_dir(), 'dsr_itr_{}.pt'.format(itr)))
         
         # Comparison index
         subgoal_index = 250

@@ -406,6 +406,8 @@ class LandmarkTCFDSR(FeatureDSR):
             loss = torch.mean(losses)
         return loss, td_abs_errors
 
+SFeatureOptInfo = namedtuple("SFeatureOptInfo", ["dsrLoss", "dsrGradNorm", "tdAbsErr", "featureNorm", "targetFeatureNorm",
+                                                 "dsrNorm", "targetDSRNorm"])
 
 class FixedFeatureDSR(DSR):
     """Fixed feature DSR."""
@@ -495,10 +497,11 @@ class FixedFeatureDSR(DSR):
     
     def optimize_agent(self, itr, sampler_itr=None):
         itr = itr if sampler_itr is None else sampler_itr  # Async uses sampler_itr.
-        opt_info = OptInfo(*([] for _ in range(len(OptInfo._fields))))
+        opt_info = SFeatureOptInfo(*([] for _ in range(len(SFeatureOptInfo._fields))))
+        feature_info = {}
         if itr < self.min_itr_learn:
             # Not enough samples have been collected
-            return opt_info
+            return opt_info, feature_info
 
         for _ in range(self.updates_per_optimize):
             samples_from_replay = self.replay_buffer.sample_batch(self.batch_size)
@@ -507,7 +510,7 @@ class FixedFeatureDSR(DSR):
                 # Train successor feature representation
                 self.dsr_optimizer.zero_grad()
 
-                dsr_loss, td_abs_errors = self.dsr_loss(samples_from_replay)
+                dsr_loss, td_abs_errors, feature_info, norm_info = self.dsr_loss(samples_from_replay)
                 dsr_loss.backward()
                 dsr_grad_norm = torch.nn.utils.clip_grad_norm_(
                     self.agent.dsr_parameters(), self.clip_grad_norm)
@@ -516,6 +519,8 @@ class FixedFeatureDSR(DSR):
 
                 opt_info.dsrLoss.append(dsr_loss.item())
                 opt_info.dsrGradNorm.append(dsr_grad_norm)
+                for key, value in norm_info.items():
+                    getattr(opt_info, key).append(value.item())
                 opt_info.tdAbsErr.extend(td_abs_errors[::8].numpy())  # Downsample.
 
                 self.update_counter += 1
@@ -523,18 +528,31 @@ class FixedFeatureDSR(DSR):
                     self.agent.update_target()
         
         self.update_itr_hyperparams(itr)
-        return opt_info
+        return opt_info, feature_info
 
     def dsr_loss(self, samples):
         """Samples have leading batch dimension [B,..] (but not time)."""
+
+        feature_info = {}
+        norm_info = {}
+
         # 1a. encode observations in feature space
         with torch.no_grad():
             features = samples.agent_inputs.observation
             features_n = samples.observation_n
+            feature_info['singleFeature'] = features[:, 0]
+            feature_info['singleFeatureN'] = features_n[:, 0]
+            feature_info['feature'] = features
+            feature_info['featureN'] = features_n
+            norm_info['featureNorm'] = torch.norm(features, p=2, dim=-1).mean()
+            norm_info['targetFeatureNorm'] = torch.norm(features_n, p=2, dim=-1).mean()
 
         # 1b. estimate successor features given features
         dsr = self.agent(features)
         s_features = select_at_indexes(samples.action, dsr)
+        feature_info['SFeature'] = s_features
+        feature_info['singleSFeature'] = s_features[:, 0]
+        norm_info['dsrNorm'] = torch.norm(s_features, p=2, dim=-1).mean()
 
         with torch.no_grad():
             # 2a. encode target observations in feature space
@@ -549,6 +567,9 @@ class FixedFeatureDSR(DSR):
             next_a = torch.randint(high=target_dsr.shape[1], size=samples.action.shape)
 
             target_s_features = select_at_indexes(next_a, target_dsr)
+            feature_info['targetSFeature'] = target_s_features
+            feature_info['singleTargetSFeature'] = target_s_features[:, 0]
+            norm_info['targetDSRNorm'] = torch.norm(target_s_features, p=2, dim=-1).mean()
 
         # 3. combine current features + discounted target successor features
         disc_target_s_features = (self.discount ** self.n_step_return) * target_s_features
@@ -560,8 +581,8 @@ class FixedFeatureDSR(DSR):
 
         if self.delta_clip is not None:  # Huber loss.
             b = self.delta_clip * (abs_delta - self.delta_clip / 2)
-            print(abs_delta.mean())
             losses = torch.where(abs_delta <= self.delta_clip, losses, b)
+
         # if self.prioritized_replay:
         #     losses *= samples.is_weights
 
@@ -578,4 +599,4 @@ class FixedFeatureDSR(DSR):
             td_abs_errors *= valid
         else:
             loss = torch.mean(losses)
-        return loss, td_abs_errors
+        return loss, td_abs_errors, feature_info, norm_info

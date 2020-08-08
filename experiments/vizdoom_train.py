@@ -10,6 +10,7 @@ example.
 """
 import copy
 import json
+import os
 
 import keras
 import tensorflow as tf
@@ -117,6 +118,7 @@ if __name__ == "__main__":
     parser.add_argument('--gpu_fraction', help='gpu fraction', type=float, default=0.3)
     args = parser.parse_args()
 
+    os.environ['CUDA_VISIBLE_DEVICES'] = str(args.cuda_idx)
     config = tf.ConfigProto()
     config.gpu_options.per_process_gpu_memory_fraction = args.gpu_fraction
     keras.backend.tensorflow_backend.set_session(tf.Session(config=config))
@@ -124,7 +126,7 @@ if __name__ == "__main__":
     build_and_train(
         config_file=args.config,
         run_ID=args.run_ID,
-        cuda_idx=args.cuda_idx,
+        cuda_idx=0,
         snapshot_gap=args.snapshot_gap,
         steps=args.steps,
         checkpoint=args.checkpoint

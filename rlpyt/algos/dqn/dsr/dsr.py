@@ -19,7 +19,7 @@ from rlpyt.utils.misc import param_norm_
 from rlpyt.utils.tensor import select_at_indexes, valid_mean
 from rlpyt.algos.utils import valid_from_done
 
-OptInfo = namedtuple("OptInfo", ["dsrLoss", "dsrGradNorm", "tdAbsErr"])
+OptInfo = namedtuple("OptInfo", ["dsrLoss", "dsrGradNorm", "tdAbsErr", "dsrNorm"])
 SamplesToBuffer = namedarraytuple("SamplesToBuffer",
     ["observation", "action", "reward", "done"])
 
@@ -155,7 +155,7 @@ class DSR(RlAlgorithm):
             samples_from_replay = self.replay_buffer.sample_batch(self.batch_size)
 
             self.optimizer.zero_grad()
-            dsr_loss, td_abs_errors = self.dsr_loss(samples_from_replay)
+            dsr_loss, td_abs_errors, dsr_norm = self.dsr_loss(samples_from_replay)
             dsr_loss.backward()
             dsr_grad_norm = torch.nn.utils.clip_grad_norm_(
                 self.agent.dsr_parameters(), self.clip_grad_norm)
@@ -165,6 +165,7 @@ class DSR(RlAlgorithm):
             opt_info.dsrLoss.append(dsr_loss.item())
             opt_info.dsrGradNorm.append(dsr_grad_norm)
             opt_info.tdAbsErr.extend(td_abs_errors[::8].numpy())  # Downsample.
+            opt_info.dsrNorm.append(dsr_norm.item())
             self.update_counter += 1
             if self.update_counter % self.target_update_interval == 0:
                 self.agent.update_target()
@@ -188,6 +189,7 @@ class DSR(RlAlgorithm):
         # 1b. estimate successor features given features
         dsr = self.agent(features)
         s_features = select_at_indexes(samples.action, dsr)
+        dsr_norm = torch.norm(s_features, p=2, dim=-1).mean()
 
         with torch.no_grad():
             # 2a. encode target observations in feature space
@@ -230,7 +232,7 @@ class DSR(RlAlgorithm):
             td_abs_errors *= valid
         else:
             loss = torch.mean(losses)
-        return loss, td_abs_errors
+        return loss, td_abs_errors, dsr_norm
 
     def update_itr_hyperparams(self, itr):
         # if self.prioritized_replay and itr <= self.pri_beta_itr:
