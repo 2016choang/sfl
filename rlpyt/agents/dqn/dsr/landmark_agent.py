@@ -222,6 +222,7 @@ class LandmarkVizDoomAgent(LandmarkAgent):
         
         features = []
         s_features = []
+        target_s_features = []
 
         for state in env.sample_states:
             model_inputs = buffer_to(torch.Tensor(state).unsqueeze(0),
@@ -232,10 +233,12 @@ class LandmarkVizDoomAgent(LandmarkAgent):
             model_inputs = buffer_to(current_features,
                 device=self.device)
             current_s_features = self.model(model_inputs, mode='dsr')
-
             s_features.append(current_s_features)
 
-        return torch.stack(features), torch.stack(s_features), env.sample_positions
+            current_target_s_features = self.target_model(model_inputs, mode='dsr')
+            target_s_features.append(current_target_s_features)
+
+        return torch.stack(features), torch.stack(s_features), torch.stack(target_s_features), env.sample_positions
 
     @torch.no_grad()
     def get_representation_similarity(self, representation, mean_axes=None, subgoal_index=0):

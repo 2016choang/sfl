@@ -775,6 +775,8 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
             summary_writer.add_histogram(key, value, itr)
 
     def log_dsr(self, itr):
+        summary_writer = logger.get_tf_summary_writer()
+
         # 1. Render actual environment
         env = self.sampler.collector.envs[0]
         if itr < (self.log_dsr_interval_itrs * 2):
@@ -808,13 +810,17 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         plt.close()
 
         # Retrieve feature and successor feature representations for all states
-        features, s_features, positions = self.agent.get_representations(env)
+        features, s_features, target_s_features, positions = self.agent.get_representations(env)
+
+        diff_s_features = torch.mean(s_features - target_s_features, dim=2)
+        summary_writer.add_histogram('DiffSFeature', diff_s_features, itr)
+        logger.record_tabular_stat('diffDSRNorm', torch.norm(diff_s_features, p=2, dim=0).mean(), itr)
 
         # torch.save(features, os.path.join(logger.get_snapshot_dir(), 'features_itr_{}.pt'.format(itr)))
         # torch.save(s_features, os.path.join(logger.get_snapshot_dir(), 'dsr_itr_{}.pt'.format(itr)))
         
         # Comparison index
-        subgoal_index = 250
+        subgoal_index = 0
 
         percentiles = [90, 92.5, 95, 97.5]
 
