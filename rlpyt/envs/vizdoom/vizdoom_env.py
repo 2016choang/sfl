@@ -43,13 +43,10 @@ class VizDoomEnv(Env):
 
         # Spaces
         self._action_set = [
-            [1, 0, 0, 0, 0, 0],
-            [0, 1, 0, 0, 0, 0],
             [0, 0, 1, 0, 0, 0],
             [0, 0, 0, 1, 0, 0],
             [0, 0, 0, 0, 1, 0],
             [0, 0, 0, 0, 0, 1],
-            [0, 0, 0, 0, 0, 0]
         ]
         self._action_space = IntBox(low=0, high=len(self._action_set), dtype='long')
         if self.grayscale:

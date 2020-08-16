@@ -32,14 +32,15 @@
         "affinity_decay": 0.99
     },
     "algo": {
-        "discount": 0.99,
+        "discount": 0.875,
         "batch_size": 128,
         "min_steps_learn": 1000,
-        "learning_rate": 1e-4,
+        "learning_rate": 1e-5,
         "replay_size": 100000,
         "min_steps_dsr_learn": 1000,
         "n_step_return": 5,
-        "target_update_interval": 1000
+        "target_update_interval": 100,
+	"delta_clip": 2.33
     },
     "env": {
         "goal_position": [595, 1200, 270],

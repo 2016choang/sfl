@@ -129,3 +129,6 @@ experiments/aux-data/
 
 # misc
 nohup.out
+
+# vizdoom
+*.ini
