@@ -406,8 +406,8 @@ class LandmarkTCFDSR(FeatureDSR):
             loss = torch.mean(losses)
         return loss, td_abs_errors
 
-SFeatureOptInfo = namedtuple("SFeatureOptInfo", ["dsrLoss", "dsrGradNorm", "tdAbsErr", "featureNorm", "targetFeatureNorm",
-                                                 "dsrNorm", "targetDSRNorm"])
+SFeatureOptInfo = namedtuple("SFeatureOptInfo", ["dsrLoss", "dsrGradNorm", "percentDSRLoss", "tdAbsErr", "featureNorm",
+                                                 "targetFeatureNorm", "dsrNorm", "targetDSRNorm"])
 
 class FixedFeatureDSR(DSR):
     """Fixed feature DSR."""
@@ -418,6 +418,7 @@ class FixedFeatureDSR(DSR):
             **kwargs):
         super().__init__(**kwargs)
         save__init__args(locals())
+        self.initial_dsr_loss = None
     
     def initialize(self, agent, n_itr, batch_spec, mid_batch_reset, examples,
             world_size=1, rank=0):
@@ -511,6 +512,8 @@ class FixedFeatureDSR(DSR):
                 self.dsr_optimizer.zero_grad()
 
                 dsr_loss, td_abs_errors, feature_info, norm_info = self.dsr_loss(samples_from_replay)
+                if self.initial_dsr_loss is None:
+                    self.initial_dsr_loss = dsr_loss.item()
                 dsr_loss.backward()
                 dsr_grad_norm = torch.nn.utils.clip_grad_norm_(
                     self.agent.dsr_parameters(), self.clip_grad_norm)
@@ -519,6 +522,7 @@ class FixedFeatureDSR(DSR):
 
                 opt_info.dsrLoss.append(dsr_loss.item())
                 opt_info.dsrGradNorm.append(dsr_grad_norm)
+                opt_info.percentDSRLoss.append(dsr_loss.item() / self.initial_dsr_loss)
                 for key, value in norm_info.items():
                     getattr(opt_info, key).append(value.item())
                 opt_info.tdAbsErr.extend(td_abs_errors[::8].numpy())  # Downsample.
