@@ -775,6 +775,7 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
             summary_writer.add_histogram(key, value, itr)
 
     def log_dsr(self, itr):
+        self.agent.eval_mode(itr)  # Might be agent in sampler.
         summary_writer = logger.get_tf_summary_writer()
 
         # 1. Render actual environment

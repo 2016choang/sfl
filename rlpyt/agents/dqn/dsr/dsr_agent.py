@@ -49,6 +49,18 @@ class DsrAgent(EpsilonGreedyAgentMixin, BaseAgent):
         super().to_device(cuda_idx)
         self.target_model.to(self.device)
 
+    def train_mode(self, itr):
+        super().train_mode(itr)
+        self.target_model.train()
+
+    def sample_mode(self, itr):
+        super().sample_mode(itr)
+        self.target_model.eval()
+
+    def eval_mode(self, itr):
+        super().eval_mode(itr)
+        self.target_model.eval()
+
     def state_dict(self):
         return dict(model=self.model.state_dict(),
             target=self.target_model.state_dict())

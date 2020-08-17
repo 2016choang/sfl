@@ -24,7 +24,8 @@ class DsrModel(torch.nn.Module):
         self.output_size = output_size
 
         self.dsr = MlpModel(self.feature_size, dsr_params['fc_sizes'],
-            output_size=self.output_size * self.feature_size, nonlinearity=FUNCTION_MAP[dsr_params['nonlinearity']])
+            output_size=self.output_size * self.feature_size, nonlinearity=FUNCTION_MAP[dsr_params['nonlinearity']],
+            batchnorm=dsr_params['batchnorm'])
 
         self.q_estimate = nn.Linear(self.feature_size, 1)
 

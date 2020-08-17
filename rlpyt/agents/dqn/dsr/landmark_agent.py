@@ -219,7 +219,6 @@ class LandmarkVizDoomAgent(LandmarkAgent):
     @torch.no_grad()
     def get_representations(self, env):
         # Get features and SFs of sample states
-        
         features = []
         s_features = []
         target_s_features = []
