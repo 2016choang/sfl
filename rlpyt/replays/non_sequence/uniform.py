@@ -101,7 +101,7 @@ class LandmarkUniformReplayBuffer(UniformReplayBuffer):
             self.samples.mode[t - b:t - b + min(t, b) + f] = True
 
         for i, B_idx in enumerate(B_idxs):
-            mask = self.samples.mode[low:high, B_idx]
+            mask = self.samples.mode[low:high, B_idx]  # mask for which samples came from landmark policy mode
             T_idxs[i] = np.random.choice(self.valid_idxs[low:high][~mask])
 
         if self._buffer_full and 0 < min(t, b) + f:
