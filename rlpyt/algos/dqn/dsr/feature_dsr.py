@@ -568,9 +568,10 @@ class FixedFeatureDSR(DSR):
             # next_qs = self.agent.q_estimate(target_dsr)
             # next_a = torch.argmax(next_qs, dim=-1)
             # random actions
-            next_a = torch.randint(high=target_dsr.shape[1], size=samples.action.shape)
+            # next_a = torch.randint(high=target_dsr.shape[1], size=samples.action.shape)
 
-            target_s_features = select_at_indexes(next_a, target_dsr)
+            # target_s_features = select_at_indexes(next_a, target_dsr)
+            target_s_features = torch.mean(target_dsr, dim=1)
             feature_info['targetSFeature'] = target_s_features
             feature_info['singleTargetSFeature'] = target_s_features[:, 0]
             norm_info['targetDSRNorm'] = torch.norm(target_s_features, p=2, dim=-1).mean()

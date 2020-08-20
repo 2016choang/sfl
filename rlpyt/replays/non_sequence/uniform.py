@@ -94,6 +94,10 @@ class LandmarkUniformReplayBuffer(UniformReplayBuffer):
         high = self.T - b - f if self._buffer_full else t - b
         low = 0 if self._buffer_full else f
 
+        # T_idxs = np.arange(low, high, dtype=int)
+        # B_idxs = np.zeros((len(T_idxs), ), dtype=int)
+        # return T_idxs, B_idxs
+
         T_idxs = np.zeros((batch_B, ), dtype=int)
 
         if self._buffer_full:
