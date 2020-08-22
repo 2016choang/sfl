@@ -415,9 +415,11 @@ class FixedFeatureDSR(DSR):
     def __init__(
             self,
             min_steps_dsr_learn=int(5e4),
+            scale_target=True,
             **kwargs):
         super().__init__(**kwargs)
         save__init__args(locals())
+        self.scale_target_factor = 1 * (1 - (self.discount ** self.n_step_return)) / (1 - self.discount)
         self.initial_dsr_loss = None
     
     def initialize(self, agent, n_itr, batch_spec, mid_batch_reset, examples,
@@ -544,6 +546,8 @@ class FixedFeatureDSR(DSR):
         with torch.no_grad():
             features = samples.agent_inputs.observation
             features_n = samples.observation_n
+            if self.scale_target:
+                features_n = features_n / self.scale_target_factor
             feature_info['singleFeature'] = features[:, 0]
             feature_info['singleFeatureN'] = features_n[:, 0]
             feature_info['feature'] = features
