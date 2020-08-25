@@ -38,7 +38,8 @@ class AsyncUniformReplayBuffer(AsyncReplayBufferMixin, UniformReplayBuffer):
     pass
 
 LandmarkSamplesFromReplay = namedarraytuple("LandmarkSamplesFromReplay",
-    ["agent_inputs", "action", "observation_n", "return_", "done", "done_n", "target_inputs"])
+    ["agent_inputs", "action", "observation_n", "return_", "done", "done_n", "done_idxs",
+     "target_inputs"])
 
 class LandmarkUniformReplayBuffer(UniformReplayBuffer):
     
@@ -132,6 +133,7 @@ class LandmarkUniformReplayBuffer(UniformReplayBuffer):
             return_=self.samples_return_[T_idxs, B_idxs],
             done=self.samples.done[T_idxs, B_idxs],
             done_n=self.samples_done_n[T_idxs, B_idxs],
+            done_idxs=self.samples_done_idxs[T_idxs, B_idxs],
             target_inputs=AgentInputs(
                 observation=self.extract_observation(target_T_idxs, B_idxs),
                 prev_action=s.action[target_T_idxs - 1, B_idxs],
