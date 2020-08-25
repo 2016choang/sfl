@@ -88,7 +88,7 @@ def discount_return_n_step(reward, done, n_step, discount, return_dest=None,
                     done_n[:-n] = np.maximum(done_n[:-n], done[n:n + rlen])
         else:
             for n in range(1, n_step):
-                if not include done:
+                if not include_done:
                     done_n = np.maximum(done_n, done[n:n + rlen])  # Supports tensors.
                 return_ += (discount ** n) * reward[n:n + rlen] * (1 - done_n)
                 if include_done:
