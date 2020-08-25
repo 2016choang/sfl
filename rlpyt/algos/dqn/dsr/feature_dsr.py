@@ -582,9 +582,7 @@ class FixedFeatureDSR(DSR):
             norm_info['targetDSRNorm'] = torch.norm(target_s_features, p=2, dim=-1).mean()
 
         # 3. combine current features + discounted target successor features
-        if np.any(samples.done_idxs != self.n_step_return):
-            import pdb; pdb.set_trace()
-        disc_target_s_features = (self.discount ** self.n_step_return) * target_s_features
+        disc_target_s_features = (self.discount ** samples.done_idxs.float()).unsqueeze(1) * target_s_features
         y = features_n + disc_target_s_features
         # t = 98, done = 100
         # features_n = 98 + 99 , disc_target_s_features = psi(100) = phi(100) + gamma * phi(101) ... 
