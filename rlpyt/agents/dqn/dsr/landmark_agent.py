@@ -147,8 +147,9 @@ class LandmarkAgent(FeatureDSRAgent):
 
             if np.any(landmark_mode):
                 # Landmark subgoal policy (SF-based Q values)
-                current_dsr = dsr[landmark_mode] / torch.norm(dsr[landmark_mode], p=2, dim=2, keepdim=True)
-                q_values = torch.sum(current_dsr * landmarks_dsr.unsqueeze(1), dim=2).cpu()
+                current_dsr = dsr[landmark_mode] / torch.norm(dsr[landmark_mode], p=2, dim=2, keepdim=True) # |env| x A x 512
+                # goal SF |env| x 512 (SF of goal state averaged across actions)
+                q_values = torch.sum(current_dsr * landmarks_dsr.unsqueeze(1), dim=2).cpu() # <current SF, goal SF> = |env| x A
 
                 if self.use_soft_q:
                     # Select action based on softmax of Q as probabilities

@@ -50,6 +50,7 @@ class LandmarkUniformReplayBuffer(UniformReplayBuffer):
                 share_memory=self.async_)
         else:
             self.samples_observation_n = self.samples.observation
+        self.samples_done_idxs = np.zeros_like(self.samples_done_n, dtype=int) + self.n_step_return
         self.valid_idxs = np.arange(self.T, dtype=int)
     
     def compute_returns(self, T):
@@ -67,11 +68,13 @@ class LandmarkUniformReplayBuffer(UniformReplayBuffer):
             discount_return_n_step(reward, done, n_step=self.n_step_return,
                 discount=self.discount, return_dest=return_dest,
                 done_n_dest=done_n_dest)
+            if np.any(done):
+                self.samples_done_idxs[t - nm1: t - nm1 + T] = np.argwhere(done)[:, 0]
 
             observation = s.observation[t - nm1: t + T]
             observation_dest = self.samples_observation_n[t - nm1: t - nm1 + T]
             discount_return_n_step(observation, done, n_step=self.n_step_return,
-                discount=self.discount, return_dest=observation_dest)
+                discount=self.discount, return_dest=observation_dest, include_done=False)
 
         else:  # Wrap (copies); Let it (wrongly) wrap at first call.
             idxs = np.arange(t - nm1, t + T) % self.T
@@ -82,10 +85,12 @@ class LandmarkUniformReplayBuffer(UniformReplayBuffer):
                 n_step=self.n_step_return, discount=self.discount)
             self.samples_return_[dest_idxs] = return_
             self.samples_done_n[dest_idxs] = done_n
+            if np.any(done):
+                self.samples_done_idxs[dest_idxs] = np.argwhere(done)[:, 0]
 
             observation = s.observation[idxs]
             observation_, done_n = discount_return_n_step(observation, done,
-                n_step=self.n_step_return, discount=self.discount)
+                n_step=self.n_step_return, discount=self.discount, include_done=False)
             self.samples_observation_n[dest_idxs] = observation_
 
     def sample_idxs(self, batch_B):
@@ -115,7 +120,7 @@ class LandmarkUniformReplayBuffer(UniformReplayBuffer):
 
     def extract_batch(self, T_idxs, B_idxs):
         s = self.samples
-        target_T_idxs = (T_idxs + self.n_step_return) % self.T
+        target_T_idxs = (T_idxs + self.samples_done_idxs[T_idxs, B_idxs]) % self.T
         batch = LandmarkSamplesFromReplay(
             agent_inputs=AgentInputs(
                 observation=self.extract_observation(T_idxs, B_idxs),

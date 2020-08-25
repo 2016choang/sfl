@@ -59,7 +59,7 @@ def generalized_advantage_estimation(reward, value, done, bootstrap_value,
 
 
 def discount_return_n_step(reward, done, n_step, discount, return_dest=None,
-        done_n_dest=None, do_truncated=False):
+        done_n_dest=None, do_truncated=False, include_done=True):
     """Time-major inputs, optional other dimension: [T], [T,B], etc."""
     rlen = reward.shape[0]
     if not do_truncated:
@@ -81,12 +81,18 @@ def discount_return_n_step(reward, done, n_step, discount, return_dest=None,
     if n_step > 1:
         if do_truncated:
             for n in range(1, n_step):
+                if not include_done:
+                    done_n[:-n] = np.maximum(done_n[:-n], done[n:n + rlen])
                 return_[:-n] += (discount ** n) * reward[n:n + rlen] * (1 - done_n[:-n])
-                done_n[:-n] = np.maximum(done_n[:-n], done[n:n + rlen])
+                if include_done:
+                    done_n[:-n] = np.maximum(done_n[:-n], done[n:n + rlen])
         else:
             for n in range(1, n_step):
+                if not include done:
+                    done_n = np.maximum(done_n, done[n:n + rlen])  # Supports tensors.
                 return_ += (discount ** n) * reward[n:n + rlen] * (1 - done_n)
-                done_n = np.maximum(done_n, done[n:n + rlen])  # Supports tensors.
+                if include_done:
+                    done_n = np.maximum(done_n, done[n:n + rlen])  # Supports tensors.
     if is_torch:
         done_n = done_n.type(done_dtype)
     return return_, done_n

@@ -269,8 +269,10 @@ class Landmarks(object):
             self.num_landmarks += 1
             return True
         else:
-            norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, keepdim=True)
-            similarity = torch.matmul(self.norm_dsr, norm_dsr.T)
+            
+            norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, keepdim=True) # Current SF (A x 512) --> 512, mean over the actions and norm
+            # self.norm_dsr: |num landmarks| x 512
+            similarity = torch.matmul(self.norm_dsr, norm_dsr.T) # Compute similarity w.r.t. each existing landmark |num landmarks|
 
             # Candidate landmark under similarity threshold w.r.t. existing landmarks
             if sum(similarity < self.add_threshold) >= self.num_landmarks:

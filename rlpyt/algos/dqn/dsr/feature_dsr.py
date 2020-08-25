@@ -545,7 +545,7 @@ class FixedFeatureDSR(DSR):
         # 1a. encode observations in feature space
         with torch.no_grad():
             features = samples.agent_inputs.observation
-            features_n = samples.observation_n
+            features_n = samples.observation_n # discounted sum of features over n-steps
             if self.scale_target:
                 features_n = features_n / self.scale_target_factor
             feature_info['singleFeature'] = features[:, 0]
@@ -556,18 +556,18 @@ class FixedFeatureDSR(DSR):
             norm_info['targetFeatureNorm'] = torch.norm(features_n, p=2, dim=-1).mean()
 
         # 1b. estimate successor features given features
-        dsr = self.agent(features)
-        s_features = select_at_indexes(samples.action, dsr)
+        dsr = self.agent(features) # B x A x 512, s_t --> phi_t --> psi_t
+        s_features = select_at_indexes(samples.action, dsr) # B x 512, a_t
         feature_info['SFeature'] = s_features
         feature_info['singleSFeature'] = s_features[:, 0]
         norm_info['dsrNorm'] = torch.norm(s_features, p=2, dim=-1).mean()
 
         with torch.no_grad():
             # 2a. encode target observations in feature space
-            target_features = samples.target_inputs.observation
+            target_features = samples.target_inputs.observation # B x 512, s_{t'} --> phi_{t'}
 
             # 2b. estimate target successor features given features
-            target_dsr = self.agent.target(target_features)
+            target_dsr = self.agent.target(target_features) # B x A x 512, phi_{t'} --> psi_{t'}
 
             # next_qs = self.agent.q_estimate(target_dsr)
             # next_a = torch.argmax(next_qs, dim=-1)
@@ -576,17 +576,20 @@ class FixedFeatureDSR(DSR):
             # next_a = torch.zeros_like(samples.action)
 
             # target_s_features = select_at_indexes(next_a, target_dsr)
-            target_s_features = torch.mean(target_dsr, dim=1)
+            target_s_features = torch.mean(target_dsr, dim=1) # B x 512, psi_{t'} avg over actions
             feature_info['targetSFeature'] = target_s_features
             feature_info['singleTargetSFeature'] = target_s_features[:, 0]
             norm_info['targetDSRNorm'] = torch.norm(target_s_features, p=2, dim=-1).mean()
 
         # 3. combine current features + discounted target successor features
         disc_target_s_features = (self.discount ** self.n_step_return) * target_s_features
-        y = features_n + (1 - samples.done_n.float().view(-1, 1)) * disc_target_s_features 
+        y = features_n + (1 - samples.done_n.float().view(-1, 1)) * disc_target_s_features
+        # t = 98, done = 100
+        # features_n = 98 + 99 , disc_target_s_features = psi(100) = phi(100) + gamma * phi(101) ... 
+        # disc target_s_features (last terminal state)
 
         delta = y - s_features
-        losses = 0.5 * delta ** 2
+        losses = 0.5 * delta ** 2 # B x 512
         abs_delta = abs(delta)
 
         if self.delta_clip is not None:  # Huber loss.
