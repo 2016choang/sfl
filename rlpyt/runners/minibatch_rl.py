@@ -558,7 +558,8 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         # Log eval landmarks information
         if self.agent.landmarks:
             summary_writer = logger.get_tf_summary_writer()
-            eval_path_str = '\n'.join(','.join(map(str, path)) + ' ({:.3f})'.format(self.agent.landmarks.path_p[i]) for i, path in enumerate(self.agent.landmarks.possible_paths))
+            eval_path_str = '\n'.join(','.join(map(str, path)) + ' ({:.3f})'.format(self.agent.landmarks.path_p[i]) \
+                for i, path in enumerate(self.agent.landmarks.possible_paths) if len(path) <= 20)
             summary_writer.add_text("Path to goal", eval_path_str, itr)
             logger.record_tabular_stat('EndDistanceToGoal', np.average(self.agent.landmarks.eval_distances), itr)
 
@@ -706,31 +707,31 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         # 10. Landmarks graph
         #       - black edges have had successful transitions between their incident nodes
         #       - red edges were used to connect the graph and do not have any successful transitions
-        figure = plt.figure(figsize=(7, 7))
+        if self.agent.landmarks.num_landmarks <= 100:
+            figure = plt.figure(figsize=(7, 7)) 
+            G = self.agent.eval_landmarks.graph
+            pos = nx.circular_layout(G)
 
-        G = self.agent.eval_landmarks.graph
-        pos = nx.circular_layout(G)
+            non_zero_edges = {}
+            zero_edges = {}
+            for index, edge_info in dict(G.edges).items():
+                if self.agent.eval_landmarks.zero_edge_indices is not None and index in self.agent.eval_landmarks.zero_edge_indices:
+                    zero_edges[index] = edge_info
+                else:
+                    non_zero_edges[index] = edge_info
+            
+            nx.draw_networkx_nodes(G, pos, node_size=600)
+            nx.draw_networkx_edges(G, pos, edgelist=non_zero_edges, width=2, edge_color='black', connectionstyle='arc3,rad=0.1')
+            nx.draw_networkx_edges(G, pos, edgelist=zero_edges, width=2, edge_color='red', connectionstyle='arc3,rad=0.1')
 
-        non_zero_edges = {}
-        zero_edges = {}
-        for index, edge_info in dict(G.edges).items():
-            if self.agent.eval_landmarks.zero_edge_indices is not None and index in self.agent.eval_landmarks.zero_edge_indices:
-                zero_edges[index] = edge_info
-            else:
-                non_zero_edges[index] = edge_info
-        
-        nx.draw_networkx_nodes(G, pos, node_size=600)
-        nx.draw_networkx_edges(G, pos, edgelist=non_zero_edges, width=2, edge_color='black', connectionstyle='arc3,rad=0.1')
-        nx.draw_networkx_edges(G, pos, edgelist=zero_edges, width=2, edge_color='red', connectionstyle='arc3,rad=0.1')
-
-        edge_labels = nx.get_edge_attributes(G, 'weight')
-        for k, v in edge_labels.items():
-            edge_labels[k] = round(v, 3)
-        nx.draw_networkx_labels(G, pos, font_size=8, font_family='sans-serif')
-        nx.draw_networkx_edge_labels(G, pos, font_size=6, font_family='sans-serif', edge_labels=edge_labels)
-        plt.axis('off')
-        save_image('Landmarks graph', itr)
-        plt.close()
+            edge_labels = nx.get_edge_attributes(G, 'weight')
+            for k, v in edge_labels.items():
+                edge_labels[k] = round(v, 3)
+            nx.draw_networkx_labels(G, pos, font_size=8, font_family='sans-serif')
+            nx.draw_networkx_edge_labels(G, pos, font_size=6, font_family='sans-serif', edge_labels=edge_labels)
+            plt.axis('off')
+            save_image('Landmarks graph', itr)
+            plt.close()
 
         # 11. Neighbors of the goal landmark
         summary_writer = logger.get_tf_summary_writer()
@@ -979,31 +980,32 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         # 10. Landmarks graph
         #       - black edges have had successful transitions between their incident nodes
         #       - red edges were used to connect the graph and do not have any successful transitions
-        figure = plt.figure(figsize=(7, 7))
+        if self.agent.landmarks.num_landmarks <= 100:
+            figure = plt.figure(figsize=(7, 7))
 
-        G = self.agent.eval_landmarks.graph
-        pos = nx.circular_layout(G)
+            G = self.agent.eval_landmarks.graph
+            pos = nx.circular_layout(G)
 
-        non_zero_edges = {}
-        zero_edges = {}
-        for index, edge_info in dict(G.edges).items():
-            if self.agent.eval_landmarks.zero_edge_indices is not None and index in self.agent.eval_landmarks.zero_edge_indices:
-                zero_edges[index] = edge_info
-            else:
-                non_zero_edges[index] = edge_info
-        
-        nx.draw_networkx_nodes(G, pos, node_size=600)
-        nx.draw_networkx_edges(G, pos, edgelist=non_zero_edges, width=2, edge_color='black', connectionstyle='arc3,rad=0.1')
-        # nx.draw_networkx_edges(G, pos, edgelist=zero_edges, width=2, edge_color='red', connectionstyle='arc3,rad=0.1')
+            non_zero_edges = {}
+            zero_edges = {}
+            for index, edge_info in dict(G.edges).items():
+                if self.agent.eval_landmarks.zero_edge_indices is not None and index in self.agent.eval_landmarks.zero_edge_indices:
+                    zero_edges[index] = edge_info
+                else:
+                    non_zero_edges[index] = edge_info
+            
+            nx.draw_networkx_nodes(G, pos, node_size=600)
+            nx.draw_networkx_edges(G, pos, edgelist=non_zero_edges, width=2, edge_color='black', connectionstyle='arc3,rad=0.1')
+            # nx.draw_networkx_edges(G, pos, edgelist=zero_edges, width=2, edge_color='red', connectionstyle='arc3,rad=0.1')
 
-        edge_labels = nx.get_edge_attributes(G, 'weight')
-        for k, v in edge_labels.items():
-            edge_labels[k] = round(v, 3)
-        nx.draw_networkx_labels(G, pos, font_size=8, font_family='sans-serif')
-        nx.draw_networkx_edge_labels(G, pos, font_size=6, font_family='sans-serif', edge_labels=edge_labels)
-        plt.axis('off')
-        save_image('Landmarks graph', itr)
-        plt.close()
+            edge_labels = nx.get_edge_attributes(G, 'weight')
+            for k, v in edge_labels.items():
+                edge_labels[k] = round(v, 3)
+            nx.draw_networkx_labels(G, pos, font_size=8, font_family='sans-serif')
+            nx.draw_networkx_edge_labels(G, pos, font_size=6, font_family='sans-serif', edge_labels=edge_labels)
+            plt.axis('off')
+            save_image('Landmarks graph', itr)
+            plt.close()
 
         # 11. Neighbors of the goal landmark
         summary_writer = logger.get_tf_summary_writer()

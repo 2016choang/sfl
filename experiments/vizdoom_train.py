@@ -61,8 +61,8 @@ def build_and_train(config_file,
         batch_B=samplers,  # One environment (i.e. sampler Batch dimension).
         max_decorrelation_steps=0,
         eval_n_envs=1,
-        eval_max_steps=int(1e1),
-        eval_max_trajectories=1,
+        eval_max_steps=int(2.5e4),
+        eval_max_trajectories=10,
     )    
 
     if checkpoint is not None:

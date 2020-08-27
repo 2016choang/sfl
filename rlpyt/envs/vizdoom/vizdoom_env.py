@@ -18,12 +18,22 @@ EnvInfo = namedtuple("EnvInfo", ["traj_done", "position"])
 
 W, H = (84, 84)
 
+GOAL_DISTANCE_ALLOWANCE = 63
+
+def check_if_close(first_point, second_point, threshold=GOAL_DISTANCE_ALLOWANCE):
+    if ((first_point[0] - second_point[0]) ** 2 +
+        (first_point[1] - second_point[1]) ** 2 <= threshold ** 2):
+        return True
+    else:
+        return False
+
 class VizDoomEnv(Env):
 
     def __init__(self,
                  config,
                  seed,
                  goal_position,
+                 goal_close_terminate=False,
                  start_position=None,
                  grayscale=True,
                  frame_skip=4,  # Frames per step (>=1).
@@ -170,6 +180,8 @@ class VizDoomEnv(Env):
             self.state = self.game.get_state()
             new_obs = self.state.screen_buffer
             x, y, theta = self.state.game_variables
+            if self.goal_close_terminate:
+                done = check_if_close(np.array([x, y]), self.goal_info[0][:2])
             visited_x = int(round(x - self.min_x)) // 50
             visited_y = int(round(y - self.min_y)) // 50
             self.visited_interval[visited_x, visited_y] += 1
@@ -227,7 +239,7 @@ class VizDoomEnv(Env):
             cur_angle = self.game.get_game_variable(vzd.GameVariable.ANGLE)    
             turn_delta = int(cur_angle - position[2])
             self.game.make_action([0, 0, 0, 0, 0, 0, turn_delta], 1)
-            self.game.make_action([0, 0, 0, 0, 0, 0, 0], 3)
+            self.game.make_action([0, 0, 0, 0, 0, 0, 0], 1)
 
         state = self.game.get_state()
 
