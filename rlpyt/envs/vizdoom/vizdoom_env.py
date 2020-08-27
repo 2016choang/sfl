@@ -43,11 +43,20 @@ class VizDoomEnv(Env):
 
         # Spaces
         self._action_set = [
+            [1, 0, 0, 0, 0, 0],
+            [0, 1, 0, 0, 0, 0],
             [0, 0, 1, 0, 0, 0],
             [0, 0, 0, 1, 0, 0],
             [0, 0, 0, 0, 1, 0],
             [0, 0, 0, 0, 0, 1],
+            [0, 0, 0, 0, 0, 0],
         ]
+#        self._action_set = [
+#            [0, 0, 1, 0, 0, 0],
+#            [0, 0, 0, 1, 0, 0],
+#            [0, 0, 0, 0, 1, 0],
+#            [0, 0, 0, 0, 0, 1],
+#        ]
         self._action_space = IntBox(low=0, high=len(self._action_set), dtype='long')
         if self.grayscale:
             obs_shape = (num_img_obs, H, W)
@@ -218,6 +227,7 @@ class VizDoomEnv(Env):
             cur_angle = self.game.get_game_variable(vzd.GameVariable.ANGLE)    
             turn_delta = int(cur_angle - position[2])
             self.game.make_action([0, 0, 0, 0, 0, 0, turn_delta], 1)
+            self.game.make_action([0, 0, 0, 0, 0, 0, 0], 3)
 
         state = self.game.get_state()
 
