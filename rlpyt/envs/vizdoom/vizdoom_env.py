@@ -40,6 +40,7 @@ class VizDoomEnv(Env):
                  num_img_obs=4,  # Number of (past) frames in observation (>=1).
                  num_samples=100,
                  map_id=None,
+                 full_action_set=True,
                  ):
         save__init__args(locals())
 
@@ -52,21 +53,23 @@ class VizDoomEnv(Env):
         self.game.init()
 
         # Spaces
-        self._action_set = [
-            [1, 0, 0, 0, 0, 0],
-            [0, 1, 0, 0, 0, 0],
-            [0, 0, 1, 0, 0, 0],
-            [0, 0, 0, 1, 0, 0],
-            [0, 0, 0, 0, 1, 0],
-            [0, 0, 0, 0, 0, 1],
-            [0, 0, 0, 0, 0, 0],
-        ]
-#        self._action_set = [
-#            [0, 0, 1, 0, 0, 0],
-#            [0, 0, 0, 1, 0, 0],
-#            [0, 0, 0, 0, 1, 0],
-#            [0, 0, 0, 0, 0, 1],
-#        ]
+        if full_action_set:
+            self._action_set = [
+                [1, 0, 0, 0, 0, 0],
+                [0, 1, 0, 0, 0, 0],
+                [0, 0, 1, 0, 0, 0],
+                [0, 0, 0, 1, 0, 0],
+                [0, 0, 0, 0, 1, 0],
+                [0, 0, 0, 0, 0, 1],
+                [0, 0, 0, 0, 0, 0],
+            ]
+        else:
+            self._action_set = [
+                [0, 0, 1, 0, 0, 0],
+                [0, 0, 0, 1, 0, 0],
+                [0, 0, 0, 0, 1, 0],
+                [0, 0, 0, 0, 0, 1],
+            ]
         self._action_space = IntBox(low=0, high=len(self._action_set), dtype='long')
         if self.grayscale:
             obs_shape = (num_img_obs, H, W)
