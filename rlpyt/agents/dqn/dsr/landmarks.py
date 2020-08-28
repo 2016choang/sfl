@@ -446,10 +446,10 @@ class Landmarks(object):
     
     def get_sim_threshold(self, attempt=0, similarity_matrix=None):
         if self.sim_threshold:
-            return self.sim_threshold + (SIM_THRESHOLD_CHANGE * attempt)         
+            return self.sim_threshold - (SIM_THRESHOLD_CHANGE * attempt)         
         elif self.sim_percentile_threshold and similarity_matrix is not None:
             return np.percentile(similarity_matrix[~np.eye(self.num_landmarks, dtype=bool)],
-                self.sim_percentile_threshold + (SIM_PERC_THRESHOLD_CHANGE * attempt))
+                self.sim_percentile_threshold - (SIM_PERC_THRESHOLD_CHANGE * attempt))
         else:
             raise RuntimeError('Set either sim_threshold or sim_percentile_threshold')
 

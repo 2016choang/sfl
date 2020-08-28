@@ -28,7 +28,7 @@
         "success_threshold": 0,
         "max_attempt_threshold": 10,
         "attempt_percentile_threshold": 1,
-        "sim_percentile_threshold": 0.1,
+        "sim_percentile_threshold": 99.9,
         "use_oracle_start": false,
         "reach_threshold": 0.95,
         "landmark_paths": 1,
