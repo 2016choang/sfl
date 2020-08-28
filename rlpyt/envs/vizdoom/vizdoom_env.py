@@ -149,6 +149,10 @@ class VizDoomEnv(Env):
         self.visited_interval[:] = 0
 
     def reset(self):
+        if self.current_record_file:
+            self.game.close()
+            self.game.init()
+            self.current_record_file = None
         self._reset_obs()
         if self.record_files:
             self.current_record_file = self.record_files.popleft()
@@ -181,7 +185,7 @@ class VizDoomEnv(Env):
             new_obs = self.state.screen_buffer
             x, y, theta = self.state.game_variables
             if self.goal_close_terminate:
-                done = check_if_close(np.array([x, y]), self.goal_info[0][:2])
+                done = check_if_close(np.array([x, y]), self.goal_info[1][:2])
             visited_x = int(round(x - self.min_x)) // 50
             visited_y = int(round(y - self.min_y)) // 50
             self.visited_interval[visited_x, visited_y] += 1

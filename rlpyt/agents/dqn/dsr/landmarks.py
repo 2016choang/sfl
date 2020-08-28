@@ -488,7 +488,7 @@ class Landmarks(object):
             low_attempt_edges = self.attempts <= attempt_threshold
             non_edges[low_attempt_edges] = False
             # low_attempt_dist = 1
-            if non_zero_success.size == 0
+            if non_zero_success.size == 0:
                 low_attempt_dist = 1e-3 * similarities
             else:
                 low_attempt_dist = non_zero_success.mean() * similarities
