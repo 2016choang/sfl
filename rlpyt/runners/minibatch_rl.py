@@ -708,7 +708,7 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         #       - black edges have had successful transitions between their incident nodes
         #       - red edges were used to connect the graph and do not have any successful transitions
         G = self.agent.eval_landmarks.graph
-        if self.agent.landmarks.num_landmarks <= 100:
+        if self.agent.landmarks.num_landmarks <= 20:
             figure = plt.figure(figsize=(7, 7)) 
             pos = nx.circular_layout(G)
 
@@ -816,7 +816,7 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
 
         diff_s_features = torch.mean(s_features - target_s_features, dim=2)
         summary_writer.add_histogram('DiffSFeature', diff_s_features, itr)
-        logger.record_tabular_stat('diffDSRNorm', torch.norm(diff_s_features, p=2, dim=0).mean(), itr)
+        logger.record_tabular_stat('diffDSRNorm', torch.norm(diff_s_features, p=2, dim=0).mean().item(), itr)
 
         # torch.save(features, os.path.join(logger.get_snapshot_dir(), 'features_itr_{}.pt'.format(itr)))
         # torch.save(s_features, os.path.join(logger.get_snapshot_dir(), 'dsr_itr_{}.pt'.format(itr)))
@@ -966,14 +966,17 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         plt.close()
 
         # 4. Landmarks by spatial location
-        node_labels = defaultdict(list)
-        for i, position in enumerate(map(tuple, self.agent.landmarks.positions)):
-            node_labels[position[1], position[0]].append(i)
-
         figure = plt.figure(figsize=(7, 7))
         env.plot_topdown()
-        for pos, nodes in node_labels.items():
-            plt.text(pos[1] -0.25, pos[0] + 0.25, ','.join(map(str, nodes)), fontsize=10)
+        if self.agent.landmarks.num_landmarks <= 50:
+            node_labels = defaultdict(list)
+            for i, position in enumerate(map(tuple, self.agent.landmarks.positions)):
+                node_labels[position[1], position[0]].append(i)
+
+            for pos, nodes in node_labels.items():
+                plt.text(pos[1] -0.25, pos[0] + 0.25, ','.join(map(str, nodes)), fontsize=10)
+        else:
+            plt.scatter(self.agent.landmarks.positions[:, 0], self.agent.landmarks.positions[:, 1], c=range(len(self.agent.landmarks.num_landmarks)))
         save_image('Landmarks', itr)
         plt.close()
 
@@ -981,7 +984,7 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         #       - black edges have had successful transitions between their incident nodes
         #       - red edges were used to connect the graph and do not have any successful transitions
         G = self.agent.eval_landmarks.graph
-        if self.agent.landmarks.num_landmarks <= 100:
+        if self.agent.landmarks.num_landmarks <= 20:
             figure = plt.figure(figsize=(7, 7))
             pos = nx.circular_layout(G)
 
