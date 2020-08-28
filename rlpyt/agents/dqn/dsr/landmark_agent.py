@@ -210,7 +210,8 @@ class LandmarkAgent(FeatureDSRAgent):
                 self._eval_landmarks.connect_goal()
     
     def log_eval(self, idx, pos):
-        self.landmarks.log_eval(idx, pos)
+        if self._eval_landmarks:
+            self.landmarks.log_eval(idx, pos)
 
 class LandmarkIDFAgent(LandmarkAgent, IDFDSRAgent):
     pass

@@ -437,7 +437,7 @@ class Landmarks(object):
 
     def get_low_attempt_threshold(self, use_max=True):
         if self.num_landmarks > 1:
-            threshold = np.percentile(self.attempts[~np.eye(self.num_landmarks, dtype=bool)], self.percentile_attempt_threshold)
+            threshold = np.percentile(self.attempts[~np.eye(self.num_landmarks, dtype=bool)], self.attempt_percentile_threshold)
         else:
             threshold = self.max_attempt_threshold
         if use_max:
@@ -447,9 +447,9 @@ class Landmarks(object):
     def get_sim_threshold(self, attempt=0, similarity_matrix=None):
         if self.sim_threshold:
             return self.sim_threshold - (SIM_THRESHOLD_CHANGE * attempt)         
-        elif self.sim_percentile_threshold and similarity_matrix:
+        elif self.sim_percentile_threshold and similarity_matrix is not None:
             return np.percentile(similarity_matrix[~np.eye(self.num_landmarks, dtype=bool)],
-                self.sim_percentile_threhsold - (SIM_PERC_THRESHOLD_CHANGE * attempt))
+                self.sim_percentile_threshold - (SIM_PERC_THRESHOLD_CHANGE * attempt))
         else:
             raise RuntimeError('Set either sim_threshold or sim_percentile_threshold')
 
@@ -490,7 +490,7 @@ class Landmarks(object):
             # low_attempt_dist = 1
             low_attempt_dist = edge_success_rate.mean() * similarities
             self.landmark_distances[low_attempt_edges] = np.clip(self.landmark_distances[low_attempt_edges],
-                                                                 a_min=low_attempt_dist, a_max=None)
+                                                                 a_min=low_attempt_dist[low_attempt_edges], a_max=None)
 
         # Distance = -1 * np.log (transition probability)
         self.landmark_distances[non_edges] = 0
@@ -708,7 +708,7 @@ class Landmarks(object):
         current_landmark = self.paths[idx, current_idx]
         self.eval_end_pos[tuple(pos)] = current_landmark
 
-        goal_pos = self.positions[idx]
+        goal_pos = self.positions[-1]
         if self.oracle_distance_matrix:
             end_distance = self.oracle_distance_matrix[pos[0], pos[1], goal_pos[0], goal_pos[1]]
         else:

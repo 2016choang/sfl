@@ -36,12 +36,12 @@
         "discount": 0.95,
         "batch_size": 128,
         "min_steps_learn": 1000,
-        "learning_rate": 1e-4,
+        "learning_rate": 1e-3,
         "replay_size": 100000,
         "min_steps_dsr_learn": 1000,
         "n_step_return": 1,
-        "target_update_interval": 1000,
-        "delta_clip": 4.65
+        "target_update_interval": 100000000,
+        "delta_clip": 1
     },
     "env": {
         "goal_position": [595, 1200, 270],
