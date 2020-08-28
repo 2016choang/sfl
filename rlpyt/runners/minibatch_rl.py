@@ -707,9 +707,9 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         # 10. Landmarks graph
         #       - black edges have had successful transitions between their incident nodes
         #       - red edges were used to connect the graph and do not have any successful transitions
+        G = self.agent.eval_landmarks.graph
         if self.agent.landmarks.num_landmarks <= 100:
             figure = plt.figure(figsize=(7, 7)) 
-            G = self.agent.eval_landmarks.graph
             pos = nx.circular_layout(G)
 
             non_zero_edges = {}
@@ -980,10 +980,9 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         # 10. Landmarks graph
         #       - black edges have had successful transitions between their incident nodes
         #       - red edges were used to connect the graph and do not have any successful transitions
+        G = self.agent.eval_landmarks.graph
         if self.agent.landmarks.num_landmarks <= 100:
             figure = plt.figure(figsize=(7, 7))
-
-            G = self.agent.eval_landmarks.graph
             pos = nx.circular_layout(G)
 
             non_zero_edges = {}
