@@ -1018,4 +1018,7 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         # 13. Landmarks low attempt threshold
         logger.record_tabular_stat('Low Attempt Threshold', self.agent.landmarks.get_low_attempt_threshold(use_max=False), itr)
 
+        # 14. Landmarks edge sim threshold
+        logger.record_tabular_stat('Graph Sim Threshold', self.agent.landmarks.current_sim_threshold, itr)
+
         self.agent.reset_logging()
