@@ -488,7 +488,10 @@ class Landmarks(object):
             low_attempt_edges = self.attempts <= attempt_threshold
             non_edges[low_attempt_edges] = False
             # low_attempt_dist = 1
-            low_attempt_dist = edge_success_rate.mean() * similarities
+            if non_zero_success.size == 0
+                low_attempt_dist = 1e-3 * similarities
+            else:
+                low_attempt_dist = non_zero_success.mean() * similarities
             self.landmark_distances[low_attempt_edges] = np.clip(self.landmark_distances[low_attempt_edges],
                                                                  a_min=low_attempt_dist[low_attempt_edges], a_max=None)
 
