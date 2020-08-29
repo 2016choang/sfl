@@ -976,7 +976,8 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
             for pos, nodes in node_labels.items():
                 plt.text(pos[1] -0.25, pos[0] + 0.25, ','.join(map(str, nodes)), fontsize=10)
         else:
-            plt.scatter(self.agent.landmarks.positions[:, 0], self.agent.landmarks.positions[:, 1], c=range(len(self.agent.landmarks.num_landmarks)))
+            plt.scatter(self.agent.landmarks.positions[:, 0], self.agent.landmarks.positions[:, 1], c=range(self.agent.landmarks.num_landmarks))
+            plt.colorbar()
         save_image('Landmarks', itr)
         plt.close()
 
