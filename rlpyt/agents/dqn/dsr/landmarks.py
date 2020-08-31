@@ -65,6 +65,7 @@ class Landmarks(object):
         self._active = False
 
         self.current_edge_threshold = self.sim_threshold if self.sim_threshold is not None else sim_percentile_threshold
+        self.current_sim_threshold = 0
     
     def initialize(self, num_envs, mode='train'):
         self.num_envs = num_envs
