@@ -129,7 +129,7 @@ class Landmarks(object):
     def save(self, filename):
         # Save landmarks data to a file
         np.savez(filename,
-                observations=self.observations.cpu().detach().numpy(),
+                # observations=self.observations.cpu().detach().numpy(),
                 features=self.features.cpu().detach().numpy(),
                 dsr=self.dsr.cpu().detach().numpy(),
                 visitations=self.visitations,
@@ -163,10 +163,10 @@ class Landmarks(object):
         # self.landmark_removes += (self.num_landmarks - len(save_idx))
         # self.num_landmarks = len(save_idx)
 
-    def force_add_landmark(self, observation, features, dsr, position):
+    def force_add_landmark(self, features, dsr, position):
         # Add landmark while ignoring similarity thresholds and max landmark limits
         if self.num_landmarks == 0:
-            self.observations = observation
+            # self.observations = observation
             self.set_features(features)
             self.set_dsr(dsr)
             self.positions = np.expand_dims(position, 0)
@@ -177,7 +177,7 @@ class Landmarks(object):
             self.interval_attempts = np.array([[0]])
             self.num_landmarks += 1
         else:
-            self.observations = torch.cat((self.observations, observation), dim=0)
+            # self.observations = torch.cat((self.observations, observation), dim=0)
             self.set_features(features, self.num_landmarks)
             self.set_dsr(dsr, self.num_landmarks)
             self.positions = np.append(self.positions, np.expand_dims(position, 0), axis=0)            
@@ -198,7 +198,7 @@ class Landmarks(object):
         # Remove last landmark
         save_idx = range(self.num_landmarks - 1)
 
-        self.observations = self.observations[save_idx]
+        # self.observations = self.observations[save_idx]
         self.features = self.features[save_idx]
         self.norm_features = self.norm_features[save_idx]
         self.dsr = self.dsr[save_idx]
@@ -213,7 +213,7 @@ class Landmarks(object):
         self.interval_successes = self.interval_successes[:self.num_landmarks, :self.num_landmarks]
         self.interval_attempts = self.interval_attempts[:self.num_landmarks, :self.num_landmarks]
 
-    def add_potential_landmark(self, observation, dsr, position):
+    def add_potential_landmark(self, features, dsr, position):
         if self.num_landmarks > 0:
             norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, keepdim=True)
             similarity = torch.matmul(self.norm_dsr, norm_dsr.T)
@@ -222,21 +222,21 @@ class Landmarks(object):
             potential_idxs = torch.sum(similarity < self.add_threshold, dim=0) >= self.num_landmarks
             potential_idxs = potential_idxs.cpu().numpy()
         else:
-            potential_idxs = np.ones(len(observation), dtype=bool)
+            potential_idxs = np.ones(len(features), dtype=bool)
 
         if np.any(potential_idxs):
             if self.potential_landmarks:
-                self.potential_landmarks['observation'] = torch.cat((self.potential_landmarks['observation'],
-                                                                     observation[potential_idxs]), dim=0)
+                self.potential_landmarks['features'] = torch.cat((self.potential_landmarks['features'],
+                                                                  features[potential_idxs]), dim=0)
                 self.potential_landmarks['positions'] = np.append(self.potential_landmarks['positions'],
                                                                   position[potential_idxs], axis=0)
             else:
-                self.potential_landmarks['observation'] = observation[potential_idxs].clone()
+                self.potential_landmarks['features'] = features[potential_idxs].clone()
                 self.potential_landmarks['positions'] = position[potential_idxs].copy()
         
         self.potential_landmark_adds += sum(potential_idxs)
 
-    def add_landmarks(self, observation, features, dsr, position):
+    def add_landmarks(self, features, dsr, position):
         # Add landmarks if it is not similar w.r.t existing landmarks
         # by selecting from pool of potential landmarks
         # norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, keepdim=True)
@@ -248,8 +248,8 @@ class Landmarks(object):
 
         landmarks_added = 0
 
-        for idx in range(len(observation)):
-            added = self.add_landmark(observation[[idx]], features[[idx]], dsr[[idx]], position[idx])
+        for idx in range(len(features)):
+            added = self.add_landmark(features[[idx]], dsr[[idx]], position[idx])
             landmarks_added += int(added)
             if landmarks_added == self.landmarks_per_update:
                 break
@@ -263,11 +263,11 @@ class Landmarks(object):
         self.potential_landmarks = {}
         self.potential_landmark_adds = 0
 
-    def add_landmark(self, observation, features, dsr, position):
+    def add_landmark(self, features, dsr, position):
         # Add landmark if it is not similar w.r.t. existing landmarks
         if self.num_landmarks == 0:
             # First landmark
-            self.observations = observation
+            # self.observations = observation
             self.set_features(features)
             self.set_dsr(dsr)
             self.positions = np.expand_dims(position, 0)
@@ -291,7 +291,7 @@ class Landmarks(object):
 
                 # Add landmark
                 if self.num_landmarks < self.max_landmarks:
-                    self.observations = torch.cat((self.observations, observation), dim=0)
+                    # self.observations = torch.cat((self.observations, observation), dim=0)
                     self.set_features(features, self.num_landmarks)
                     self.set_dsr(dsr, self.num_landmarks)
                     self.positions = np.append(self.positions, np.expand_dims(position, 0), axis=0)            
@@ -332,7 +332,7 @@ class Landmarks(object):
                     candidates = list(zip(landmark_success_rates[2:], landmark_attempts[2:], range(2, self.num_landmarks)))
                     replace_idx = sorted(candidates)[0][2] 
 
-                    self.observations[replace_idx] = observation
+                    # self.observations[replace_idx] = observation
                     self.set_features(features, replace_idx)
                     self.set_dsr(dsr, replace_idx)
                     self.positions[replace_idx] = np.expand_dims(position, 0)
@@ -360,7 +360,7 @@ class Landmarks(object):
         if self.features is None or idx is None:
             self.features = features
             self.norm_features = norm_features
-        elif 0 <= idx and idx < self.num_landmarks:
+        elif (0 <= idx and idx < self.num_landmarks) or isinstance(idx, np.ndarray):
             self.features[idx] = features
             self.norm_features[idx] = norm_features
         else:
@@ -374,7 +374,7 @@ class Landmarks(object):
         if self.dsr is None or idx is None:
             self.dsr = dsr
             self.norm_dsr = norm_dsr
-        elif 0 <= idx and idx < self.num_landmarks:
+        elif (0 <= idx and idx < self.num_landmarks) or isinstance(idx, np.ndarray):
             self.dsr[idx] = dsr
             self.norm_dsr[idx] = norm_dsr
         else:

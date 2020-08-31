@@ -75,35 +75,38 @@ class LandmarkAgent(FeatureDSRAgent):
         if self.landmarks:
             # Update features and successor features of existing landmarks
             if self.landmarks.num_landmarks > 0:
-                observation = self.landmarks.observations
-                model_inputs = buffer_to(observation,
-                    device=self.device)
-                features = self.feature_model(model_inputs, mode='encode')
-                self.landmarks.set_features(features)
-                model_inputs = buffer_to(features,
-                    device=self.device)
-                dsr = self.model(model_inputs, mode='dsr')
-                self.landmarks.set_dsr(dsr)
+                # observation = self.landmarks.observations
+                # model_inputs = buffer_to(observation,
+                #     device=self.device)
+                # features = self.feature_model(model_inputs, mode='encode')
+                # self.landmarks.set_features(features)
+                idxs = np.arange(self.landmarks.num_landmarks)
+                for chunk_idxs in np.array_split(idxs, np.ceil(self.landmarks.num_landmarks / 128))
+                    features = self.landmarks.features[chunk_idxs] 
+                    model_inputs = buffer_to(features,
+                        device=self.device)
+                    dsr = self.model(model_inputs, mode='dsr')
+                    self.landmarks.set_dsr(dsr, chunk_idxs)
 
                 self.landmarks.update()
 
             # Add new landmarks
             if self.landmarks.potential_landmarks:
-                observation = self.landmarks.potential_landmarks['observation']
+                features = self.landmarks.potential_landmarks['features']
                 position = self.landmarks.potential_landmarks['positions']
 
                 # unique_idxs = np.unique(observation.numpy(), return_index=True, axis=0)[1]
                 # position = self.landmarks.potential_landmarks['positions'][unique_idxs]
                 # observation = observation[unique_idxs]
 
-                model_inputs = buffer_to(observation,
-                    device=self.device)
-                features = self.feature_model(model_inputs, mode='encode')
+                # model_inputs = buffer_to(observation,
+                #     device=self.device)
+                # features = self.feature_model(model_inputs, mode='encode')
                 model_inputs = buffer_to(features,
                     device=self.device)
                 dsr = self.model(model_inputs, mode='dsr')
 
-                self.landmarks.add_landmarks(observation, features, dsr, position)
+                self.landmarks.add_landmarks(features, dsr, position)
 
             if self.landmarks.num_landmarks > 0:
                 # Reset landmark mode for all environments
@@ -140,7 +143,7 @@ class LandmarkAgent(FeatureDSRAgent):
 
             # Add potential landmarks during training
             if self._mode != 'eval':
-                self.landmarks.add_potential_landmark(observation, dsr, position)
+                self.landmarks.add_potential_landmark(features, dsr, position)
 
             self.landmarks.set_paths(dsr, position)
 
