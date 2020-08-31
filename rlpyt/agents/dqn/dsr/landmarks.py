@@ -688,7 +688,7 @@ class Landmarks(object):
 
             # Find correct start landmark based on true distances
             dist_to_selected_start = euclidean_distance(start_pos, self.positions[start_landmark])
-            dist_to_estimated_best_start = np.clip(np.linalg.norm(self.positions - start_pos).min(), 1e-6)
+            dist_to_estimated_best_start = np.clip(np.linalg.norm(self.positions - start_pos, ord=2, axis=1).min(), 1e-6, None)
 
             self.dist_start_landmark.append(dist_to_selected_start)
             self.dist_ratio_start_landmark.append(dist_to_selected_start / dist_to_estimated_best_start)
