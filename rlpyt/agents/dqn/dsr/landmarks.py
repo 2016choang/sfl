@@ -360,7 +360,7 @@ class Landmarks(object):
         if self.features is None or idx is None:
             self.features = features
             self.norm_features = norm_features
-        elif (0 <= idx and idx < self.num_landmarks) or isinstance(idx, np.ndarray):
+        elif isinstance(idx, np.ndarray) or (0 <= idx and idx < self.num_landmarks):
             self.features[idx] = features
             self.norm_features[idx] = norm_features
         else:
@@ -374,7 +374,7 @@ class Landmarks(object):
         if self.dsr is None or idx is None:
             self.dsr = dsr
             self.norm_dsr = norm_dsr
-        elif (0 <= idx and idx < self.num_landmarks) or isinstance(idx, np.ndarray):
+        elif isinstance(idx, np.ndarray) or (0 <= idx and idx < self.num_landmarks):
             self.dsr[idx] = dsr
             self.norm_dsr[idx] = norm_dsr
         else:

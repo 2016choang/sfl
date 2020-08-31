@@ -81,7 +81,7 @@ class LandmarkAgent(FeatureDSRAgent):
                 # features = self.feature_model(model_inputs, mode='encode')
                 # self.landmarks.set_features(features)
                 idxs = np.arange(self.landmarks.num_landmarks)
-                for chunk_idxs in np.array_split(idxs, np.ceil(self.landmarks.num_landmarks / 128))
+                for chunk_idxs in np.array_split(idxs, np.ceil(self.landmarks.num_landmarks / 128)):
                     features = self.landmarks.features[chunk_idxs] 
                     model_inputs = buffer_to(features,
                         device=self.device)
