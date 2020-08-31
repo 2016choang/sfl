@@ -736,7 +736,7 @@ class Landmarks(object):
             end_distance = euclidean_distance(pos[:2], goal_pos[:2])
         self.eval_distances.append(end_distance)
 
-    def get_landmarks_data(self, current_observation, current_dsr, current_position):
+    def get_landmarks_data(self, current_dsr, current_position):
         if not np.any(self.landmark_mode) or self.num_landmarks == 0:
             return None, self.landmark_mode
 
@@ -755,9 +755,9 @@ class Landmarks(object):
         # for i, observation in enumerate(current_observation[self.landmark_mode]):
         #     reached_landmarks[i] = torch.allclose(observation, self.observations[current_landmarks[i]])
 
-        for i, observation in enumerate(current_observation[self.landmark_mode]):
-            if current_landmarks[i] == 0:
-                reached_landmarks[i] = torch.allclose(observation, self.observations[current_landmarks[i]])
+        # for i, observation in enumerate(current_observation[self.landmark_mode]):
+        #     if current_landmarks[i] == 0:
+        #         reached_landmarks[i] = torch.allclose(observation, self.observations[current_landmarks[i]])
 
         # If eval mode, keep trying to reach goal until episode terminates
         if self.mode == 'eval':
