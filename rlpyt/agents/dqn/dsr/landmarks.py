@@ -11,6 +11,9 @@ from rlpyt.utils.quick_args import save__init__args
 
 SIM_THRESHOLD_CHANGE = 0.1
 
+def euclidean_distance(first_point, second_point):
+    return np.sqrt((first_point[0] - second_point[0]) ** 2 +(first_point[1] - second_point[1]) ** 2)
+
 class Landmarks(object):
 
     def __init__(self,
