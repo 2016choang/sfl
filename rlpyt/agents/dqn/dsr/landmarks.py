@@ -9,11 +9,7 @@ import torch
 
 from rlpyt.utils.quick_args import save__init__args
 
-SIM_THRESHOLD_CHANGE = 0.05
-SIM_PERC_THRESHOLD_CHANGE = 0.05
-
-def euclidean_distance(a, b):
-    return np.sqrt(sum((a_i - b_i) ** 2 for a_i, b_i in zip(a, b)))
+SIM_THRESHOLD_CHANGE = 0.1
 
 class Landmarks(object):
 
@@ -64,6 +60,8 @@ class Landmarks(object):
 
         self.potential_landmark_adds = 0
         self._active = False
+
+        self.current_edge_threshold = self.sim_threshold if self.sim_threshold is not None else sim_percentile_threshold
     
     def initialize(self, num_envs, mode='train'):
         self.num_envs = num_envs
@@ -105,6 +103,9 @@ class Landmarks(object):
 
         # Distance to algo-chosen start landmark / correct start landmark
         self.dist_ratio_start_landmark = []
+
+        # Attempts used to generate fully connected landmark graph
+        self.generate_graph_attempts = [] 
 
         # Success rates of oracle edges
         self.success_rates = None
@@ -281,7 +282,7 @@ class Landmarks(object):
             similarity = torch.matmul(self.norm_dsr, norm_dsr.T) # Compute similarity w.r.t. each existing landmark |num landmarks|
 
             # Candidate landmark under similarity threshold w.r.t. existing landmarks
-            if sum(similarity < self.add_threshold) >= self.num_landmarks:
+            if torch.sum(similarity < self.add_threshold) >= self.num_landmarks:
                 self.landmark_adds += 1
 
                 # Add landmark
@@ -301,6 +302,7 @@ class Landmarks(object):
                     self.interval_attempts = np.append(self.interval_attempts, np.zeros((self.num_landmarks, 1)), axis=1)
                     self.interval_attempts = np.append(self.interval_attempts, np.zeros((1, self.num_landmarks + 1)), axis=0)
 
+                    self.landmark_adds += 1
                     self.num_landmarks += 1
 
                 # Replace existing landmark
@@ -445,11 +447,12 @@ class Landmarks(object):
         return threshold
     
     def get_sim_threshold(self, attempt=0, similarity_matrix=None):
+        self.current_edge_threshold -= (SIM_THRESHOLD_CHANGE * attempt)
         if self.sim_threshold:
-            return self.sim_threshold - (SIM_THRESHOLD_CHANGE * attempt)         
+            return self.current_edge_threshold      
         elif self.sim_percentile_threshold and similarity_matrix is not None:
             return np.percentile(similarity_matrix[~np.eye(self.num_landmarks, dtype=bool)],
-                self.sim_percentile_threshold - (SIM_PERC_THRESHOLD_CHANGE * attempt))
+                self.current_edge_threshold)
         else:
             raise RuntimeError('Set either sim_threshold or sim_percentile_threshold')
 
@@ -517,6 +520,12 @@ class Landmarks(object):
             self.landmark_distances[add_edges_by_sim] = min_dist[add_edges_by_sim]
             self.graph = nx.from_numpy_array(self.landmark_distances, create_using=nx.DiGraph)
             attempt += 1
+        
+        # If no need to adjust threshold, then try to make it more conservative
+        if attempt == 1 and self.current_edge_threshold:
+           self.current_edge_threshold += SIM_THRESHOLD_CHANGE
+        
+        self.generate_graph_attempts.append(attempt)
 
         # if not nx.is_strongly_connected(self.graph):
         #     avail = []
@@ -555,8 +564,12 @@ class Landmarks(object):
             self.landmark_distances[-1, closest_to_goal] = 1
         else:
             self.landmark_distances = np.ones((1, 1))
+        
+        goal_index = self.num_landmarks - 1
 
-        self.graph = nx.from_numpy_array(self.landmark_distances, create_using=nx.DiGraph)
+        self.graph.add_node(goal_index)
+        self.graph.add_edge(closest_to_goal, goal_index)
+        self.graph.add_edge(goal_index, closest_to_goal)
 
     def get_path_weight(self, nodes, weight):
         # Get weight of path

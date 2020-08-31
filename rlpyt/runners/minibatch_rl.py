@@ -533,7 +533,6 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                     self.log_diagnostics(itr, eval_traj_infos, eval_time)
                     self.algo.update_scheduler(self._opt_infos)
                     self.log_eval_landmarks(itr)
-                    self.agent.sample_mode(itr)
 
                 # Log successor features information
                 if (itr + 1) % self.log_dsr_interval_itrs == 0:
@@ -585,6 +584,8 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         # If no landmark info to log
         if not self.agent.landmarks:
             return
+        
+        self.agent.sample_mode(itr)
 
         env = self.sampler.collector.envs[0]
 
@@ -733,10 +734,10 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
             save_image('Landmarks graph', itr)
             plt.close()
 
-        # 11. Neighbors of the goal landmark
-        summary_writer = logger.get_tf_summary_writer()
-        goal_neighbors = ', '.join('({}, {:.3f})'.format(node, data['weight']) for node, data in G[0].items())
-        summary_writer.add_text("Goal neighbors", goal_neighbors, itr)
+        # # 11. Neighbors of the goal landmark
+        # summary_writer = logger.get_tf_summary_writer()
+        # goal_neighbors = ', '.join('({}, {:.3f})'.format(node, data['weight']) for node, data in G[0].items())
+        # summary_writer.add_text("Goal neighbors", goal_neighbors, itr)
 
         # 12. Landmarks add threshold (dynamically adjusted)
         logger.record_tabular_stat('Add Threshold', self.agent.landmarks.add_threshold, itr)
@@ -776,7 +777,6 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
             summary_writer.add_histogram(key, value, itr)
 
     def log_dsr(self, itr):
-        self.agent.eval_mode(itr)  # Might be agent in sampler.
         summary_writer = logger.get_tf_summary_writer()
 
         # 1. Render actual environment
@@ -935,6 +935,8 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         # If no landmark info to log
         if not self.agent.landmarks or self.agent.landmarks.num_landmarks == 0:
             return
+        
+        self.agent.sample_mode(itr)
 
         env = self.sampler.collector.envs[0]
 
@@ -1010,10 +1012,10 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
             save_image('Landmarks graph', itr)
             plt.close()
 
-        # 11. Neighbors of the goal landmark
-        summary_writer = logger.get_tf_summary_writer()
-        goal_neighbors = ', '.join('({}, {:.3f})'.format(node, data['weight']) for node, data in G[0].items())
-        summary_writer.add_text("Goal neighbors", goal_neighbors, itr)
+        # # 11. Neighbors of the goal landmark
+        # summary_writer = logger.get_tf_summary_writer()
+        # goal_neighbors = ', '.join('({}, {:.3f})'.format(node, data['weight']) for node, data in G[0].items())
+        # summary_writer.add_text("Goal neighbors", goal_neighbors, itr)
 
         # 12. Landmarks add threshold (dynamically adjusted)
         logger.record_tabular_stat('Add Threshold', self.agent.landmarks.add_threshold, itr)
@@ -1021,7 +1023,13 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         # 13. Landmarks low attempt threshold
         logger.record_tabular_stat('Low Attempt Threshold', self.agent.landmarks.get_low_attempt_threshold(use_max=False), itr)
 
-        # 14. Landmarks edge sim threshold
-        logger.record_tabular_stat('Graph Sim Threshold', self.agent.landmarks.current_sim_threshold, itr)
+        # 14. Landmarks edge auxiliary threshold
+        logger.record_tabular_stat('Graph Edge Threshold', self.agent.landmarks.current_edge_threshold, itr)
+
+        # 15. Landmarks edge SF sim threshold
+        logger.record_tabular_stat('Graph SF Sim Threshold', self.agent.landmarks.current_sim_threshold, itr)
+        
+        # 16. Attempts used to generate fully connected landmark graph 
+        logger.record_tabular_stat('Generate Graph Attempts', np.average(self.agent.landmarks.generate_graph_attempts), itr)
 
         self.agent.reset_logging()

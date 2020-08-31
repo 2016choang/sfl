@@ -90,10 +90,11 @@ class LandmarkAgent(FeatureDSRAgent):
             # Add new landmarks
             if self.landmarks.potential_landmarks:
                 observation = self.landmarks.potential_landmarks['observation']
-                unique_idxs = np.unique(observation.numpy(), return_index=True, axis=0)[1]
-                position = self.landmarks.potential_landmarks['positions'][unique_idxs]
+                position = self.landmarks.potential_landmarks['positions']
 
-                observation = observation[unique_idxs]
+                # unique_idxs = np.unique(observation.numpy(), return_index=True, axis=0)[1]
+                # position = self.landmarks.potential_landmarks['positions'][unique_idxs]
+                # observation = observation[unique_idxs]
 
                 model_inputs = buffer_to(observation,
                     device=self.device)
@@ -186,28 +187,27 @@ class LandmarkAgent(FeatureDSRAgent):
         else:
             return False
 
-    def eval_mode(self, itr, goal_info=None):
+    def eval_mode(self, itr, goal_info):
         super().eval_mode(itr)
         self._eval_landmarks = copy.deepcopy(self._landmarks)
         self._eval_landmarks.initialize(self.eval_envs, 'eval')
         if self._eval_landmarks:
-            if self._eval_landmarks.num_landmarks > 0:
-                self._eval_landmarks.generate_graph()
-            if goal_info:
-                obs, pos = goal_info
+            # if self._eval_landmarks.num_landmarks > 0:
+            #     self._eval_landmarks.generate_graph()
+            obs, pos = goal_info
 
-                observation = torchify_buffer(obs).unsqueeze(0).float()
+            observation = torchify_buffer(obs).unsqueeze(0).float()
 
-                model_inputs = buffer_to(observation,
-                        device=self.device)
-                features = self.feature_model(model_inputs, mode='encode')
+            model_inputs = buffer_to(observation,
+                    device=self.device)
+            features = self.feature_model(model_inputs, mode='encode')
 
-                model_inputs = buffer_to(features,
-                        device=self.device)
-                dsr = self.model(model_inputs, mode='dsr')
+            model_inputs = buffer_to(features,
+                    device=self.device)
+            dsr = self.model(model_inputs, mode='dsr')
 
-                self._eval_landmarks.force_add_landmark(observation, features, dsr, pos[:2])
-                self._eval_landmarks.connect_goal()
+            self._eval_landmarks.force_add_landmark(observation, features, dsr, pos[:2])
+            self._eval_landmarks.connect_goal()
     
     def log_eval(self, idx, pos):
         if self._eval_landmarks:
