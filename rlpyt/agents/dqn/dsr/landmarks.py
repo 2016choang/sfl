@@ -105,7 +105,8 @@ class Landmarks(object):
         self.correct_start_landmark = 0
         self.total_landmark_paths = 0
 
-        # Distance to algo-chosen start landmark / correct start landmark
+        # Distance to algo-chosen start landmark metrics
+        self.dist_start_landmark = []
         self.dist_ratio_start_landmark = []
 
         # Attempts used to generate fully connected landmark graph
@@ -686,6 +687,12 @@ class Landmarks(object):
             cur_x, cur_y = start_pos
 
             # Find correct start landmark based on true distances
+            dist_to_selected_start = euclidean_distance(start_pos, self.positions[start_landmark])
+            dist_to_estimated_best_start = np.clip(np.linalg.norm(self.positions - start_pos).min(), 1e-6)
+
+            self.dist_start_landmark.append(dist_to_selected_start)
+            self.dist_ratio_start_landmark.append(dist_to_selected_start / dist_to_estimated_best_start)
+
             if self.oracle_distance_matrix:
                 closest_landmark = None
                 min_dist = None

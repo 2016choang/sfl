@@ -909,6 +909,7 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
             summary_writer = logger.get_tf_summary_writer()
             eval_path_str = '\n'.join(','.join(map(str, path)) + ' ({:.3f})'.format(self.agent.landmarks.path_p[i]) for i, path in enumerate(self.agent.landmarks.possible_paths))
             summary_writer.add_text("Path to goal", eval_path_str, itr)
+            logger.record_tabular_stat('EndDistanceToGoal', np.average(self.agent.landmarks.eval_distances), itr)
 
             eval_env = self.sampler.eval_collector.envs[0]
             
@@ -982,6 +983,17 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
             plt.colorbar()
         save_image('Landmarks', itr)
         plt.close()
+
+        # 5. Distance to algo-chosen start landmark
+        if self.agent.landmarks.dist_start_landmark:
+            logger.record_tabular_stat('EstimatedStartLandmarkDistance',
+                                       np.average(self.agent.landmarks.dist_start_landmark), itr)
+
+        # 6. Ratio of distance to correct start landmark over distance
+        #    to estimated start landmark
+        if self.agent.landmarks.dist_ratio_start_landmark:
+            logger.record_tabular_stat('Correct-EstimatedStartLandmarkDistanceRatio',
+                                       np.average(self.agent.landmarks.dist_ratio_start_landmark), itr)
 
         # 10. Landmarks graph
         #       - black edges have had successful transitions between their incident nodes
