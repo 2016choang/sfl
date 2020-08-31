@@ -209,7 +209,7 @@ class LandmarkAgent(FeatureDSRAgent):
                     device=self.device)
             dsr = self.model(model_inputs, mode='dsr')
 
-            self._eval_landmarks.force_add_landmark(observation, features, dsr, pos[:2])
+            self._eval_landmarks.force_add_landmark(features, dsr, pos[:2])
             self._eval_landmarks.connect_goal()
     
     def log_eval(self, idx, pos):
