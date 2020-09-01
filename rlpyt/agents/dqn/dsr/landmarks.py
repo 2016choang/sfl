@@ -663,10 +663,7 @@ class Landmarks(object):
 
         orientations = np.zeros((edges.shape[1], len(self.lines), 4))
         for i, line in enumerate(self.lines):
-            try:
-                orientations[:, i, 0] = orientation(edges[:2], edges[2:], line[:2])
-            except:
-                import pdb; pdb.set_trace()
+            orientations[:, i, 0] = orientation(edges[:2], edges[2:], line[:2])
             orientations[:, i, 1] = orientation(edges[:2], edges[2:], line[2:])
             orientations[:, i, 2] = orientation(line[:2], line[2:], edges[:2])
             orientations[:, i, 3] = orientation(line[:2], line[2:], edges[2:])
@@ -693,7 +690,7 @@ class Landmarks(object):
         distance = np.linalg.norm(self.positions - pos, ord=2, axis=1)
 
         broadcasted_start_pos = np.broadcast_to(pos[np.newaxis], self.positions.shape)
-        edges = np.concatenate((self.positions, broadcasted_start_pos)).T
+        edges = np.hstack((self.positions, broadcasted_start_pos)).T
         intersections = self.get_intersections(edges)
         distance[intersections] += distance.max()
         return distance 
