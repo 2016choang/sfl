@@ -84,7 +84,7 @@ class SerialLandmarksEvalCollector(BaseEvalCollector):
         traj_infos = [self.TrajInfoCls() for _ in range(len(self.envs))]
         completed_traj_infos = list()
         observations = list()
-        self.env_positions = np.full((len(self.envs), 2), -1, dtype=int)
+        self.env_positions = np.full((len(self.envs), len(self.envs[0].agent_pos)), -1, dtype=int)
         for i, env in enumerate(self.envs):
             observations.append(env.reset())
             self.env_positions[i] = env.agent_pos

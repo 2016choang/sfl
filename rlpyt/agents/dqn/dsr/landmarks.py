@@ -86,7 +86,7 @@ class Landmarks(object):
         self.path_lengths = np.full(self.num_envs, -1, dtype=int)
         self.path_idxs = np.full(self.num_envs, -1, dtype=int)
         self.last_landmarks = np.full(self.num_envs, -1, dtype=int)
-        self.start_positions = np.full((self.num_envs, 2), -1, dtype=int)
+        self.start_positions = np.full((self.num_envs, 3), -1, dtype=int)
         self.entered_landmark_mode = np.full(self.num_envs, False, dtype=bool)
 
         self.eval_end_pos = {}
@@ -762,7 +762,7 @@ class Landmarks(object):
                 continue
 
             self.start_positions[enter_idx] = start_pos
-            cur_x, cur_y = start_pos
+            cur_x, cur_y, cur_angle  = start_pos
 
             # Find correct start landmark based on true distances
             if self.GT_localization:
