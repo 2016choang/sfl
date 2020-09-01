@@ -663,10 +663,13 @@ class Landmarks(object):
 
         orientations = np.zeros((edges.shape[1], len(self.lines), 4))
         for i, line in enumerate(self.lines):
-            orientations[:, i, 0] = orientation(edges[:2], edges[2:], line[:2])
+            try:
+                orientations[:, i, 0] = orientation(edges[:2], edges[2:], line[:2])
+            except:
+                import pdb; pdb.set_trace()
             orientations[:, i, 1] = orientation(edges[:2], edges[2:], line[2:])
             orientations[:, i, 2] = orientation(line[:2], line[2:], edges[:2])
-            orientations[:, i, 3] = orientation(line[:2], line[2:], edges[:2])
+            orientations[:, i, 3] = orientation(line[:2], line[2:], edges[2:])
 
         orientations[orientations > 0] = 1
         orientations[orientations < 0] = 2
