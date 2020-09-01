@@ -659,7 +659,7 @@ class Landmarks(object):
             return ((q[1] - p[1]) * (r[0] - q[0])) - ((q[0] - p[0]) * (r[1] - q[1])) 
         
         def on_segment(p, q, r):
-            return (q[0] <= max(p[0], r[0]) & q[0] > min(p[0], r[0]) & q[1] <= max(p[1], r[1]) & q[1] >= min(p[1], r[1]))
+            return (q[0] <= max(p[0], r[0])) & (q[0] > min(p[0], r[0])) & (q[1] <= max(p[1], r[1])) & (q[1] >= min(p[1], r[1]))
 
         orientations = np.zeros((edges.shape[1], len(self.lines), 4))
         for i, line in enumerate(self.lines):
@@ -689,7 +689,7 @@ class Landmarks(object):
     def get_oracle_distance_to_landmarks(self, pos):
         distance = np.linalg.norm(self.positions - pos, ord=2, axis=1)
 
-        broadcasted_start_pos = np.broadcast_to(pos[:, np.newaxis], self.positions.shape)
+        broadcasted_start_pos = np.broadcast_to(pos[np.newaxis], self.positions.shape)
         edges = np.concatenate((self.positions, broadcasted_start_pos)).T
         intersections = self.get_intersections(edges)
         distance[intersections] += distance.max()
