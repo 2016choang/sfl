@@ -657,23 +657,34 @@ class Landmarks(object):
     def get_intersections(self, edges):
         def orientation(p, q, r):
             return ((q[1] - p[1]) * (r[0] - q[0])) - ((q[0] - p[0]) * (r[1] - q[1])) 
+        
+        def on_segment(p, q, r):
+            return (q[0] <= max(p[0], r[0]) & q[0] > min(p[0], r[0]) & q[1] <= max(p[1], r[1]) & q[1] >= min(p[1], r[1]))
 
-        orientations = np.zeros((len(edges), len(self.lines), 4))
+        orientations = np.zeros((edges.shape[1], len(self.lines), 4))
         for i, line in enumerate(self.lines):
             orientations[:, i, 0] = orientation(edges[:2], edges[2:], line[:2])
             orientations[:, i, 1] = orientation(edges[:2], edges[2:], line[2:])
             orientations[:, i, 2] = orientation(line[:2], line[2:], edges[:2])
-            orientations[:, i, 3] = orientation(line[:2], line[2:], line[:2])
+            orientations[:, i, 3] = orientation(line[:2], line[2:], edges[:2])
 
         orientations[orientations > 0] = 1
         orientations[orientations < 0] = 2
 
-        if np.any(orientations == 0):
-            import pdb; pdb.set_trace()
-
-        intersections = np.zeros((len(self.lines), len(edges)), dtype=bool)
+        intersections = np.zeros((edges.shape[1], len(self.lines)), dtype=bool)
         intersections[(orientations[:, :, 0] != orientations[:, :, 1]) & (orientations[:, :, 2] != orientations[:, :, 3])] = True
-        return np.any(intersections, axis=0)
+
+        for i, j, k in np.argwhere(orientations == 0):
+            if k == 0:
+                p, q, r = edges[:2, i], self.lines[j, :2], edges[2:, i] 
+            elif k == 1:
+                p, q, r = edges[:2, i], self.lines[j, 2:], edges[2:, i]
+            elif k == 2:
+                p, q, r = self.lines[j, :2], edges[:2, i], self.lines[j, 2:]
+            else:
+                p, q, r = self.lines[j, :2], edges[2:, j], self.lines[j, 2:]
+            intersections[i, j] = on_segment(p, q, r)
+        return np.any(intersections, axis=1)
 
     def get_oracle_distance_to_landmarks(self, pos):
         distance = np.linalg.norm(self.positions - pos, ord=2, axis=1)

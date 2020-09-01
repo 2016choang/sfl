@@ -476,7 +476,7 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         train_envs = len(self.sampler.collector.envs)
         eval_envs = len(self.sampler.eval_collector.envs)
         # oracle_distance_matrix = self.sampler.collector.envs[0].oracle_distance_matrix  
-        lines = np.array([(l.x1, l.y1, l.x2, l.y2) for l in self.sampler.collector.envs[0].sectors[0].lines if l.is_blocking]).T
+        lines = np.array([(l.x1, l.y1, l.x2, l.y2) for l in self.sampler.collector.envs[0].sectors[0].lines if l.is_blocking])
         self.agent.initialize_landmarks(train_envs, eval_envs, lines)
         return n_itr
 
