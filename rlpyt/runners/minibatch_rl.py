@@ -908,9 +908,21 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         # Log eval landmarks information
         if self.agent.landmarks:
             summary_writer = logger.get_tf_summary_writer()
+            logger.record_tabular_stat('EndDistanceToGoal', np.average(self.agent.landmarks.eval_distances), itr)
+
             eval_path_str = '\n'.join(','.join(map(str, path)) + ' ({:.3f})'.format(self.agent.landmarks.path_p[i]) for i, path in enumerate(self.agent.landmarks.possible_paths))
             summary_writer.add_text("Path to goal", eval_path_str, itr)
-            logger.record_tabular_stat('EndDistanceToGoal', np.average(self.agent.landmarks.eval_distances), itr)
+
+            # Path to goal
+            figure = plt.figure(figsize=(7, 7))
+            eval_env.reset()
+            eval_env.plot_topdown()
+            best_path = np.argmax(self.agent.landmarks.path_p)
+            for landmark in self.agent.landmarks.possible_paths[best_path]:
+                pos = self.agent.landmarks.positions[landmark]
+                plt.text(pos[0] - 0.25, pos[1] + 0.25, str(landmark), fontsize=10)
+            save_image('Eval path to goal', itr)
+            plt.close()
 
             eval_env = self.sampler.eval_collector.envs[0]
             
@@ -923,7 +935,7 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
 
             eval_env.reset_logging()
 
-            # agent's end position after executing landmark mode
+            # Agent's end position after executing landmark mode
             figure = plt.figure(figsize=(7, 7))
             eval_env.reset()
             eval_env.plot_topdown()
@@ -931,6 +943,7 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
                 plt.text(pos[0] - 0.25, pos[1] + 0.25, str(landmark), fontsize=10)
             save_image('Eval end positions', itr)
             plt.close()
+
 
     @torch.no_grad()
     def log_landmarks(self, itr):

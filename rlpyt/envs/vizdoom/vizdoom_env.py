@@ -297,7 +297,7 @@ class VizDoomEnv(Env):
 
     @property
     def agent_pos(self):
-        return self.state.game_variables[:2]
+        return self.state.game_variables
     
     @property
     def oracle_distance_matrix(self):
