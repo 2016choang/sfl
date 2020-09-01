@@ -491,6 +491,8 @@ class Landmarks(object):
                 return self.graph
 
             self.graph = nx.from_numpy_array(self.landmark_distances, create_using=nx.DiGraph)
+            if not nx.is_strongly_connected(self.graph):
+                import pdb; pdb.set_trace()
             return self.graph
 
         # Generate landmark graph using empirical transitions
@@ -597,7 +599,7 @@ class Landmarks(object):
             if self.GT_graph:
                 goal_pos = self.positions[-1, :2]
                 oracle_distance_to_goal = self.get_oracle_distance_to_landmarks(goal_pos)
-                closest_to_goal = oracle_distance_to_goal.argmin()
+                closest_to_goal = oracle_distance_to_goal[:-1].argmin()
             else:
                 similarity_to_goal = (self.norm_dsr[-1] * self.norm_dsr[:-1]).sum(dim=1)
                 closest_to_goal = similarity_to_goal.argmax().item()
@@ -838,7 +840,7 @@ class Landmarks(object):
         # Localization based on SF similarity
         if self.GT_termination:
             reached_landmarks = np.linalg.norm(current_position[self.landmark_mode, :2] - self.positions[current_landmarks, :2], ord=2, axis=1) < self.GT_termination_distance_threshold 
-            reached_landmarks &= (np.abs(current_position[self.landmarks_mode, 2] - self.positions[current_landmarks, 2]) < self.GT_termination_angle_threshold)
+            reached_landmarks &= (np.abs(current_position[self.landmark_mode, 2] - self.positions[current_landmarks, 2]) < self.GT_termination_angle_threshold)
         else:
             norm_dsr = current_dsr[self.landmark_mode]
             norm_dsr = norm_dsr.mean(dim=1) / torch.norm(norm_dsr.mean(dim=1), p=2, keepdim=True)

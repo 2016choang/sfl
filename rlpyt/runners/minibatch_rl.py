@@ -913,6 +913,8 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
             eval_path_str = '\n'.join(','.join(map(str, path)) + ' ({:.3f})'.format(self.agent.landmarks.path_p[i]) for i, path in enumerate(self.agent.landmarks.possible_paths))
             summary_writer.add_text("Path to goal", eval_path_str, itr)
 
+            eval_env = self.sampler.eval_collector.envs[0]
+
             # Path to goal
             figure = plt.figure(figsize=(7, 7))
             eval_env.reset()
@@ -923,8 +925,6 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
                 plt.text(pos[0] - 0.25, pos[1] + 0.25, str(landmark), fontsize=10)
             save_image('Eval path to goal', itr)
             plt.close()
-
-            eval_env = self.sampler.eval_collector.envs[0]
             
             # State visitation heatmap in evaluation mode
             figure = plt.figure(figsize=(7, 7))
