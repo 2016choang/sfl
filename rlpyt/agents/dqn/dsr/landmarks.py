@@ -682,7 +682,7 @@ class Landmarks(object):
             elif k == 2:
                 p, q, r = self.lines[j, :2], edges[:2, i], self.lines[j, 2:]
             else:
-                p, q, r = self.lines[j, :2], edges[2:, j], self.lines[j, 2:]
+                p, q, r = self.lines[j, :2], edges[2:, i], self.lines[j, 2:]
             intersections[i, j] = on_segment(p, q, r)
         return np.any(intersections, axis=1)
 

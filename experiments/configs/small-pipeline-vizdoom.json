@@ -29,7 +29,9 @@
         "max_attempt_threshold": 10,
         "attempt_percentile_threshold": 1,
         "sim_percentile_threshold": 99.9,
-        "use_oracle_start": false,
+        "use_oracle_start": true,
+        "use_oracle_localization": true,
+        "use_oracle_graph": true,
         "reach_threshold": 0.95,
         "landmark_paths": 1,
         "affinity_decay": 0.99
@@ -68,8 +70,8 @@
         "goal_close_terminate": true
     }, 
     "runner": {
-        "log_interval_steps": 4e4,
-        "log_dsr_interval_steps": 4e4,
+        "log_interval_steps": 1e5,
+        "log_dsr_interval_steps": 5e5,
         "min_steps_landmark_mode": 2e4,
         "update_landmarks_interval_steps": 2e4,
         "log_feature_info_interval_steps": 4e4,
