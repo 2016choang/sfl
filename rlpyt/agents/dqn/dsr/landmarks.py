@@ -705,7 +705,7 @@ class Landmarks(object):
         return np.any(intersections, axis=1)
 
     def get_oracle_distance_to_landmarks(self, pos):
-        distance = np.linalg.norm(self.positions[:, :2] - pos, ord=2, axis=1)
+        distance = np.linalg.norm(self.positions[:, :2] - pos[:2], ord=2, axis=1)
 
         broadcasted_start_pos = np.broadcast_to(pos[np.newaxis], (self.positions.shape[0], self.positions.shape[1] - 1))
         edges = np.hstack((self.positions[:, :2], broadcasted_start_pos)).T
@@ -766,13 +766,13 @@ class Landmarks(object):
 
             # Find correct start landmark based on true distances
             if self.GT_localization:
-                oracle_distance_to_landmarks = self.get_oracle_distance_to_landmarks(start_pos)
+                oracle_distance_to_landmarks = self.get_oracle_distance_to_landmarks(start_pos[:2])
                 dist_to_selected_start = oracle_distance_to_landmarks[start_landmark]
                 dist_to_estimated_best_start = oracle_distance_to_landmarks.min()
                 start_landmark = oracle_distance_to_landmarks.argmin()
             else:
-                dist_to_selected_start = euclidean_distance(start_pos, self.positions[start_landmark, :2])
-                dist_to_estimated_best_start = np.linalg.norm(self.positions[:, :2] - start_pos, ord=2, axis=1).min()
+                dist_to_selected_start = euclidean_distance(start_pos[:2], self.positions[start_landmark, :2])
+                dist_to_estimated_best_start = np.linalg.norm(self.positions[:, :2] - start_pos[:2], ord=2, axis=1).min()
 
             self.dist_start_landmark.append(dist_to_selected_start)
             self.dist_ratio_start_landmark.append(dist_to_selected_start / np.clip(dist_to_estimated_best_start, 1e-1, None))
