@@ -19,7 +19,7 @@ from rlpyt.utils.buffer import buffer_to, torchify_buffer
 from rlpyt.utils.collections import namedarraytuple
 from rlpyt.utils.quick_args import save__init__args
 
-AgentInfo = namedarraytuple("AgentInfo", ["a", "mode"])
+AgentInfo = namedarraytuple("AgentInfo", ["a", "mode", "subgoal"])
 
 
 class LandmarkAgent(FeatureDSRAgent):
@@ -28,7 +28,7 @@ class LandmarkAgent(FeatureDSRAgent):
             self,
             landmarks=None,
             use_soft_q=False,
-            use_oracle_graph=False,
+            GT_subgoal_policy,
             **kwargs):
         self._landmarks = landmarks
         local_args = locals()
@@ -128,6 +128,7 @@ class LandmarkAgent(FeatureDSRAgent):
         # Default exploration (uniform random) policy
         action = torch.randint_like(prev_action, high=self.distribution.dim)
         mode = torch.zeros_like(prev_action, dtype=bool)
+        subgoal = np.zeros((len(observation), 3))
 
         # Use landmark policy sometimes
         if self.landmarks:
@@ -147,23 +148,27 @@ class LandmarkAgent(FeatureDSRAgent):
 
             self.landmarks.set_paths(dsr, position)
 
-            landmarks_dsr, landmark_mode = self.landmarks.get_landmarks_data(dsr, position)
+            landmarks_dsr, landmark_mode, subgoal_landmarks = self.landmarks.get_landmarks_data(dsr, position)
 
             if np.any(landmark_mode):
-                # Landmark subgoal policy (SF-based Q values)
-                current_dsr = dsr[landmark_mode] / torch.norm(dsr[landmark_mode], p=2, dim=2, keepdim=True) # |env| x A x 512
-                # goal SF |env| x 512 (SF of goal state averaged across actions)
-                q_values = torch.sum(current_dsr * landmarks_dsr.unsqueeze(1), dim=2).cpu() # <current SF, goal SF> = |env| x A
-
-                if self.use_soft_q:
-                    # Select action based on softmax of Q as probabilities
-                    prob = F.softmax(q_values, dim=1)
-                    landmark_action = self.soft_distribution.sample(DistInfo(prob=prob))
+                if self.GT_subgoal_policy and self._mode != 'eval':
+                    action[landmark_mode] = -1
+                    subgoal[landmark_mode] = subgoal_landmarks
                 else:
-                    # Select action based on epsilon-greedy of Q
-                    landmark_action = self.distribution.sample(q_values)
+                    # Landmark subgoal policy (SF-based Q values)
+                    current_dsr = dsr[landmark_mode] / torch.norm(dsr[landmark_mode], p=2, dim=2, keepdim=True) # |env| x A x 512
+                    # goal SF |env| x 512 (SF of goal state averaged across actions)
+                    q_values = torch.sum(current_dsr * landmarks_dsr.unsqueeze(1), dim=2).cpu() # <current SF, goal SF> = |env| x A
 
-                action[landmark_mode] = landmark_action
+                    if self.use_soft_q:
+                        # Select action based on softmax of Q as probabilities
+                        prob = F.softmax(q_values, dim=1)
+                        landmark_action = self.soft_distribution.sample(DistInfo(prob=prob))
+                    else:
+                        # Select action based on epsilon-greedy of Q
+                        landmark_action = self.distribution.sample(q_values)
+
+                    action[landmark_mode] = landmark_action
 
             # Try to enter landmark mode in training
             if self._mode != 'eval' and self.landmarks.num_landmarks > 0:
@@ -171,7 +176,7 @@ class LandmarkAgent(FeatureDSRAgent):
             
             mode = torch.from_numpy(landmark_mode)
 
-        agent_info = AgentInfo(a=action, mode=mode)
+        agent_info = AgentInfo(a=action, mode=mode, subgoal=subgoal)
         return AgentStep(action=action, agent_info=agent_info)
 
     def reset(self):

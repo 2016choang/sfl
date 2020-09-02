@@ -938,7 +938,7 @@ class Landmarks(object):
 
         current_idxs = self.path_idxs[self.landmark_mode]
         current_landmarks = self.paths[self.landmark_mode, current_idxs]
-        return self.norm_dsr[current_landmarks], self.landmark_mode
+        return self.norm_dsr[current_landmarks], self.landmark_mode, self.positions[current_landmarks]
 
     def generate_true_graph(self, oracle_distance_matrix, edge_threshold=None):
         # Generate landmark graph using true distances given by oracle
