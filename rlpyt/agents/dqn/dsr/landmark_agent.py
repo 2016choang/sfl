@@ -28,7 +28,7 @@ class LandmarkAgent(FeatureDSRAgent):
             self,
             landmarks=None,
             use_soft_q=False,
-            GT_subgoal_policy,
+            GT_subgoal_policy=False,
             **kwargs):
         self._landmarks = landmarks
         local_args = locals()
@@ -128,7 +128,10 @@ class LandmarkAgent(FeatureDSRAgent):
         # Default exploration (uniform random) policy
         action = torch.randint_like(prev_action, high=self.distribution.dim)
         mode = torch.zeros_like(prev_action, dtype=bool)
-        subgoal = np.zeros((len(observation), 3))
+        if len(prev_action.size()) == 0:
+            subgoal = np.zeros((3, ))
+        else:
+            subgoal = np.zeros((len(observation), 3))
 
         # Use landmark policy sometimes
         if self.landmarks:

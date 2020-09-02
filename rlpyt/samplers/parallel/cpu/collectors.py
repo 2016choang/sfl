@@ -86,10 +86,7 @@ class CpuLandmarksCollector(DecorrelatingStartCollector):
             action = numpify_buffer(act_pyt)
             for b, env in enumerate(self.envs):
                 # Environment inputs and outputs are numpy arrays.
-                if action[b] == -1:
-                    import pdb; pdb.set_trace()
-                else:
-                    o, r, d, env_info = env.step(action[b])
+                o, r, d, env_info = env.step(action[b])
                 self.env_positions[b] = env.agent_pos
                 traj_infos[b].step(observation[b], action[b], r, d, agent_info[b],
                     env_info)
