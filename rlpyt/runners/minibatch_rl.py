@@ -973,6 +973,19 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         logger.record_tabular_stat('IntervalLandmarkSuccessRate',
                                    np.average(oracle_interval_success_rates), itr)
         
+        # 3. Positions of landmark successes
+        figure = plt.figure(figsize=(7, 7))
+        success_positions = np.zeros_like(env.visited)
+        binned_positions = self.agent.landmarks.positions[:, :2].copy()
+        binned_positions[:, 0] = np.round(binned_positions[:, 0] - env.min_x).astype(int) // env.bin_size
+        binned_positions[:, 1] = np.round(binned_positions[:, 1] - env.min_y).astype(int) // env.bin_size
+        import pdb; pdb.set_trace()
+        plt.imshow(env.visited_interval.T, origin='lower')
+        plt.colorbar()
+        save_image('State Visitation Heatmap (Interval)', itr)
+        plt.close()
+        plt.close()
+        
         # 3. Visitation counts of landmarks
         figure = plt.figure(figsize=(7, 7))
         visitations = self.agent.landmarks.visitations

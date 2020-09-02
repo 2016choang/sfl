@@ -89,8 +89,9 @@ class VizDoomEnv(Env):
         self.max_x = sector_lines[:, :2].max()
         self.min_y = sector_lines[:, 2:].min()
         self.max_y = sector_lines[:, 2:].max()
-        x_len = int(self.max_x - self.min_x + 50) // 50
-        y_len = int(self.max_y - self.min_y + 50) // 50
+        self.bin_size = 50
+        x_len = int(self.max_x - self.min_x + self.bin_size) // self.bin_size
+        y_len = int(self.max_y - self.min_y + self.bin_size) // self.bin_size
         self.visited = np.zeros((x_len, y_len), dtype=int)
         self.visited_interval = np.zeros((x_len, y_len), dtype=int)
 
@@ -167,8 +168,8 @@ class VizDoomEnv(Env):
         self.state = self.game.get_state()
 
         x, y = self.state.game_variables[:2]
-        x = int(round(x - self.min_x)) // 50
-        y = int(round(y - self.min_y)) // 50
+        x = int(round(x - self.min_x)) // self.bin_size
+        y = int(round(y - self.min_y)) // self.bin_size
         self.visited_interval[x, y] += 1
 
         new_obs = self.state.screen_buffer
@@ -194,8 +195,8 @@ class VizDoomEnv(Env):
             x, y, theta = self.state.game_variables
             if self.goal_close_terminate:
                 done = check_if_close(np.array([x, y]), self.goal_info[1][:2])
-            visited_x = int(round(x - self.min_x)) // 50
-            visited_y = int(round(y - self.min_y)) // 50
+            visited_x = int(round(x - self.min_x)) // self.bin_size
+            visited_y = int(round(y - self.min_y)) // self.bin_size
             self.visited_interval[visited_x, visited_y] += 1
         else:
             if self.current_record_file:
