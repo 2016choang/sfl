@@ -473,26 +473,30 @@ class Landmarks(object):
             self.landmark_distances = np.linalg.norm(edges[:, :2] - edges[:, 2:], ord=2, axis=1)
             
             intersections = self.get_intersections(edges.T)
-            self.landmark_distances[intersections] += (self.num_landmarks * self.landmark_distances.max())
+            self.landmark_distances[intersections] += (self.max_landmarks * self.landmark_distances.max())
             self.landmark_distances[self.landmark_distances == 0] += 1e-3
             self.landmark_distances = self.landmark_distances.reshape((self.num_landmarks, self.num_landmarks))
 
+            over_edge_threshold = self.landmark_distances > self.GT_graph_edge_threshold
+
             graph_distance_matrix = self.landmark_distances.copy()
-            graph_distance_matrix[self.landmark_distances > self.GT_graph_edge_threshold] = 0
+            graph_distance_matrix[over_edge_threshold] = 0
 
             self.graph = nx.from_numpy_array(graph_distance_matrix, create_using=nx.DiGraph)
             if nx.is_strongly_connected(self.graph):
                 return self.graph
             
-            twice_edge_threshold = self.landmark_distances <= (2 * self.GT_graph_edge_threshold)
-            graph_distance_matrix[twice_edge_threshold] = self.landmark_distances[twice_edge_threshold]
+            under_twice_edge_threshold = self.landmark_distances <= (2 * self.GT_graph_edge_threshold)
+            graph_distance_matrix[over_edge_threshold & under_twice_edge_threshold] = (self.max_landmarks * self.GT_graph_edge_threshold) \
+                + self.landmark_distances[over_edge_threshold & under_twice_edge_threshold]
             self.graph = nx.from_numpy_array(graph_distance_matrix, create_using=nx.DiGraph)
             if nx.is_strongly_connected(self.graph):
                 return self.graph
 
+            self.landmark_distances[~under_twice_edge_threshold] += (self.max_landmarks * 2 * self.GT_graph_edge_threshold)
             self.graph = nx.from_numpy_array(self.landmark_distances, create_using=nx.DiGraph)
             if not nx.is_strongly_connected(self.graph):
-                import pdb; pdb.set_trace()
+                raise RuntimeError('Graph should be complete and therefore, strongly connected')
             return self.graph
 
         # Generate landmark graph using empirical transitions
@@ -712,7 +716,7 @@ class Landmarks(object):
         broadcasted_start_pos = np.broadcast_to(pos[np.newaxis], (self.positions.shape[0], self.positions.shape[1] - 1))
         edges = np.hstack((self.positions[:, :2], broadcasted_start_pos)).T
         intersections = self.get_intersections(edges)
-        distance[intersections] += (self.num_landmarks * distance.max())
+        distance[intersections] += (self.max_landmarks * distance.max())
         return distance 
         
     def set_paths(self, dsr, position, relocalize_idxs=None):
