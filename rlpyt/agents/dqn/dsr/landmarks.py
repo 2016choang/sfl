@@ -835,7 +835,7 @@ class Landmarks(object):
 
     def get_landmarks_data(self, current_dsr, current_position):
         if not np.any(self.landmark_mode) or self.num_landmarks == 0:
-            return None, self.landmark_mode
+            return None, self.landmark_mode, None
 
         current_idxs = self.path_idxs[self.landmark_mode]
         current_landmarks = self.paths[self.landmark_mode, current_idxs]
