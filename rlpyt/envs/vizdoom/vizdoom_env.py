@@ -175,9 +175,14 @@ class VizDoomEnv(Env):
         self._update_obs(new_obs)
         return self.get_obs()
 
-    def step(self, action):
-        a = self._action_set[action]
-        reward = self.game.make_action(a, self.frame_skip)
+    def step(self, action, position=None):
+        if action == -1:
+            if position is None:
+                raise RuntimeError('No teleport position given!')
+            reward = self.teleport(position)
+        else:
+            a = self._action_set[action]
+            reward = self.game.make_action(a, self.frame_skip)
         done = self.game.is_episode_finished()
 
         if reward < 0.1:
@@ -237,16 +242,20 @@ class VizDoomEnv(Env):
 
     def _reset_obs(self):
         self._obs[:] = 0
+    
+    def teleport(self, position):
+        self.game.send_game_command('warp {} {}'.format(position[0], position[1]))
+        cur_angle = self.game.get_game_variable(vzd.GameVariable.ANGLE)    
+        turn_delta = int(cur_angle - position[2])
+        self.game.make_action([0, 0, 0, 0, 0, 0, turn_delta], 1)
+        reward = self.game.make_action([0, 0, 0, 0, 0, 0, 0], 1)
+        return reward
 
     def get_obs_at(self, position=None, full=False):
         state = self.game.get_state()
 
         if position is not None:
-            self.game.send_game_command('warp {} {}'.format(position[0], position[1]))
-            cur_angle = self.game.get_game_variable(vzd.GameVariable.ANGLE)    
-            turn_delta = int(cur_angle - position[2])
-            self.game.make_action([0, 0, 0, 0, 0, 0, turn_delta], 1)
-            self.game.make_action([0, 0, 0, 0, 0, 0, 0], 1)
+            self.teleport(position)
 
         state = self.game.get_state()
 
