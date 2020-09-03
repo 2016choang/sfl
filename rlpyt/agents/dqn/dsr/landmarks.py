@@ -714,7 +714,7 @@ class Landmarks(object):
             intersections[i, j] = on_segment(p, q, r)
         return np.any(intersections, axis=1)
 
-    def get_oracle_distance_to_landmarks(self, pos, idxs=None):
+    def get_oracle_distance_to_landmarks(self, pos, idxs=None, penalty=None):
         if idxs:
             positions = self.positions[idxs, :2]
         else:
@@ -724,7 +724,9 @@ class Landmarks(object):
         broadcasted_pos = np.broadcast_to(pos[np.newaxis, :2], positions.shape)
         edges = np.hstack((positions, broadcasted_pos)).T
         intersections = self.get_intersections(edges)
-        distance[intersections] += (self.max_landmarks * distance.max())
+        if not penalty:
+            penalty = self.max_landmarks
+        distance[intersections] += (penalty * distance.max())
         return distance 
         
     def set_paths(self, dsr, position, relocalize_idxs=None):
@@ -860,7 +862,7 @@ class Landmarks(object):
 
         for pos, landmark in zip(current_position[np.where(self.landmark_mode)[0][reached_landmarks]],
                                  current_landmarks[reached_landmarks]):
-            distance = self.get_oracle_distance_to_landmarks(pos, [landmark])[0]
+            distance = self.get_oracle_distance_to_landmarks(pos, [landmark], 1)[0]
             angle_diff = abs(pos[2] - self.positions[landmark, 2])
             self.dist_at_termination.append(distance)
             self.angle_diff_at_termination.append(angle_diff)
@@ -871,7 +873,6 @@ class Landmarks(object):
 
         if self.mode == 'eval':
             reached_landmarks[final_goal_landmarks] = False
-
 
         # # Localization based on observation equivalence
         # reached_landmarks = self.landmark_mode[self.landmark_mode]
