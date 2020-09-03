@@ -1028,7 +1028,14 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
             logger.record_tabular_stat('Correct-EstimatedStartLandmarkDistanceRatio',
                                        np.average(self.agent.landmarks.dist_ratio_start_landmark), itr)
 
-        # 7. Landmarks graph
+        # 6. Distance / angle diff at algo-determined termination
+        if self.agent.landmarks.dist_at_termination:
+            logger.record_tabular_stat('DistanceToLandmarkAtTermination',
+                                       np.average(self.agent.landmarks.dist_at_termination), itr)
+            logger.record_tabular_stat('AngleDifferenceAtTermination',
+                                       np.average(self.agent.landmarks.angle_diff_at_termination), itr)
+
+        # 8. Landmarks graph
         #       - black edges have had successful transitions between their incident nodes
         #       - red edges were used to connect the graph and do not have any successful transitions
         G = self.agent.eval_landmarks.graph
