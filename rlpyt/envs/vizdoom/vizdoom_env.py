@@ -199,16 +199,17 @@ class VizDoomEnv(Env):
             visited_y = int(round(y - self.min_y)) // self.bin_size
             self.visited_interval[visited_x, visited_y] += 1
         else:
-            if self.current_record_file:
-                self.game.close()
-                self.game.init()
-                self.current_record_file = None
             # NOTE: when done, screen_buffer is invalid
             x, y, theta = 0, 0, 0
             if self.grayscale:
                 new_obs = np.uint8(np.zeros(self._observation_space.shape[1:]))
             else:
                 new_obs = np.uint8(np.zeros(self._observation_space.shape))
+        
+        if done and self.current_record_file:
+            self.game.close()
+            self.game.init()
+            self.current_record_file = None
 
         info = EnvInfo(traj_done=done, position=(x, y, theta))
 
