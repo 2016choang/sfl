@@ -721,8 +721,8 @@ class Landmarks(object):
             positions = self.positions[:, :2]
         distance = np.linalg.norm(positions - pos[:2], ord=2, axis=1)
 
-        broadcasted_start_pos = np.broadcast_to(pos[np.newaxis], positions.shape)
-        edges = np.hstack((positions, broadcasted_start_pos)).T
+        broadcasted_pos = np.broadcast_to(pos[np.newaxis, :2], positions.shape)
+        edges = np.hstack((positions, broadcasted_pos)).T
         intersections = self.get_intersections(edges)
         distance[intersections] += (self.max_landmarks * distance.max())
         return distance 
@@ -860,13 +860,10 @@ class Landmarks(object):
 
         for pos, landmark in zip(current_position[np.where(self.landmark_mode)[0][reached_landmarks]],
                                  current_landmarks[reached_landmarks]):
-            try:
-                distance = self.get_oracle_distance_to_landmarks(pos, [landmark])[0]
-                angle_diff = abs(pos[2] - self.positions[landmark, 2])
-                self.dist_at_termination.append(distance)
-                self.angle_diff_at_termination.append(angle_diff)
-            except:
-                import pdb; pdb.set_trace()
+            distance = self.get_oracle_distance_to_landmarks(pos, [landmark])[0]
+            angle_diff = abs(pos[2] - self.positions[landmark, 2])
+            self.dist_at_termination.append(distance)
+            self.angle_diff_at_termination.append(angle_diff)
 
         if self.GT_termination:
             reached_landmarks = np.linalg.norm(current_position[self.landmark_mode, :2] - self.positions[current_landmarks, :2], ord=2, axis=1) < self.GT_termination_distance_threshold 
