@@ -70,6 +70,7 @@ class Landmarks(object):
 
         self.current_edge_threshold = self.sim_threshold if self.sim_threshold is not None else sim_percentile_threshold
         self.current_sim_threshold = 0
+        self.consecutive_graph_generation_successes = 0
 
         self.oracle_distance_matrix = None
     
@@ -462,7 +463,8 @@ class Landmarks(object):
         return threshold
     
     def get_sim_threshold(self, attempt=0, similarity_matrix=None):
-        self.current_edge_threshold -= (SIM_THRESHOLD_CHANGE * attempt)
+        if attempt:
+            self.current_edge_threshold -= (SIM_THRESHOLD_CHANGE * 2 ** (attempt - 1))
         if self.sim_threshold:
             return self.current_edge_threshold      
         elif self.sim_percentile_threshold and similarity_matrix is not None:
@@ -550,24 +552,27 @@ class Landmarks(object):
         attempt = 0
         while not nx.is_strongly_connected(self.graph):
             self.current_sim_threshold = self.get_sim_threshold(attempt, similarities)
-
             add_edges_by_sim = non_edges & (similarities >= self.current_sim_threshold)
+
             # In all modes except eval, consider edges with low numbers
             # of attempted transitions as valid starting edges
             # if self.mode != 'eval':
             #     low_attempt_edges = self.attempts <= attempt_threshold
             #     self.landmark_distances[add_edges_by_sim] = -1 * np.log(min_dist[add_edges_by_sim])
             #     self.landmark_distances[add_edges_by_sim & ~low_attempt_edges] *= self.max_landmarks 
-            # else:
+
             self.landmark_distances[add_edges_by_sim] = -1 * self.max_landmarks * np.log(min_dist[add_edges_by_sim])
 
             self.graph = nx.from_numpy_array(self.landmark_distances, create_using=nx.DiGraph)
             attempt += 1
         
         # If no need to adjust threshold, then try to make it more conservative
-        if attempt == 1 and self.current_edge_threshold:
-           self.current_edge_threshold += SIM_THRESHOLD_CHANGE
-        
+        if self.current_edge_threshold:
+            if attempt == 1:
+                self.consecutive_graph_generation_successes += 1
+                self.current_edge_threshold += (SIM_THRESHOLD_CHANGE * self.consecutive_graph_generation_successes)
+            else:
+                self.consecutive_graph_generation_successes = 0
         self.generate_graph_attempts.append(attempt)
 
         # if not nx.is_strongly_connected(self.graph):
