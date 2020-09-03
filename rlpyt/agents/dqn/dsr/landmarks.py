@@ -115,6 +115,10 @@ class Landmarks(object):
         self.dist_start_landmark = []
         self.dist_ratio_start_landmark = []
 
+        # Distance / angle diff at algo-determined termination
+        self.dist_at_termination = []
+        self.angle_diff_at_termination = []
+
         # Attempts used to generate fully connected landmark graph
         self.generate_graph_attempts = [] 
 
@@ -710,11 +714,15 @@ class Landmarks(object):
             intersections[i, j] = on_segment(p, q, r)
         return np.any(intersections, axis=1)
 
-    def get_oracle_distance_to_landmarks(self, pos):
-        distance = np.linalg.norm(self.positions[:, :2] - pos[:2], ord=2, axis=1)
+    def get_oracle_distance_to_landmarks(self, pos, idxs=None):
+        if idxs:
+            positions = self.positions[idxs, :2]
+        else:
+            positions = self.positions[:, :2]
+        distance = np.linalg.norm(positions - pos[:2], ord=2, axis=1)
 
-        broadcasted_start_pos = np.broadcast_to(pos[np.newaxis], (self.positions.shape[0], self.positions.shape[1] - 1))
-        edges = np.hstack((self.positions[:, :2], broadcasted_start_pos)).T
+        broadcasted_start_pos = np.broadcast_to(pos[np.newaxis], positions.shape)
+        edges = np.hstack((positions, broadcasted_start_pos)).T
         intersections = self.get_intersections(edges)
         distance[intersections] += (self.max_landmarks * distance.max())
         return distance 
@@ -768,17 +776,19 @@ class Landmarks(object):
                 continue
 
             self.start_positions[enter_idx] = start_pos
-            cur_x, cur_y, cur_angle  = start_pos
+            cur_x, cur_y, cur_angle = start_pos
+
+            oracle_distance_to_landmarks = self.get_oracle_distance_to_landmarks(start_pos[:2])
+            dist_to_selected_start = oracle_distance_to_landmarks[start_landmark]
+            intersection_penalty = self.max_landmarks * oracle_distance_to_landmarks.max()
+            # Plot smaller distance for visualization purposes
+            if dist_to_selected_start > intersection_penalty:
+                dist_to_selected_start = (dist_to_selected_start - intersection_penalty) * 2
+            dist_to_estimated_best_start = oracle_distance_to_landmarks.min()
 
             # Find correct start landmark based on true distances
             if self.GT_localization:
-                oracle_distance_to_landmarks = self.get_oracle_distance_to_landmarks(start_pos[:2])
-                dist_to_selected_start = oracle_distance_to_landmarks[start_landmark]
-                dist_to_estimated_best_start = oracle_distance_to_landmarks.min()
                 start_landmark = oracle_distance_to_landmarks.argmin()
-            else:
-                dist_to_selected_start = euclidean_distance(start_pos[:2], self.positions[start_landmark, :2])
-                dist_to_estimated_best_start = np.linalg.norm(self.positions[:, :2] - start_pos[:2], ord=2, axis=1).min()
 
             self.dist_start_landmark.append(dist_to_selected_start)
             self.dist_ratio_start_landmark.append(dist_to_selected_start / np.clip(dist_to_estimated_best_start, 1e-1, None))
@@ -842,19 +852,29 @@ class Landmarks(object):
         final_goal_landmarks = current_idxs == (self.path_lengths[self.landmark_mode] - 1)
 
         # Localization based on SF similarity
+        norm_dsr = current_dsr[self.landmark_mode]
+        norm_dsr = norm_dsr.mean(dim=1) / torch.norm(norm_dsr.mean(dim=1), p=2, keepdim=True)
+        landmark_similarity = torch.sum(norm_dsr * self.norm_dsr[current_landmarks], dim=1)
+        reached_landmarks = landmark_similarity > self.reach_threshold
+        reached_landmarks = reached_landmarks.detach().cpu().numpy() 
+
+        for pos, landmark in zip(current_position[np.where(self.landmark_mode)[0][reached_landmarks]],
+                                 current_landmarks[reached_landmarks]):
+            try:
+                distance = self.get_oracle_distance_to_landmarks(pos, [landmark])[0]
+                angle_diff = abs(pos[2] - self.positions[landmark, 2])
+                self.dist_at_termination.append(distance)
+                self.angle_diff_at_termination.append(angle_diff)
+            except:
+                import pdb; pdb.set_trace()
+
         if self.GT_termination:
             reached_landmarks = np.linalg.norm(current_position[self.landmark_mode, :2] - self.positions[current_landmarks, :2], ord=2, axis=1) < self.GT_termination_distance_threshold 
             reached_landmarks &= (np.abs(current_position[self.landmark_mode, 2] - self.positions[current_landmarks, 2]) < self.GT_termination_angle_threshold)
-        else:
-            norm_dsr = current_dsr[self.landmark_mode]
-            norm_dsr = norm_dsr.mean(dim=1) / torch.norm(norm_dsr.mean(dim=1), p=2, keepdim=True)
-            landmark_similarity = torch.sum(norm_dsr * self.norm_dsr[current_landmarks], dim=1)
-            reached_landmarks = landmark_similarity > self.reach_threshold
 
-            if self.mode == 'eval':
-                reached_landmarks[final_goal_landmarks] = False
+        if self.mode == 'eval':
+            reached_landmarks[final_goal_landmarks] = False
 
-            reached_landmarks = reached_landmarks.detach().cpu().numpy() 
 
         # # Localization based on observation equivalence
         # reached_landmarks = self.landmark_mode[self.landmark_mode]
