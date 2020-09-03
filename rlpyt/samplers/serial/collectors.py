@@ -85,11 +85,11 @@ class SerialLandmarksEvalCollector(BaseEvalCollector):
         completed_traj_infos = list()
         observations = list()
         self.env_positions = np.full((len(self.envs), len(self.envs[0].agent_pos)), -1, dtype=int)
-        self.eval_trajectory = [[] for _ in range(len(self.envs))]
+        self.eval_trajectories = [[] for _ in range(len(self.envs))]
         for b, env in enumerate(self.envs):
             observations.append(env.reset())
             self.env_positions[b] = env.agent_pos
-            self.eval_trajectory[b].append(env.agent_pos)
+            self.eval_trajectories[b].append(env.agent_pos)
         observation = buffer_from_example(observations[0], len(self.envs))
         for b, o in enumerate(observations):
             observation[b] = o
@@ -105,7 +105,7 @@ class SerialLandmarksEvalCollector(BaseEvalCollector):
                 o, r, d, env_info = env.step(action[b])
                 self.env_positions[b] = env.agent_pos
                 if len(completed_traj_infos) < 1:
-                    self.eval_trajectory[b].append(env.agent_pos)
+                    self.eval_trajectories[b].append(env.agent_pos)
                 if d:
                     self.agent.log_eval(b, self.env_positions[b])
                 traj_infos[b].step(observation[b], action[b], r, d,

@@ -290,12 +290,8 @@ class VizDoomEnv(Env):
         state = self.game.get_state()
         
         if objects:
-            for o in state.objects:
-                # Plot object on map
-                if o.name == "DoomPlayer":
-                    plt.plot(o.position_x, o.position_y, color='red', marker='D')
-                else:
-                    plt.plot(o.position_x, o.position_y, color='green', marker='D')
+            plt.plot(*start_info[1][:2], color='red', marker='D')
+            plt.plot(*goal_info[1][:2], color='green', marker='D')
         
         for s in state.sectors:
             # Plot sector on map
