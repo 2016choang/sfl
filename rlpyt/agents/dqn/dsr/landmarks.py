@@ -25,8 +25,8 @@ class Landmarks(object):
                  steps_per_landmark=10,
                  max_landmark_mode_steps=500,
                  success_threshold=0,
-                 max_attempt_threshold=10,
-                 attempt_percentile_threshold=10,
+                 max_attempt_threshold=1,
+                 attempt_percentile_threshold=5,
                  sim_threshold=None,
                  sim_percentile_threshold=None,
                  GT_localization=False,
@@ -530,20 +530,6 @@ class Landmarks(object):
         #     non_edges[high_similarity_edges] = False 
         #     landmark_distances[high_similarity_edges] = np.clip(landmark_distances[high_similarity_edges], a_min=min_dist[high_similarity_edges], a_max=None)
 
-        # In all modes except eval, consider edges with low numbers
-        # of attempted transitions as valid starting edges
-        if self.mode != 'eval':
-            attempt_threshold = self.get_low_attempt_threshold()
-            low_attempt_edges = self.attempts <= attempt_threshold
-            non_edges[low_attempt_edges] = False
-            # low_attempt_dist = 1
-            if non_zero_success.size == 0:
-                low_attempt_dist = 1e-3 * similarities
-            else:
-                low_attempt_dist = non_zero_success.mean() * similarities
-            self.landmark_distances[low_attempt_edges] = np.clip(self.landmark_distances[low_attempt_edges],
-                                                                 a_min=low_attempt_dist[low_attempt_edges], a_max=None)
-
         # Distance = -1 * np.log (transition probability)
         self.landmark_distances[non_edges] = 0
         self.landmark_distances[self.landmark_distances == 1] = 1 - 1e-6
@@ -559,11 +545,22 @@ class Landmarks(object):
         self.zero_edge_indices = set()
         self.graph = nx.from_numpy_array(self.landmark_distances, create_using=nx.DiGraph)
 
+        # attempt_threshold = self.get_low_attempt_threshold()
+
         attempt = 0
         while not nx.is_strongly_connected(self.graph):
             self.current_sim_threshold = self.get_sim_threshold(attempt, similarities)
+
             add_edges_by_sim = non_edges & (similarities >= self.current_sim_threshold)
-            self.landmark_distances[add_edges_by_sim] = -1 * np.log(min_dist[add_edges_by_sim])
+            # In all modes except eval, consider edges with low numbers
+            # of attempted transitions as valid starting edges
+            # if self.mode != 'eval':
+            #     low_attempt_edges = self.attempts <= attempt_threshold
+            #     self.landmark_distances[add_edges_by_sim] = -1 * np.log(min_dist[add_edges_by_sim])
+            #     self.landmark_distances[add_edges_by_sim & ~low_attempt_edges] *= self.max_landmarks 
+            # else:
+            self.landmark_distances[add_edges_by_sim] = -1 * self.max_landmarks * np.log(min_dist[add_edges_by_sim])
+
             self.graph = nx.from_numpy_array(self.landmark_distances, create_using=nx.DiGraph)
             attempt += 1
         
@@ -714,7 +711,7 @@ class Landmarks(object):
             intersections[i, j] = on_segment(p, q, r)
         return np.any(intersections, axis=1)
 
-    def get_oracle_distance_to_landmarks(self, pos, idxs=None, penalty=None):
+    def get_oracle_distance_to_landmarks(self, pos, idxs=None):
         if idxs:
             positions = self.positions[idxs, :2]
         else:
@@ -724,10 +721,7 @@ class Landmarks(object):
         broadcasted_pos = np.broadcast_to(pos[np.newaxis, :2], positions.shape)
         edges = np.hstack((positions, broadcasted_pos)).T
         intersections = self.get_intersections(edges)
-        if not penalty:
-            penalty = self.max_landmarks
-        distance[intersections] += (penalty * distance.max())
-        return distance 
+        return distance, intersections
         
     def set_paths(self, dsr, position, relocalize_idxs=None):
         if relocalize_idxs is None:
@@ -780,12 +774,12 @@ class Landmarks(object):
             self.start_positions[enter_idx] = start_pos
             cur_x, cur_y, cur_angle = start_pos
 
-            oracle_distance_to_landmarks = self.get_oracle_distance_to_landmarks(start_pos[:2])
+            oracle_distance_to_landmarks, intersections = self.get_oracle_distance_to_landmarks(start_pos[:2])
             dist_to_selected_start = oracle_distance_to_landmarks[start_landmark]
-            intersection_penalty = self.max_landmarks * oracle_distance_to_landmarks.max()
-            # Plot smaller distance for visualization purposes
-            if dist_to_selected_start > intersection_penalty:
-                dist_to_selected_start = (dist_to_selected_start - intersection_penalty) * 2
+            # Intersection penalty
+            if intersections[start_landmark]:
+                dist_to_selected_start *= 2
+            oracle_distance_to_landmarks[intersections] += (self.max_landmarks * oracle_distance_to_landmarks.max())
             dist_to_estimated_best_start = oracle_distance_to_landmarks.min()
 
             # Find correct start landmark based on true distances
@@ -793,7 +787,7 @@ class Landmarks(object):
                 start_landmark = oracle_distance_to_landmarks.argmin()
 
             self.dist_start_landmark.append(dist_to_selected_start)
-            self.dist_ratio_start_landmark.append(dist_to_selected_start / np.clip(dist_to_estimated_best_start, 1e-1, None))
+            self.dist_ratio_start_landmark.append(dist_to_selected_start / np.clip(dist_to_estimated_best_start, 1, None))
 
             if self.oracle_distance_matrix:
                 closest_landmark = None
@@ -862,9 +856,10 @@ class Landmarks(object):
 
         for pos, landmark in zip(current_position[np.where(self.landmark_mode)[0][reached_landmarks]],
                                  current_landmarks[reached_landmarks]):
-            distance = self.get_oracle_distance_to_landmarks(pos, [landmark], 1)[0]
+            distance, intersection = self.get_oracle_distance_to_landmarks(pos, [landmark])
+            distance[intersection] *= 2
             angle_diff = abs(pos[2] - self.positions[landmark, 2])
-            self.dist_at_termination.append(distance)
+            self.dist_at_termination.append(distance[0])
             self.angle_diff_at_termination.append(angle_diff)
 
         if self.GT_termination:
