@@ -563,7 +563,7 @@ class Landmarks(object):
         while not nx.is_strongly_connected(self.graph):
             self.current_sim_threshold = self.get_sim_threshold(attempt, similarities)
             add_edges_by_sim = non_edges & (similarities >= self.current_sim_threshold)
-            self.landmark_distances[add_edges_by_sim] = -1 * min_dist[add_edges_by_sim]
+            self.landmark_distances[add_edges_by_sim] = -1 * np.log(min_dist[add_edges_by_sim])
             self.graph = nx.from_numpy_array(self.landmark_distances, create_using=nx.DiGraph)
             attempt += 1
         
