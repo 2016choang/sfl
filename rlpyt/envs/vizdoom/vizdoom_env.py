@@ -153,6 +153,11 @@ class VizDoomEnv(Env):
         self.visited_interval[:] = 0
 
     def reset(self):
+        if self.current_record_file:
+            self.game.close()
+            self.game.init()
+            while not os.path.isfile(self.current_record_file):
+                time.sleep(1)
         self._reset_obs()
         if self.record_files:
             self.current_record_file = self.record_files.popleft()
@@ -206,15 +211,10 @@ class VizDoomEnv(Env):
             if done:
                 self.game.send_game_command('stop')
                 self.game.close()
-                while not os.path.isfile(self.current_record_file):
-                    time.sleep(1)
                 self.game.init()
-                self.current_record_file = None
             else:
                 if self.game.get_episode_time() + self.frame_skip >= self.game.get_episode_timeout():
                     self.game.send_game_command('stop')
-                    while not os.path.isfile(self.current_record_file):
-                        time.sleep(1)
 
         info = EnvInfo(traj_done=done, position=(x, y, theta))
 
