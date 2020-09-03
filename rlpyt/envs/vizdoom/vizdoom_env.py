@@ -205,8 +205,10 @@ class VizDoomEnv(Env):
         if self.current_record_file: 
             if done:
                 self.game.send_game_command('stop')
+                self.game.close()
                 while not os.path.isfile(self.current_record_file):
                     time.sleep(1)
+                self.game.init()
                 self.current_record_file = None
             else:
                 if self.game.get_episode_time() + self.frame_skip >= self.game.get_episode_timeout():
