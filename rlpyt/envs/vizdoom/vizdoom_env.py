@@ -154,10 +154,11 @@ class VizDoomEnv(Env):
 
     def reset(self):
         if self.current_record_file:
+            self.game.send_game_command('stop')
             self.game.close()
             self.game.init()
-            while not os.path.isfile(self.current_record_file):
-                time.sleep(1)
+            time.sleep(5)
+            self.current_record_file = None
         self._reset_obs()
         if self.record_files:
             self.current_record_file = self.record_files.popleft()
