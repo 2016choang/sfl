@@ -987,7 +987,7 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         binned_positions[:, 0] = np.round(binned_positions[:, 0] - env.min_x).astype(int) // env.bin_size
         binned_positions[:, 1] = np.round(binned_positions[:, 1] - env.min_y).astype(int) // env.bin_size
         np.add.at(success_positions, (binned_positions[:, 0], binned_positions[:, 1]), np.sum(self.agent.landmarks.successes, axis=0))
-        plt.imshow(success_positions, origin='lower')
+        plt.imshow(success_positions.T, origin='lower')
         plt.colorbar()
         save_image('Landmark successes', itr)
         plt.close()

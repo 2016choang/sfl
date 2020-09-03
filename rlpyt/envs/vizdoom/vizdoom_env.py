@@ -205,11 +205,18 @@ class VizDoomEnv(Env):
                 new_obs = np.uint8(np.zeros(self._observation_space.shape[1:]))
             else:
                 new_obs = np.uint8(np.zeros(self._observation_space.shape))
-        
-        if done and self.current_record_file:
-            self.game.close()
-            self.game.init()
-            self.current_record_file = None
+
+        if self.current_record_file: 
+            if done:
+                self.game.send_game_command('stop')
+                self.game.close()
+                time.sleep(10)
+                self.game.init()
+                self.current_record_file = None
+            else:
+                if self.game.get_episode_time() + self.frame_skip >= self.game.get_episode_timeout():
+                    self.game.send_game_command('stop')
+                    time.sleep(10)
 
         info = EnvInfo(traj_done=done, position=(x, y, theta))
 
