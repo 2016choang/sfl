@@ -913,7 +913,8 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
             eval_path_str = '\n'.join(','.join(map(str, path)) + ' ({:.3f})'.format(self.agent.landmarks.path_p[i]) for i, path in enumerate(self.agent.landmarks.possible_paths))
             summary_writer.add_text("Path to goal", eval_path_str, itr)
 
-            eval_env = self.sampler.eval_collector.envs[0]
+            eval_env_index = 0
+            eval_env = self.sampler.eval_collector.envs[eval_env_index]
 
             # Path to goal
             figure = plt.figure(figsize=(7, 7))
@@ -923,15 +924,17 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
             for landmark in self.agent.landmarks.possible_paths[best_path]:
                 pos = self.agent.landmarks.positions[landmark]
                 plt.text(pos[0] - 0.25, pos[1] + 0.25, str(landmark), fontsize=10)
+            landmark_positions = self.agent.landmarks.positions[self.agent.landmarks.possible_paths[best_path]]
+            plt.scatter(landmark_positions[:, 0], landmark_positions[:, 1])
             save_image('Eval path to goal', itr)
             plt.close()
-            
-            # State visitation heatmap in evaluation mode
-            figure = plt.figure(figsize=(7, 7))
-            plt.imshow(eval_env.visited_interval.T, origin='lower')
-            plt.colorbar()
-            save_image('Eval visitations', itr)
-            plt.close()
+
+            # # State visitation heatmap in evaluation mode
+            # figure = plt.figure(figsize=(7, 7))
+            # plt.imshow(eval_env.visited_interval.T, origin='lower')
+            # plt.colorbar()
+            # save_image('Eval visitations', itr)
+            # plt.close()
 
             eval_env.reset_logging()
 
@@ -939,8 +942,12 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
             figure = plt.figure(figsize=(7, 7))
             eval_env.reset()
             eval_env.plot_topdown()
+            eval_trajectory = self.sampler.eval_collector.eval_trajectories[eval_env_index]
+            plt.scatter(eval_trajectory[:, 0], eval_trajectory[:, 1], c=range(len(eval_trajectory)))
             for pos, landmark in self.agent.landmarks.eval_end_pos.items():
                 plt.text(pos[0] - 0.25, pos[1] + 0.25, str(landmark), fontsize=10)
+                plt.scatter(pos[0], pos[1], marker='d', c='red')
+            plt.colorbar()
             save_image('Eval end positions', itr)
             plt.close()
 
@@ -979,14 +986,13 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         binned_positions = self.agent.landmarks.positions[:, :2].copy()
         binned_positions[:, 0] = np.round(binned_positions[:, 0] - env.min_x).astype(int) // env.bin_size
         binned_positions[:, 1] = np.round(binned_positions[:, 1] - env.min_y).astype(int) // env.bin_size
-        import pdb; pdb.set_trace()
-        plt.imshow(env.visited_interval.T, origin='lower')
+        np.add.at(success_positions, (binned_positions[:, 0], binned_positions[:, 1]), np.sum(self.agent.landmarks.successes, axis=0))
+        plt.imshow(success_positions, origin='lower')
         plt.colorbar()
-        save_image('State Visitation Heatmap (Interval)', itr)
-        plt.close()
+        save_image('Landmark successes', itr)
         plt.close()
         
-        # 3. Visitation counts of landmarks
+        # 4. Visitation counts of landmarks
         figure = plt.figure(figsize=(7, 7))
         visitations = self.agent.landmarks.visitations
         plt.bar(np.arange(len(visitations)), visitations)
@@ -1022,7 +1028,7 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
             logger.record_tabular_stat('Correct-EstimatedStartLandmarkDistanceRatio',
                                        np.average(self.agent.landmarks.dist_ratio_start_landmark), itr)
 
-        # 10. Landmarks graph
+        # 7. Landmarks graph
         #       - black edges have had successful transitions between their incident nodes
         #       - red edges were used to connect the graph and do not have any successful transitions
         G = self.agent.eval_landmarks.graph
