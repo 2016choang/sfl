@@ -531,10 +531,11 @@ class Landmarks(object):
         else:
             average_random_steps = self.edge_random_steps / np.clip(self.edge_random_transitions, 1, None)
 
-            average_subgoal_steps = self.edge_subgoal_steps / np.clip(self.edge_subgoal_steps, 1, None)
+            average_subgoal_steps = self.edge_subgoal_steps / np.clip(self.edge_subgoal_transitions, 1, None)
             # subgoal_successes = self.edge_subgoal_successes / np.clip(self.edge_subgoal_steps, 1, None)
 
-            true_edges = (average_random_steps < self.random_true_edges_threshold) & (average_subgoal_steps < self.subgoal_true_edges_threshold)
+            true_edges = ((average_random_steps < self.random_true_edges_threshold) & (self.edge_random_transitions > 0)) | \
+                ((average_subgoal_steps < self.subgoal_true_edges_threshold) & (self.edge_subgoal_transitions))
             self.landmark_distances = true_edges
 
             self.graph = nx.from_numpy_array(self.landmark_distances, create_using=nx.DiGraph)

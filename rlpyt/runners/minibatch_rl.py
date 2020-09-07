@@ -984,8 +984,11 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         # logger.record_tabular_stat('IntervalLandmarkSuccessRate',
         #                            np.average(oracle_interval_success_rates), itr)
         average_random_steps = self.agent.landmarks.edge_random_steps / np.clip(self.agent.landmarks.edge_random_transitions, 1, None)
+        average_random_steps = average_random_steps[self.agent.landmarks.edge_random_transitions > 0]
         average_subgoal_steps = self.agent.landmarks.edge_subgoal_steps / np.clip(self.agent.landmarks.edge_subgoal_transitions, 1, None)
+        average_subgoal_steps = average_subgoal_steps[self.agent.landmarks.edge_subgoal_transitions > 0]
         average_subgoal_successes = self.agent.landmarks.edge_subgoal_successes / np.clip(self.agent.landmarks.edge_subgoal_transitions, 1, None)
+        average_subgoal_successes = average_subgoal_successes[self.agent.landmarks.edge_subgoal_transitions > 0]
         logger.record_tabular_stat('TransitionRandomSteps',
                                    np.average(average_random_steps), itr)
         logger.record_tabular_stat('TransitionSubgoalSteps',
