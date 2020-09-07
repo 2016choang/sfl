@@ -261,24 +261,26 @@ class Landmarks(object):
             # Localization
             localized_envs = torch.any(similarity >= self.localization_threshold, dim=0).cpu().numpy()
             highest_sim_landmarks = torch.argmax(similarity, dim=0).cpu().numpy()
-            transitions = (self.last_landmarks != -1) & localized_envs & (self.last_landmarks != highest_sim_landmarks)
-            localized_landmarks = highest_sim_landmarks[transitions]
+            new_localizations = localized_envs & (self.last_landmarks != highest_sim_landmarks)
+            transitions = (self.last_landmarks != -1) & new_localizations
+            transition_last_landmarks = self.last_landmarks[transitions]
+            transition_next_landmarks = highest_sim_landmarks[transitions]
 
             random_steps = self.transition_random_steps[transitions]
             subgoal_steps = self.transition_subgoal_steps[transitions]
 
             random_transitions = random_steps > 0
 
-            self.edge_random_steps[self.last_landmarks[transitions], localized_landmarks] += ((random_steps + subgoal_steps) * (random_transitions))
-            self.edge_random_transitions[self.last_landmarks[transitions], localized_landmarks] += (random_transitions)
+            self.edge_random_steps[transition_last_landmarks, transition_next_landmarks] += ((random_steps + subgoal_steps) * (random_transitions))
+            self.edge_random_transitions[transition_last_landmarks, transition_next_landmarks] += (random_transitions)
 
-            self.edge_subgoal_steps[self.last_landmarks[transitions], localized_landmarks] += (subgoal_steps * ~random_transitions)
-            self.edge_subgoal_successes[self.last_landmarks[transitions], localized_landmarks] += (~random_transitions & subgoal_steps < self.subgoal_success_threshold)
-            self.edge_subgoal_transitions[self.last_landmarks[transitions], localized_landmarks] += (~random_transitions)
+            self.edge_subgoal_steps[transition_last_landmarks, transition_next_landmarks] += (subgoal_steps * ~random_transitions)
+            self.edge_subgoal_successes[transition_last_landmarks, transition_next_landmarks] += (~random_transitions & subgoal_steps < self.subgoal_success_threshold)
+            self.edge_subgoal_transitions[transition_last_landmarks, transition_next_landmarks] += (~random_transitions)
             
-            self.last_landmarks[localized_envs] = highest_sim_landmarks[localized_envs]
-            self.transition_random_steps[localized_envs] = 0
-            self.transition_subgoal_steps[localized_envs] = 0
+            self.last_landmarks[new_localizations] = highest_sim_landmarks[new_localizations]
+            self.transition_random_steps[new_localizations] = 0
+            self.transition_subgoal_steps[new_localizations] = 0
         else:
             potential_idxs = np.ones(len(features), dtype=bool)
 
