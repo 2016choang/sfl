@@ -172,6 +172,10 @@ class LandmarkAgent(FeatureDSRAgent):
                         landmark_action = self.distribution.sample(q_values)
 
                     action[landmark_mode] = landmark_action
+                
+                self.landmarks.transition_subgoal_steps[landmark_mode] += 1
+
+            self.landmarks.transition_random_steps[~landmark_mode] += 1
 
             # Try to enter landmark mode in training
             if self._mode != 'eval' and self.landmarks.num_landmarks > 0:

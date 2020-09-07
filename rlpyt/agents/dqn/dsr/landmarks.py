@@ -259,7 +259,7 @@ class Landmarks(object):
             # Localization
             localized_envs = torch.any(similarity >= self.localization_threshold, dim=0).cpu().numpy()
             highest_sim_landmarks = torch.argmax(similarity, dim=0).cpu().numpy()
-            transitions = (self.last_landmarks != -1) & localized_envs
+            transitions = (self.last_landmarks != -1) & localized_envs & (self.last_landmarks != highest_sim_landmarks)
             localized_landmarks = highest_sim_landmarks[transitions]
 
             random_steps = self.transition_random_steps[transitions]

@@ -1090,16 +1090,16 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         # 12. Landmarks add threshold (dynamically adjusted)
         logger.record_tabular_stat('Add Threshold', self.agent.landmarks.add_threshold, itr)
 
-        # 13. Landmarks low attempt threshold
+        # # 13. Landmarks low attempt threshold
         # logger.record_tabular_stat('Low Attempt Threshold', self.agent.landmarks.get_low_attempt_threshold(use_max=False), itr)
 
-        # 14. Landmarks edge auxiliary threshold
-        logger.record_tabular_stat('Graph Edge Threshold', self.agent.landmarks.current_edge_threshold, itr)
+        # # 14. Landmarks edge auxiliary threshold
+        # logger.record_tabular_stat('Graph Edge Threshold', self.agent.landmarks.current_edge_threshold, itr)
 
-        # 15. Landmarks edge SF sim threshold
-        logger.record_tabular_stat('Graph SF Sim Threshold', self.agent.landmarks.current_sim_threshold, itr)
+        # # 15. Landmarks edge SF sim threshold
+        # logger.record_tabular_stat('Graph SF Sim Threshold', self.agent.landmarks.current_sim_threshold, itr)
         
-        # 16. Attempts used to generate fully connected landmark graph 
-        logger.record_tabular_stat('Generate Graph Attempts', np.average(self.agent.landmarks.generate_graph_attempts), itr)
+        # # 16. Attempts used to generate fully connected landmark graph 
+        # logger.record_tabular_stat('Generate Graph Attempts', np.average(self.agent.landmarks.generate_graph_attempts), itr)
 
         self.agent.reset_logging()
