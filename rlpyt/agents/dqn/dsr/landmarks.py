@@ -276,7 +276,7 @@ class Landmarks(object):
             self.edge_subgoal_successes[self.last_landmarks[transitions], localized_landmarks] += (~random_transitions & subgoal_steps < self.subgoal_success_threshold)
             self.edge_subgoal_transitions[self.last_landmarks[transitions], localized_landmarks] += (~random_transitions)
             
-            self.last_landmarks[transitions] = localized_landmarks
+            self.last_landmarks[localized_envs] = highest_sim_landmarks[localized_envs]
             self.transition_random_steps[localized_envs] = 0
             self.transition_subgoal_steps[localized_envs] = 0
         else:
@@ -537,7 +537,7 @@ class Landmarks(object):
             # subgoal_successes = self.edge_subgoal_successes / np.clip(self.edge_subgoal_steps, 1, None)
 
             true_edges = ((average_random_steps < self.random_true_edges_threshold) & (self.edge_random_transitions > 0)) | \
-                ((average_subgoal_steps < self.subgoal_true_edges_threshold) & (self.edge_subgoal_transitions))
+                ((average_subgoal_steps < self.subgoal_true_edges_threshold) & (self.edge_subgoal_transitions > 0))
             self.landmark_distances = true_edges
 
             self.graph = nx.from_numpy_array(self.landmark_distances, create_using=nx.DiGraph)
@@ -827,7 +827,7 @@ class Landmarks(object):
                         
             else:
                 goal_landmark = goal_landmarks[i]
-                if self.mode = 'eval' and not nx.has_path(start_landmark, goal_landmark):
+                if self.mode == 'eval' and not nx.has_path(self.graph, start_landmark, goal_landmark):
                     self.landmark_mode[enter_idx] = False
                     continue
             
