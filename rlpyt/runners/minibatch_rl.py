@@ -493,7 +493,8 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         with logger.prefix(f"itr #0 "):
             eval_traj_infos, eval_time = self.evaluate_agent(0)
             # self.log_eval_features(0)
-            self.log_diagnostics(0, eval_traj_infos, eval_time)
+            if eval_traj_infos is not None:
+                self.log_diagnostics(0, eval_traj_infos, eval_time)
         
         # Main loop
         for itr in range(n_itr):
