@@ -72,6 +72,8 @@ class Landmarks(object):
         self.potential_landmark_adds = 0
         self._active = False
 
+        self.connected_to_goal = False
+
         self.current_edge_threshold = self.sim_threshold if self.sim_threshold is not None else sim_percentile_threshold
         self.current_sim_threshold = 0
         self.consecutive_graph_generation_successes = 0
@@ -825,6 +827,9 @@ class Landmarks(object):
                         
             else:
                 goal_landmark = goal_landmarks[i]
+                if self.mode = 'eval' and not nx.has_path(start_landmark, goal_landmark):
+                    self.landmark_mode[enter_idx] = False
+                    continue
             
             self.start_positions[enter_idx] = start_pos
             cur_x, cur_y, cur_angle = start_pos

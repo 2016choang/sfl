@@ -134,7 +134,7 @@ class LandmarkAgent(FeatureDSRAgent):
             subgoal = np.zeros((len(observation), 3))
 
         # Use landmark policy sometimes
-        if self.landmarks:
+        if self.landmarks and not (self._mode == 'eval' and not np.any(self.landmarks.landmark_mode)):
             model_inputs = buffer_to(observation,
                 device=self.device)
             features = self.feature_model(model_inputs, mode='encode')
