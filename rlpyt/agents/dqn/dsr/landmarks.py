@@ -26,8 +26,8 @@ class Landmarks(object):
                  max_landmark_mode_steps=500,
                  localization_threshold=0.9,
                  success_subgoal_threshold=10,
-                 threshold_random_true_edges=50,
-                 threshold_subgoal_true_edges=10,
+                 random_true_edges_threshold=50,
+                 subgoal_true_edges_threshold=10,
                  max_attempt_threshold=1,
                  attempt_percentile_threshold=5,
                  sim_threshold=None,
@@ -534,7 +534,7 @@ class Landmarks(object):
             average_subgoal_steps = self.edge_subgoal_steps / np.clip(self.edge_subgoal_steps, 1, None)
             # subgoal_successes = self.edge_subgoal_successes / np.clip(self.edge_subgoal_steps, 1, None)
 
-            true_edges = (average_random_steps < self.threshold_random_true_edges) & (average_subgoal_steps < self.threshold_subgoal_true_edges)
+            true_edges = (average_random_steps < self.random_true_edges_threshold) & (average_subgoal_steps < self.subgoal_true_edges_threshold)
             self.landmark_distances = true_edges
 
             self.graph = nx.from_numpy_array(self.landmark_distances, create_using=nx.DiGraph)
