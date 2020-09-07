@@ -286,7 +286,7 @@ class Landmarks(object):
                                                                   features[potential_idxs]), dim=0)
                 self.potential_landmarks['positions'] = np.append(self.potential_landmarks['positions'],
                                                                   position[potential_idxs], axis=0)
-                self.potential_landmarks['last_landmarks'] = np.append(self.potential_landmarks['positions'],
+                self.potential_landmarks['last_landmarks'] = np.append(self.potential_landmarks['last_landmarks'],
                                                                        self.last_landmarks[potential_idxs], axis=0)
                 self.potential_landmarks['random_steps'] = np.append(self.potential_landmarks['random_steps'],
                                                                      self.transition_random_steps[potential_idxs], axis=0)
