@@ -764,7 +764,7 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         if self.agent.reached_goal:
             traj_infos = self.sampler.evaluate_agent(itr)
         else:
-            traj_infos = None
+            traj_infos = list()
         eval_time += time.time()
         logger.log("Evaluation runs complete.")
         return traj_infos, eval_time
