@@ -492,9 +492,8 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
 
         with logger.prefix(f"itr #0 "):
             eval_traj_infos, eval_time = self.evaluate_agent(0)
+            self.log_diagnostics(0, eval_traj_infos, eval_time)
             # self.log_eval_features(0)
-            if eval_traj_infos is not None:
-                self.log_diagnostics(0, eval_traj_infos, eval_time)
         
         # Main loop
         for itr in range(n_itr):
@@ -754,8 +753,6 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
     _eval = True
 
     def evaluate_agent(self, itr):
-        if not self.agent.reached_goal:
-            return None, None
         # Save first evaluation run to file
         eval_env = self.sampler.eval_collector.envs[0]
         eval_env.set_record_files([os.path.join(logger.get_snapshot_dir(), 'eval_run_0_itr_{}.lmp'.format(itr))])
@@ -764,7 +761,10 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         logger.log("Evaluating agent...")
         self.agent.eval_mode(itr, eval_env.goal_info)  # Might be agent in sampler.
         eval_time = -time.time()
-        traj_infos = self.sampler.evaluate_agent(itr)
+        if self.agent.reached_goal:
+            traj_infos = self.sampler.evaluate_agent(itr)
+        else:
+            traj_infos = None
         eval_time += time.time()
         logger.log("Evaluation runs complete.")
         return traj_infos, eval_time
