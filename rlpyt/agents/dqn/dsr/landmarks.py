@@ -25,8 +25,8 @@ class Landmarks(object):
                  steps_per_landmark=10,
                  max_landmark_mode_steps=500,
                  localization_threshold=0.9,
-                 success_subgoal_threshold=10,
                  random_true_edges_threshold=50,
+                 subgoal_success_threshold=10,
                  subgoal_true_edges_threshold=10,
                  max_attempt_threshold=1,
                  attempt_percentile_threshold=5,
@@ -540,7 +540,7 @@ class Landmarks(object):
             self.graph = nx.from_numpy_array(self.landmark_distances, create_using=nx.DiGraph)
             
             self.graph_components.append(nx.number_strongly_connected_components(self.graph))
-            self.graph_size_largest_component.append(max(nx.strongly_connected_components(self.graph), key=len))
+            self.graph_size_largest_component.append(len(max(nx.strongly_connected_components(self.graph), key=len)))
 
             return self.graph
 
@@ -805,7 +805,7 @@ class Landmarks(object):
 
         if goal_landmarks is None:
             components = sorted(nx.strongly_connected_components(self.graph), key=len, reverse=True)
-            visitations = np.sum(self.edge_random_transitions, axis=0) + np.sum(self.edge_subgoal_transitions, axis=0)
+            visitations = np.clip(np.sum(self.edge_random_transitions, axis=0) + np.sum(self.edge_subgoal_transitions, axis=0), 1, None)
             inverse_visitations = 1. / visitations
 
         for i, enter_idx, start_pos, start_landmark in zip(range(len(enter_idxs)), enter_idxs, selected_position, start_landmarks):

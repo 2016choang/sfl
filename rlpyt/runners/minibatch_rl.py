@@ -910,7 +910,7 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
 
     def log_eval_landmarks(self, itr):
         # Log eval landmarks information
-        if self.agent.landmarks:
+        if self.agent.landmarks and self.agent.reached_goal:
             summary_writer = logger.get_tf_summary_writer()
             logger.record_tabular_stat('EndDistanceToGoal', np.average(self.agent.landmarks.eval_distances), itr)
 
@@ -996,7 +996,7 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         # 3. Statistics related to connected components of graph
         logger.record_tabular_stat('GraphConnectedComponents', np.average(self.agent.landmarks.graph_components), itr)
         logger.record_tabular_stat('GraphSizeLargestComponent',
-                                   np.average(self.agent.landmarks.graph_size_largestcomponent), itr)
+                                   np.average(self.agent.landmarks.graph_size_largest_component), itr)
         
         # 3. Positions of landmark successes
         figure = plt.figure(figsize=(7, 7))
@@ -1091,7 +1091,7 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         logger.record_tabular_stat('Add Threshold', self.agent.landmarks.add_threshold, itr)
 
         # 13. Landmarks low attempt threshold
-        logger.record_tabular_stat('Low Attempt Threshold', self.agent.landmarks.get_low_attempt_threshold(use_max=False), itr)
+        # logger.record_tabular_stat('Low Attempt Threshold', self.agent.landmarks.get_low_attempt_threshold(use_max=False), itr)
 
         # 14. Landmarks edge auxiliary threshold
         logger.record_tabular_stat('Graph Edge Threshold', self.agent.landmarks.current_edge_threshold, itr)
