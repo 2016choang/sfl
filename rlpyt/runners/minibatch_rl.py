@@ -531,7 +531,8 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                 if (itr + 1) % self.log_interval_itrs == 0:
                     eval_traj_infos, eval_time = self.evaluate_agent(itr)
                     # self.log_eval_features(itr)
-                    self.log_diagnostics(itr, eval_traj_infos, eval_time)
+                    if eval_traj_infos is not None:
+                        self.log_diagnostics(itr, eval_traj_infos, eval_time)
                     self.algo.update_scheduler(self._opt_infos)
                     self.log_eval_landmarks(itr)
 
@@ -752,6 +753,8 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
     _eval = True
 
     def evaluate_agent(self, itr):
+        if not self.agent.reached_goal:
+            return None, None
         # Save first evaluation run to file
         eval_env = self.sampler.eval_collector.envs[0]
         eval_env.set_record_files([os.path.join(logger.get_snapshot_dir(), 'eval_run_0_itr_{}.lmp'.format(itr))])
@@ -969,16 +972,30 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         logger.record_tabular_stat('LandmarksAdded', self.agent.landmarks.landmark_adds, itr)
         logger.record_tabular_stat('LandmarksRemoved', self.agent.landmarks.landmark_removes, itr)
         
-        # 2. Statistics related to success rates of transitions between landmarks
-        overall_success_rates = self.agent.landmarks.successes / np.clip(self.agent.landmarks.attempts, 1, None)
-        interval_success_rates = self.agent.landmarks.interval_successes / np.clip(self.agent.landmarks.interval_attempts, 1, None)
+        # 2. Statistics related to transitions between landmarks
+        # overall_success_rates = self.agent.landmarks.successes / np.clip(self.agent.landmarks.attempts, 1, None)
+        # interval_success_rates = self.agent.landmarks.interval_successes / np.clip(self.agent.landmarks.interval_attempts, 1, None)
 
-        oracle_overall_success_rates = overall_success_rates[(self.agent.landmarks.attempts > 0)]
-        oracle_interval_success_rates = interval_success_rates[(self.agent.landmarks.interval_attempts > 0)]
-        logger.record_tabular_stat('OverallLandmarkSuccessRate',
-                                   np.average(oracle_overall_success_rates), itr)
-        logger.record_tabular_stat('IntervalLandmarkSuccessRate',
-                                   np.average(oracle_interval_success_rates), itr)
+        # oracle_overall_success_rates = overall_success_rates[(self.agent.landmarks.attempts > 0)]
+        # oracle_interval_success_rates = interval_success_rates[(self.agent.landmarks.interval_attempts > 0)]
+        # logger.record_tabular_stat('OverallLandmarkSuccessRate',
+        #                            np.average(oracle_overall_success_rates), itr)
+        # logger.record_tabular_stat('IntervalLandmarkSuccessRate',
+        #                            np.average(oracle_interval_success_rates), itr)
+        average_random_steps = self.agent.landmarks.edge_random_steps / np.clip(self.agent.landmarks.edge_random_transitions, 1, None)
+        average_subgoal_steps = self.agent.landmarks.edge_subgoal_steps / np.clip(self.agent.landmarks.edge_subgoal_transitions, 1, None)
+        average_subgoal_successes = self.agent.landmarks.edge_subgoal_successes / np.clip(self.agent.landmarks.edge_subgoal_transitions, 1, None)
+        logger.record_tabular_stat('TransitionRandomSteps',
+                                   np.average(average_random_steps), itr)
+        logger.record_tabular_stat('TransitionSubgoalSteps',
+                                   np.average(average_subgoal_steps), itr)
+        logger.record_tabular_stat('TransitionSubgoalSuccesses',
+                                   np.average(average_subgoal_successes), itr)
+
+        # 3. Statistics related to connected components of graph
+        logger.record_tabular_stat('GraphConnectedComponents', np.average(self.agent.landmarks.graph_components), itr)
+        logger.record_tabular_stat('GraphSizeLargestComponent',
+                                   np.average(self.agent.landmarks.graph_size_largestcomponent), itr)
         
         # 3. Positions of landmark successes
         figure = plt.figure(figsize=(7, 7))
@@ -986,7 +1003,7 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         binned_positions = self.agent.landmarks.positions[:, :2].copy()
         binned_positions[:, 0] = np.round(binned_positions[:, 0] - env.min_x).astype(int) // env.bin_size
         binned_positions[:, 1] = np.round(binned_positions[:, 1] - env.min_y).astype(int) // env.bin_size
-        np.add.at(success_positions, (binned_positions[:, 0], binned_positions[:, 1]), np.sum(self.agent.landmarks.successes, axis=0))
+        np.add.at(success_positions, (binned_positions[:, 0], binned_positions[:, 1]), np.sum(self.agent.landmarks.edge_subgoal_successes, axis=0))
         plt.imshow(success_positions.T, origin='lower')
         plt.colorbar()
         save_image('Landmark successes', itr)
@@ -994,7 +1011,7 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         
         # 4. Visitation counts of landmarks
         figure = plt.figure(figsize=(7, 7))
-        visitations = self.agent.landmarks.visitations
+        visitations = np.sum(self.agent.landmarks.edge_random_transitions, axis=0) + np.sum(self.agent.landmarks.edge_subgoal_transitions, axis=0)
         plt.bar(np.arange(len(visitations)), visitations)
         plt.xlabel('Landmark')
         plt.ylabel('Visitations')

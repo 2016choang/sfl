@@ -90,6 +90,8 @@ class CpuLandmarksCollector(DecorrelatingStartCollector):
                 self.env_positions[b] = env.agent_pos
                 traj_infos[b].step(observation[b], action[b], r, d, agent_info[b],
                     env_info)
+                if getattr(env_info, "goal", False):
+                    self.agent.reached_goal = True
                 if getattr(env_info, "traj_done", d):
                     completed_infos.append(traj_infos[b].terminate(o))
                     traj_infos[b] = self.TrajInfoCls()

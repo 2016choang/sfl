@@ -14,7 +14,7 @@ from rlpyt.utils.quick_args import save__init__args
 from rlpyt.samplers.collections import TrajInfo
 
 
-EnvInfo = namedtuple("EnvInfo", ["traj_done", "position"])
+EnvInfo = namedtuple("EnvInfo", ["traj_done", "position", "goal"])
 
 W, H = (84, 84)
 
@@ -191,12 +191,15 @@ class VizDoomEnv(Env):
         if reward < 0.1:
             reward = 0
 
+        reached_goal = False
+
         if not done:
             self.state = self.game.get_state()
             new_obs = self.state.screen_buffer
             x, y, theta = self.state.game_variables
+            reached_goal = check_if_close(np.array([x, y]), self.goal_info[1][:2])
             if self.goal_close_terminate:
-                done = check_if_close(np.array([x, y]), self.goal_info[1][:2])
+                done = reached_goal
             visited_x = int(round(x - self.min_x)) // self.bin_size
             visited_y = int(round(y - self.min_y)) // self.bin_size
             self.visited_interval[visited_x, visited_y] += 1
@@ -217,7 +220,7 @@ class VizDoomEnv(Env):
                 if self.game.get_episode_time() + self.frame_skip >= self.game.get_episode_timeout():
                     self.game.send_game_command('stop')
 
-        info = EnvInfo(traj_done=done, position=(x, y, theta))
+        info = EnvInfo(traj_done=done, position=(x, y, theta), goal=reached_goal)
 
         self._update_obs(new_obs)
         return EnvStep(self.get_obs(), reward, done, info)

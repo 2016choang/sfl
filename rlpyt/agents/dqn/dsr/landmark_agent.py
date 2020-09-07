@@ -35,6 +35,7 @@ class LandmarkAgent(FeatureDSRAgent):
         local_args.pop('landmarks')
         save__init__args(local_args)
         self.landmark_mode_steps = 0
+        self.reached_goal = False
         super().__init__(**kwargs)
     
     def initialize(self, env_spaces, share_memory=False,
@@ -93,7 +94,6 @@ class LandmarkAgent(FeatureDSRAgent):
             # Add new landmarks
             if self.landmarks.potential_landmarks:
                 features = self.landmarks.potential_landmarks['features']
-                position = self.landmarks.potential_landmarks['positions']
 
                 # unique_idxs = np.unique(observation.numpy(), return_index=True, axis=0)[1]
                 # position = self.landmarks.potential_landmarks['positions'][unique_idxs]
@@ -106,11 +106,11 @@ class LandmarkAgent(FeatureDSRAgent):
                     device=self.device)
                 dsr = self.model(model_inputs, mode='dsr')
 
-                self.landmarks.add_landmarks(features, dsr, position)
+                self.landmarks.add_landmarks(features, dsr)
 
             if self.landmarks.num_landmarks > 0:
                 # Reset landmark mode for all environments
-                self.reset()
+                self.reset(reset_landmarks=False)
 
                 # Generate landmark graph
                 self.landmarks.generate_graph()
@@ -147,7 +147,7 @@ class LandmarkAgent(FeatureDSRAgent):
 
             # Add potential landmarks during training
             if self._mode != 'eval':
-                self.landmarks.add_potential_landmark(features, dsr, position)
+                self.landmarks.analyze_current_state(features, dsr, position)
 
             self.landmarks.set_paths(dsr, position)
 
@@ -182,15 +182,18 @@ class LandmarkAgent(FeatureDSRAgent):
         agent_info = AgentInfo(a=action, mode=mode, subgoal=subgoal)
         return AgentStep(action=action, agent_info=agent_info)
 
-    def reset(self):
+    def reset(self, reset_landmarks=True):
         if self.landmarks and self.landmarks.num_landmarks > 0:
             # Always start in landmarks mode
             self.landmarks.enter_landmark_mode(override=-1)
+            if reset_landmarks:
+                self.landmarks.reset()
 
     def reset_one(self, idx):
         if self.landmarks and self.landmarks.num_landmarks > 0:
             # Always start in landmarks mode
             self.landmarks.enter_landmark_mode(override=idx)
+            self.landmarks.reset(idx)
     
     def get_landmark_mode(self, idx):
         if self.landmarks:
