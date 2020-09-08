@@ -830,6 +830,24 @@ class Landmarks(object):
             if relocalize_idxs is not None and start_landmark == prev_start_landmarks[i]:
                 continue
 
+            self.start_positions[enter_idx] = start_pos
+            cur_x, cur_y, cur_angle = start_pos
+
+            oracle_distance_to_landmarks, intersections = self.get_oracle_distance_to_landmarks(start_pos[:2])
+            dist_to_selected_start = oracle_distance_to_landmarks[start_landmark]
+            # Intersection penalty
+            if intersections[start_landmark]:
+                dist_to_selected_start *= 2
+            oracle_distance_to_landmarks[intersections] += (self.max_landmarks * oracle_distance_to_landmarks.max())
+            dist_to_estimated_best_start = oracle_distance_to_landmarks.min()
+
+            # Find correct start landmark based on true distances
+            if self.GT_localization:
+                start_landmark = oracle_distance_to_landmarks.argmin()
+
+            self.dist_start_landmark.append(dist_to_selected_start)
+            self.dist_ratio_start_landmark.append(dist_to_selected_start / np.clip(dist_to_estimated_best_start, 1, None))
+
             if goal_landmarks is None:
                 for component in components:
                     if start_landmark in component:
@@ -848,24 +866,6 @@ class Landmarks(object):
                         continue
                     else:
                         self.found_eval_path = True
-            
-            self.start_positions[enter_idx] = start_pos
-            cur_x, cur_y, cur_angle = start_pos
-
-            oracle_distance_to_landmarks, intersections = self.get_oracle_distance_to_landmarks(start_pos[:2])
-            dist_to_selected_start = oracle_distance_to_landmarks[start_landmark]
-            # Intersection penalty
-            if intersections[start_landmark]:
-                dist_to_selected_start *= 2
-            oracle_distance_to_landmarks[intersections] += (self.max_landmarks * oracle_distance_to_landmarks.max())
-            dist_to_estimated_best_start = oracle_distance_to_landmarks.min()
-
-            # Find correct start landmark based on true distances
-            if self.GT_localization:
-                start_landmark = oracle_distance_to_landmarks.argmin()
-
-            self.dist_start_landmark.append(dist_to_selected_start)
-            self.dist_ratio_start_landmark.append(dist_to_selected_start / np.clip(dist_to_estimated_best_start, 1, None))
 
             # if self.oracle_distance_matrix:
             #     closest_landmark = None
@@ -1034,6 +1034,8 @@ class Landmarks(object):
         current_idxs = self.path_idxs[self.landmark_mode]
         current_landmarks = self.paths[self.landmark_mode, current_idxs]
         return self.norm_dsr[current_landmarks], self.landmark_mode, self.positions[current_landmarks]
+
+    ################################## UNUSED CODE ################################## 
 
     def generate_true_graph(self, oracle_distance_matrix, edge_threshold=None):
         # Generate landmark graph using true distances given by oracle
