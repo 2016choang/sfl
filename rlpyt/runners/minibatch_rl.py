@@ -914,8 +914,9 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
             summary_writer = logger.get_tf_summary_writer()
             logger.record_tabular_stat('EndDistanceToGoal', np.average(self.agent.landmarks.eval_distances), itr)
 
-            eval_path_str = '\n'.join(','.join(map(str, path)) + ' ({:.3f})'.format(self.agent.landmarks.path_p[i]) for i, path in enumerate(self.agent.landmarks.possible_paths))
-            summary_writer.add_text("Path to goal", eval_path_str, itr)
+            if self.agent.landmarks.found_eval_path:
+                eval_path_str = '\n'.join(','.join(map(str, path)) + ' ({:.3f})'.format(self.agent.landmarks.path_p[i]) for i, path in enumerate(self.agent.landmarks.possible_paths))
+                summary_writer.add_text("Path to goal", eval_path_str, itr)
 
             eval_env_index = 0
             eval_env = self.sampler.eval_collector.envs[eval_env_index]

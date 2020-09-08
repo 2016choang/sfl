@@ -72,8 +72,6 @@ class Landmarks(object):
         self.potential_landmark_adds = 0
         self._active = False
 
-        self.connected_to_goal = False
-
         self.current_edge_threshold = self.sim_threshold if self.sim_threshold is not None else sim_percentile_threshold
         self.current_sim_threshold = 0
         self.consecutive_graph_generation_successes = 0
@@ -99,6 +97,7 @@ class Landmarks(object):
         self.transition_random_steps = np.full(self.num_envs, 0, dtype=int)
         self.transition_subgoal_steps = np.full(self.num_envs, 0, dtype=int)
 
+        self.found_eval_path = False
         self.eval_end_pos = {}
         self.eval_distances = []
 
@@ -259,12 +258,21 @@ class Landmarks(object):
             potential_idxs = potential_idxs.cpu().numpy()
 
             # Localization
-            localized_envs = torch.any(similarity >= self.localization_threshold, dim=0).cpu().numpy()  # localized to some landmark
-            highest_sim_landmarks = torch.argmax(similarity, dim=0).cpu().numpy()  # get landmarks with highest similarity to current state 
-            new_localizations = localized_envs & (self.last_landmarks != highest_sim_landmarks)  # localized to some new landmark
+            if self.GT_localization:
+                position_diff = position[np.newaxis, :] - self.positions[:, np.newaxis]  # L x E x 3
+                GT_distance = np.linalg.norm(position_diff[:, :, :2], ord=2, axis=2)  # L x E
+                GT_angle = np.abs(position_diff[:, :, 2])
+                localized_envs = np.any((GT_distance < self.GT_termination_distance_threshold) & (GT_angle < self.GT_termination_angle_threshold), axis=0)
+                closest_landmarks = np.argmin(GT_distance, axis=0)
+            else:
+                localized_envs = torch.any(similarity >= self.localization_threshold, dim=0).cpu().numpy()  # localized to some landmark
+                closest_landmarks = torch.argmax(similarity, dim=0).cpu().numpy()  # get landmarks with highest similarity to current state 
+
+            new_localizations = localized_envs & (self.last_landmarks != closest_landmarks)  # localized to some new landmark
+
             transitions = (self.last_landmarks != -1) & new_localizations  # transitioned between landmarks
             transition_last_landmarks = self.last_landmarks[transitions]
-            transition_next_landmarks = highest_sim_landmarks[transitions]
+            transition_next_landmarks = closest_landmarks[transitions]
 
             random_steps = self.transition_random_steps[transitions]
             subgoal_steps = self.transition_subgoal_steps[transitions]
@@ -276,9 +284,10 @@ class Landmarks(object):
 
             self.edge_subgoal_steps[transition_last_landmarks, transition_next_landmarks] += (subgoal_steps * ~random_transitions)
             self.edge_subgoal_successes[transition_last_landmarks, transition_next_landmarks] += (~random_transitions & subgoal_steps < self.subgoal_success_threshold)
+
             self.edge_subgoal_transitions[transition_last_landmarks, transition_next_landmarks] += (~random_transitions)
             
-            self.last_landmarks[new_localizations] = highest_sim_landmarks[new_localizations]
+            self.last_landmarks[new_localizations] = closest_landmarks[new_localizations]
             self.transition_random_steps[new_localizations] = 0
             self.transition_subgoal_steps[new_localizations] = 0
         else:
@@ -831,9 +840,12 @@ class Landmarks(object):
                         
             else:
                 goal_landmark = goal_landmarks[i]
-                if self.mode == 'eval' and not nx.has_path(self.graph, start_landmark, goal_landmark):
-                    self.landmark_mode[enter_idx] = False
-                    continue
+                if self.mode == 'eval'
+                    if not nx.has_path(self.graph, start_landmark, goal_landmark):
+                        self.landmark_mode[enter_idx] = False
+                        continue
+                    else:
+                        self.found_eval_path = True
             
             self.start_positions[enter_idx] = start_pos
             cur_x, cur_y, cur_angle = start_pos
