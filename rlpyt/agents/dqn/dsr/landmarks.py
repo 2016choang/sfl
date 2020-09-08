@@ -281,7 +281,7 @@ class Landmarks(object):
             random_steps = self.transition_random_steps[transitions]
             subgoal_steps = self.transition_subgoal_steps[transitions]
 
-            current_subgoal_landmarks = self.paths[:, self.path_idxs]
+            current_subgoal_landmarks = self.paths[np.arange(len(self.path_idxs)), self.path_idxs]
             subgoal_localized_wrong_landmark = (self.landmark_mode & (current_subgoal_landmarks != closest_landmarks))[transitions]
 
             random_transitions = (random_steps > 0) | subgoal_localized_wrong_landmark
@@ -552,8 +552,8 @@ class Landmarks(object):
             average_random_steps = random_steps / np.clip(random_transitions, 1, None)
             average_subgoal_steps = subgoal_steps / np.clip(subgoal_transitions, 1, None)
 
-            true_edges = ((average_random_steps < self.random_true_edges_threshold) & (self.edge_random_transitions > 0)) | \
-                ((average_subgoal_steps < self.subgoal_true_edges_threshold) & (self.edge_subgoal_transitions > 0))
+            true_edges = ((average_random_steps < self.random_true_edges_threshold) & (random_transitions > 0)) | \
+                ((average_subgoal_steps < self.subgoal_true_edges_threshold) & (subgoal_transitions > 0))
             
             if self.subgoal_success_true_edges_threshold >= 0:
                 percentage_subgoal_successes = subgoal_successes / np.clip(subgoal_transitions, 1, None)
@@ -567,7 +567,7 @@ class Landmarks(object):
             # true_edges &= (feature_similarity > self.graph_feature_similarity_threshold)
 
             if self.use_weighted_edges:
-                edge_weights = true_edges * ((0.5 * average_random_steps + average_subgoal_steps) / np.clip(0.5 * (self.edge_random_transitions > 0) + (self.edge_subgoal_transitions > 0), 1, None))
+                edge_weights = true_edges * ((0.5 * average_random_steps + average_subgoal_steps) / np.clip(0.5 * (random_transitions > 0) + (subgoal_transitions > 0), 1, None))
                 if self.subgoal_success_true_edges_threshold >= 0:
                     edge_weights[(percentage_subgoal_successes <= self.subgoal_success_true_edges_threshold) & (true_edges)] += (edge_weights.max() * self.max_landmarks)
             else:
