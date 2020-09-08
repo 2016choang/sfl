@@ -27,6 +27,7 @@ class Landmarks(object):
                  localization_threshold=0.9,
                  random_true_edges_threshold=50,
                  subgoal_true_edges_threshold=10,
+                 subgoal_success_threshold=10,
                  subgoal_success_true_edges_threshold=-1,
                  use_digraph=True,
                  use_weighted_edges=False,
@@ -407,26 +408,8 @@ class Landmarks(object):
 
                 # Replace existing landmark
                 else:
-                    # # Find two landmarks most similar to each other, select one most similar to candidate
-                    # landmark_similarities = torch.matmul(self.norm_dsr, self.norm_dsr.T)
-
-                    # # Do not replace initial landmarks (first two indices)
-                    # landmark_similarities[0:2, :] = -2
-                    # landmark_similarities[:, 0:2] = -2
-                    # landmark_similarities[range(self.num_landmarks), range(self.num_landmarks)] = -2
-                    # idx = landmark_similarities.argmax().item()
-                    # a, b = (idx // self.num_landmarks), (idx % self.num_landmarks)
-                    # if similarity[a] > similarity[b]:
-                    #     replace_idx = a
-                    # else:
-                    #     replace_idx = b
-
-                    success_rates = self.transition_distances / np.clip(self.attempts, 1, None)
-                    landmark_success_rates = success_rates.max(axis=0)
-                    landmark_attempts = -1 * self.attempts.sum(axis=0)
-
-                    candidates = list(zip(landmark_success_rates[2:], landmark_attempts[2:], range(2, self.num_landmarks)))
-                    replace_idx = sorted(candidates)[0][2] 
+                    visitations = np.sum(self.edge_random_transitions, axis=0) + np.sum(self.edge_subgoal_transitions, axis=0)
+                    replace_idx = np.argmin(visitations)
 
                     # self.observations[replace_idx] = observation
                     self.set_features(features, replace_idx)
@@ -582,7 +565,7 @@ class Landmarks(object):
             # true_edges &= (feature_similarity > self.graph_feature_similarity_threshold)
 
             if self.use_weighted_edges:
-                edge_weights = true_edges * ((0.5 * average_random_steps + average_subgoal_steps) / (0.5 * (self.edge_random_transitions > 0) + (self.edge_subgoal_transitions > 0)))
+                edge_weights = true_edges * ((0.5 * average_random_steps + average_subgoal_steps) / np.clip(0.5 * (self.edge_random_transitions > 0) + (self.edge_subgoal_transitions > 0), 1, None))
                 if self.subgoal_success_true_edges_threshold >= 0:
                     edge_weights[(percentage_subgoal_successes <= self.subgoal_success_true_edges_threshold) & (true_edges)] += (edge_weights.max() * self.max_landmarks)
             else:

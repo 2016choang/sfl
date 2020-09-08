@@ -56,7 +56,7 @@ def build_and_train(config_file,
         eval_CollectorCls=SerialLandmarksEvalCollector,
         EnvCls=VizDoomEnv,
         env_kwargs=config['env'],
-        eval_env_kwargs=config['env'],
+        eval_env_kwargs=config['eval_env'],
         batch_T=1,  # One time-step per sampler iteration.
         batch_B=samplers,  # One environment (i.e. sampler Batch dimension).
         max_decorrelation_steps=0,
