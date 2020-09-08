@@ -57,8 +57,8 @@
     },
     "env": {
         "goal_position": [
-            64,
-            100,
+            -200,
+            -300,
             270
         ],
         "start_position": [
@@ -75,8 +75,8 @@
     },
     "eval_env": {
         "goal_position": [
-            64,
-            100,
+            -200,
+            -300,
             270
         ],
         "start_position": [
@@ -93,7 +93,7 @@
         "goal_close_terminate": true
     },
     "runner": {
-        "log_interval_steps": 80000,
+        "log_interval_steps": 40000,
         "log_dsr_interval_steps": 400000,
         "min_steps_landmark_mode": 20000,
         "update_landmarks_interval_steps": 20000,
