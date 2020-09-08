@@ -752,6 +752,12 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
 class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
     _eval = True
 
+    def __init__(self,
+                 figsize=(7, 7),
+                 **kwargs):
+        save__init__args(locals())
+        super().__init__(**kwargs)
+
     def evaluate_agent(self, itr):
         # Save first evaluation run to file
         eval_env = self.sampler.eval_collector.envs[0]
@@ -787,7 +793,7 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         # 1. Render actual environment
         env = self.sampler.collector.envs[0]
         if itr < (self.log_dsr_interval_itrs * 2):
-            figure = plt.figure(figsize=(7, 7))
+            figure = plt.figure(figsize=self.figsize)
             env.plot_topdown()
             save_image('Environment', itr)
             plt.close()
@@ -801,7 +807,7 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
                 plt.close()
 
         # 2. Heatmap of state vistations during training interval
-        figure = plt.figure(figsize=(7, 7))
+        figure = plt.figure(figsize=self.figsize)
         plt.imshow(env.visited_interval.T, origin='lower')
         plt.colorbar()
         save_image('State Visitation Heatmap (Interval)', itr)
@@ -810,7 +816,7 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         env.reset_logging()
 
         # 3. Heatmap of state vistations during training overall
-        figure = plt.figure(figsize=(7, 7))
+        figure = plt.figure(figsize=self.figsize)
         plt.imshow(env.visited.T, origin='lower')
         plt.colorbar()
         save_image('State Visitation Heatmap (Overall)', itr)
@@ -834,7 +840,7 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         # 4. Distance visualization in feature space
         features_similarity = self.agent.get_representation_similarity(features, mean_axes=1, subgoal_index=subgoal_index)
         
-        figure = plt.figure(figsize=(7, 7))
+        figure = plt.figure(figsize=self.figsize)
         env.plot_topdown(objects=False)
         plt.scatter(positions[:, 0], positions[:, 1], c=features_similarity)
         plt.scatter(*positions[subgoal_index, :2], label='Subgoal', marker='D', c='red')
@@ -846,7 +852,7 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         similarity_thresholds = np.percentile(features_similarity, percentiles)
 
         # 5. Points with High Feature Similarity
-        figure = plt.figure(figsize=(7, 7))
+        figure = plt.figure(figsize=self.figsize)
         env.plot_topdown(objects=False)
         for threshold in similarity_thresholds:
             plt.scatter(positions[features_similarity > threshold, 0], positions[features_similarity > threshold, 1],
@@ -870,7 +876,7 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         s_features_similarity = self.agent.get_representation_similarity(s_features, mean_axes=(1, 2), subgoal_index=subgoal_index)
         q_values = self.agent.get_q_values(s_features, mean_axes=1, subgoal_index=subgoal_index)
 
-        figure = plt.figure(figsize=(7, 7))
+        figure = plt.figure(figsize=self.figsize)
         env.plot_topdown(objects=False)
         plt.scatter(positions[:, 0], positions[:, 1], c=s_features_similarity)
         plt.scatter(*positions[subgoal_index, :2], label='Subgoal', marker='D', c='red')
@@ -888,7 +894,7 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         similarity_thresholds = np.percentile(s_features_similarity, percentiles)
 
         # 7. Points with High SF Similarity
-        figure = plt.figure(figsize=(7, 7))
+        figure = plt.figure(figsize=self.figsize)
         env.plot_topdown(objects=False)
         for threshold in similarity_thresholds:
             plt.scatter(positions[s_features_similarity > threshold, 0], positions[s_features_similarity > threshold, 1],
@@ -922,7 +928,7 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
                 summary_writer.add_text("Path to goal", eval_path_str, itr)
 
                 # Path to goal
-                figure = plt.figure(figsize=(7, 7))
+                figure = plt.figure(figsize=self.figsize)
                 eval_env.reset()
                 eval_env.plot_topdown()
                 best_path = np.argmax(self.agent.landmarks.path_p)
@@ -944,7 +950,7 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
             eval_env.reset_logging()
 
             # Agent's end position after executing landmark mode
-            figure = plt.figure(figsize=(7, 7))
+            figure = plt.figure(figsize=self.figsize)
             eval_env.reset()
             eval_env.plot_topdown()
             eval_trajectory = self.sampler.eval_collector.eval_trajectories[eval_env_index]
@@ -1003,7 +1009,7 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
                                    np.average(self.agent.landmarks.graph_size_largest_component), itr)
         
         # 3. Positions of landmark successes
-        figure = plt.figure(figsize=(7, 7))
+        figure = plt.figure(figsize=self.figsize)
         success_positions = np.zeros_like(env.visited)
         binned_positions = self.agent.landmarks.positions[:, :2].copy()
         binned_positions[:, 0] = np.round(binned_positions[:, 0] - env.min_x).astype(int) // env.bin_size
@@ -1015,7 +1021,7 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         plt.close()
         
         # 4. Visitation counts of landmarks
-        figure = plt.figure(figsize=(7, 7))
+        figure = plt.figure(figsize=self.figsize)
         visitations = np.sum(self.agent.landmarks.edge_random_transitions, axis=0) + np.sum(self.agent.landmarks.edge_subgoal_transitions, axis=0)
         plt.bar(np.arange(len(visitations)), visitations)
         plt.xlabel('Landmark')
@@ -1024,7 +1030,7 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         plt.close()
 
         # 4. Landmarks by spatial location
-        figure = plt.figure(figsize=(7, 7))
+        figure = plt.figure(figsize=self.figsize)
         env.plot_topdown()
         if self.agent.landmarks.num_landmarks <= 50:
             node_labels = defaultdict(list)
