@@ -581,7 +581,7 @@ class Landmarks(object):
             # true_edges &= (feature_similarity > self.graph_feature_similarity_threshold)
 
             if self.use_weighted_edges:
-                true_edges *= ((0.5 * average_random_steps + average_subgoal_steps) / (0.5 * (self.edge_random_transitions > 0) + (self.edge_subgoal_transitions > 0)))
+                true_edges = true_edges * ((0.5 * average_random_steps + average_subgoal_steps) / (0.5 * (self.edge_random_transitions > 0) + (self.edge_subgoal_transitions > 0)))
 
             self.landmark_distances = true_edges
 
