@@ -262,8 +262,6 @@ class Landmarks(object):
             localized_envs = torch.any(similarity >= self.localization_threshold, dim=0).cpu().numpy()  # localized to some landmark
             highest_sim_landmarks = torch.argmax(similarity, dim=0).cpu().numpy()  # get landmarks with highest similarity to current state 
             new_localizations = localized_envs & (self.last_landmarks != highest_sim_landmarks)  # localized to some new landmark
-            if np.any(new_localizations):
-                import pdb; pdb.set_trace()
             transitions = (self.last_landmarks != -1) & new_localizations  # transitioned between landmarks
             transition_last_landmarks = self.last_landmarks[transitions]
             transition_next_landmarks = highest_sim_landmarks[transitions]
@@ -292,6 +290,8 @@ class Landmarks(object):
                                                                   features[potential_idxs]), dim=0)
                 self.potential_landmarks['positions'] = np.append(self.potential_landmarks['positions'],
                                                                   position[potential_idxs], axis=0)
+
+                # Save localization information at time of adding potential landmark candidate
                 self.potential_landmarks['last_landmarks'] = np.append(self.potential_landmarks['last_landmarks'],
                                                                        self.last_landmarks[potential_idxs], axis=0)
                 self.potential_landmarks['random_steps'] = np.append(self.potential_landmarks['random_steps'],
