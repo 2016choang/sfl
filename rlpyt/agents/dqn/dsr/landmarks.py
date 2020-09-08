@@ -25,9 +25,9 @@ class Landmarks(object):
                  steps_per_landmark=10,
                  max_landmark_mode_steps=500,
                  localization_threshold=0.9,
-                 subgoal_success_threshold=10,
                  random_true_edges_threshold=50,
                  subgoal_true_edges_threshold=10,
+                 subgoal_success_true_edges_threshold=-1,
                  use_digraph=True,
                  use_weighted_edges=False,
                  max_attempt_threshold=1,
@@ -566,12 +566,13 @@ class Landmarks(object):
 
             average_random_steps = random_steps / np.clip(random_transitions, 1, None)
             average_subgoal_steps = subgoal_steps / np.clip(subgoal_transitions, 1, None)
-            # percentage_subgoal_successes = subgoal_successes / np.clip(subgoal_transitions, 1, None)
 
             true_edges = ((average_random_steps < self.random_true_edges_threshold) & (self.edge_random_transitions > 0)) | \
                 ((average_subgoal_steps < self.subgoal_true_edges_threshold) & (self.edge_subgoal_transitions > 0))
-
-            # true_edges |= (percentage_subgoal_successes > self.subgoal_true_edges_threshold)
+            
+            if self.subgoal_success_true_edges_threshold >= 0:
+                percentage_subgoal_successes = subgoal_successes / np.clip(subgoal_transitions, 1, None)
+                true_edges |= (percentage_subgoal_successes > self.subgoal_success_true_edges_threshold)
 
             # # AND to remove false edges, OR to add shortcuts (use higher threshold)
             # SF_similarity = torch.clamp(torch.matmul(self.norm_dsr, self.norm_dsr.T), min=1e-3, max=1.0).detach().cpu().numpy()
@@ -581,9 +582,13 @@ class Landmarks(object):
             # true_edges &= (feature_similarity > self.graph_feature_similarity_threshold)
 
             if self.use_weighted_edges:
-                true_edges = true_edges * ((0.5 * average_random_steps + average_subgoal_steps) / (0.5 * (self.edge_random_transitions > 0) + (self.edge_subgoal_transitions > 0)))
+                edge_weights = true_edges * ((0.5 * average_random_steps + average_subgoal_steps) / (0.5 * (self.edge_random_transitions > 0) + (self.edge_subgoal_transitions > 0)))
+                if self.subgoal_success_true_edges_threshold >= 0:
+                    edge_weights[(percentage_subgoal_successes <= self.subgoal_success_true_edges_threshold) & (true_edges)] += (edge_weights.max() * self.max_landmarks)
+            else:
+                edge_weights = true_edges
 
-            self.landmark_distances = true_edges
+            self.landmark_distances = edge_weights
 
             self.graph = nx.from_numpy_array(self.landmark_distances, create_using=nx.DiGraph)
             
