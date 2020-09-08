@@ -264,11 +264,13 @@ class Landmarks(object):
 
             # Localization
             if self.GT_localization:
-                position_diff = position[np.newaxis, :] - self.positions[:, np.newaxis]  # L x E x 3
-                GT_distance = np.linalg.norm(position_diff[:, :, :2], ord=2, axis=2)  # L x E
-                GT_angle = np.abs(position_diff[:, :, 2])
-                localized_envs = np.any((GT_distance < self.GT_localization_distance_threshold) & (GT_angle < self.GT_localization_angle_threshold), axis=0)
-                closest_landmarks = np.argmin(GT_distance, axis=0)
+                try:
+                    GT_distance = np.hstack([self.get_oracle_distance_to_landmarks(pos, intersection_penalty=True)[0] for pos in position])
+                    GT_angle = np.abs(position[np.newaxis, :, 2] - self.positions[:, np.newaxis, 2])  # L x E x 3
+                    localized_envs = np.any((GT_distance < self.GT_localization_distance_threshold) & (GT_angle < self.GT_localization_angle_threshold), axis=0)
+                    closest_landmarks = np.argmin(GT_distance, axis=0)
+                except:
+                    import pdb; pdb.set_trace()
             else:
                 localized_envs = torch.any(similarity >= self.localization_threshold, dim=0).cpu().numpy()  # localized to some landmark
                 closest_landmarks = torch.argmax(similarity, dim=0).cpu().numpy()  # get landmarks with highest similarity to current state 
@@ -791,7 +793,7 @@ class Landmarks(object):
             intersections[i, j] = on_segment(p, q, r)
         return np.any(intersections, axis=1)
 
-    def get_oracle_distance_to_landmarks(self, pos, idxs=None):
+    def get_oracle_distance_to_landmarks(self, pos, idxs=None, intersection_penalty=False):
         if idxs:
             positions = self.positions[idxs, :2]
         else:
@@ -801,6 +803,8 @@ class Landmarks(object):
         broadcasted_pos = np.broadcast_to(pos[np.newaxis, :2], positions.shape)
         edges = np.hstack((positions, broadcasted_pos)).T
         intersections = self.get_intersections(edges)
+        if intersection_penalty:
+            distance[intersections] += (distance.max() * self.max_landmarks)
         return distance, intersections
         
     def set_paths(self, dsr, position, relocalize_idxs=None):
@@ -959,8 +963,10 @@ class Landmarks(object):
             self.angle_diff_at_termination.append(angle_diff)
 
         if self.GT_termination:
-            reached_landmarks = np.linalg.norm(current_position[self.landmark_mode, :2] - self.positions[current_landmarks, :2], ord=2, axis=1) < self.GT_termination_distance_threshold 
-            reached_landmarks &= (np.abs(current_position[self.landmark_mode, 2] - self.positions[current_landmarks, 2]) < self.GT_termination_angle_threshold)
+            GT_distance = np.hstack([self.get_oracle_distance_to_landmarks(pos, [current_landmark], intersection_penalty=True)[0] \
+                for pos, current_landmark in zip(current_position[self.landmark_mode], current_landmarks)])
+            GT_angle = np.abs(current_position[self.landmark_mode, 2] - self.positions[current_landmarks, 2])
+            reached_landmarks = (GT_distance < self.GT_termination_distance_threshold) & (GT_angle < self.GT_termination_angle_threshold)
 
         if self.mode == 'eval':
             reached_landmarks[final_goal_landmarks] = False
