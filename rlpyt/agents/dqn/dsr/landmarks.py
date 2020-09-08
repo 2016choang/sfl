@@ -28,6 +28,7 @@ class Landmarks(object):
                  random_true_edges_threshold=50,
                  subgoal_success_threshold=10,
                  subgoal_true_edges_threshold=10,
+                 use_digraph=True,
                  max_attempt_threshold=1,
                  attempt_percentile_threshold=5,
                  sim_threshold=None,
@@ -546,9 +547,22 @@ class Landmarks(object):
                 raise RuntimeError('Graph should be complete and therefore, strongly connected')
             return self.graph
         else:
-            average_random_steps = self.edge_random_steps / np.clip(self.edge_random_transitions, 1, None)
+            if self.use_digraph:
+                random_steps = self.edge_random_steps
+                random_transitions = self.edge_random_transitions
 
-            average_subgoal_steps = self.edge_subgoal_steps / np.clip(self.edge_subgoal_transitions, 1, None)
+                subgoal_steps = self.edge_subgoal_steps
+                subgoal_transitions = self.edge_subgoal_transitions
+
+            else:
+                random_steps = self.edge_random_steps + np.tril(self.edge_random_steps, -1).T
+                random_transitions = self.edge_random_transitions + np.tril(self.edge_random_transitions, -1).T
+            
+                subgoal_steps = self.edge_subgoal_steps + np.tril(self.edge_subgoal_steps, -1).T
+                subgoal_transitions = self.edge_subgoal_transitions + np.tril(self.edge_subgoal_transitions, -1).T
+
+            average_random_steps = random_steps / np.clip(random_transitions, 1, None)
+            average_subgoal_steps = subgoal_steps / np.clip(subgoal_transitions, 1, None)
             # subgoal_successes = self.edge_subgoal_successes / np.clip(self.edge_subgoal_steps, 1, None)
 
             true_edges = ((average_random_steps < self.random_true_edges_threshold) & (self.edge_random_transitions > 0)) | \
