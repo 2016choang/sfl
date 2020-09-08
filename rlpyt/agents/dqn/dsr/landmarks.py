@@ -281,7 +281,10 @@ class Landmarks(object):
             random_steps = self.transition_random_steps[transitions]
             subgoal_steps = self.transition_subgoal_steps[transitions]
 
-            random_transitions = random_steps > 0
+            current_subgoal_landmarks = self.paths[:, self.path_idxs]
+            subgoal_localized_wrong_landmark = (self.landmark_mode & (current_subgoal_landmarks != closest_landmarks))[transitions]
+
+            random_transitions = (random_steps > 0) | subgoal_localized_wrong_landmark
 
             self.edge_random_steps[transition_last_landmarks, transition_next_landmarks] += ((random_steps + subgoal_steps) * (random_transitions))
             self.edge_random_transitions[transition_last_landmarks, transition_next_landmarks] += (random_transitions)
@@ -960,13 +963,10 @@ class Landmarks(object):
             self.angle_diff_at_termination.append(angle_diff)
 
         if self.GT_termination:
-            try:
-                GT_distance = np.hstack([self.get_oracle_distance_to_landmarks(pos, [current_landmark], intersection_penalty=True)[0] \
-                    for pos, current_landmark in zip(current_position[self.landmark_mode], current_landmarks)])
-                GT_angle = np.abs(current_position[self.landmark_mode, 2] - self.positions[current_landmarks, 2])
-                reached_landmarks = (GT_distance < self.GT_termination_distance_threshold) & (GT_angle < self.GT_termination_angle_threshold)
-            except:
-                import pdb; pdb.set_trace()
+            GT_distance = np.hstack([self.get_oracle_distance_to_landmarks(pos, [current_landmark], intersection_penalty=True)[0] \
+                for pos, current_landmark in zip(current_position[self.landmark_mode], current_landmarks)])
+            GT_angle = np.abs(current_position[self.landmark_mode, 2] - self.positions[current_landmarks, 2])
+            reached_landmarks = (GT_distance < self.GT_termination_distance_threshold) & (GT_angle < self.GT_termination_angle_threshold)
 
         if self.mode == 'eval':
             reached_landmarks[final_goal_landmarks] = False
