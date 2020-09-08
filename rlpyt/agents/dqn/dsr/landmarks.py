@@ -33,6 +33,8 @@ class Landmarks(object):
                  sim_threshold=None,
                  sim_percentile_threshold=None,
                  GT_localization=False,
+                 GT_localization_distance_threshold=50,
+                 GT_localization_angle_threshold=30,
                  GT_termination=False,
                  GT_termination_distance_threshold=50,
                  GT_termination_angle_threshold=30,
@@ -262,7 +264,7 @@ class Landmarks(object):
                 position_diff = position[np.newaxis, :] - self.positions[:, np.newaxis]  # L x E x 3
                 GT_distance = np.linalg.norm(position_diff[:, :, :2], ord=2, axis=2)  # L x E
                 GT_angle = np.abs(position_diff[:, :, 2])
-                localized_envs = np.any((GT_distance < self.GT_termination_distance_threshold) & (GT_angle < self.GT_termination_angle_threshold), axis=0)
+                localized_envs = np.any((GT_distance < self.GT_localization_distance_threshold) & (GT_angle < self.GT_localization_angle_threshold), axis=0)
                 closest_landmarks = np.argmin(GT_distance, axis=0)
             else:
                 localized_envs = torch.any(similarity >= self.localization_threshold, dim=0).cpu().numpy()  # localized to some landmark
