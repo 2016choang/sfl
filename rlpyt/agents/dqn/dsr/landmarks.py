@@ -274,11 +274,11 @@ class Landmarks(object):
                 closest_landmarks = np.argmin(GT_distance, axis=0)
             else:
                 localized_envs = torch.any(similarity >= self.localization_threshold, dim=0).cpu().numpy()  # localized to some landmark
-                closest_landmarks = torch.argmax(similarity, dim=0).detach().cpu().numpy()  # get landmarks with highest similarity to current state 
-                closest_landmark_sim = torch.max(similarity, dim=0).detach().cpu().numpy()
+                closest_landmarks = torch.argmax(similarity, dim=0).cpu().numpy()  # get landmarks with highest similarity to current state 
+                closest_landmarks_sim = torch.max(similarity, dim=0)[0].cpu().numpy()
 
                 self.closest_landmarks[closest_landmarks] += 1
-                self.closest_landmarks_sim[closest_landmark_sim] += closest_landmark_sim
+                self.closest_landmarks_sim[closest_landmarks] += closest_landmarks_sim
 
 
             new_localizations = localized_envs & (self.last_landmarks != closest_landmarks)  # localized to some new landmark
