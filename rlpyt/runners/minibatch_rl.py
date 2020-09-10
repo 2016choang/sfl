@@ -522,10 +522,12 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
 
                 # Update landmark representation
                 if (itr + 1) % self.update_landmark_representation_interval_itrs == 0:
+                    self.agent.sample_mode(itr)
                     self.agent.update_landmark_representation(itr)
                 
                 # Update landmark graph
                 if (itr + 1) % self.update_landmark_graph_interval_itrs == 0:
+                    self.agent.sample_mode(itr)
                     self.agent.update_landmark_graph(itr)
 
                 # Evaluate agent
@@ -790,6 +792,8 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
 
     def log_dsr(self, itr):
         summary_writer = logger.get_tf_summary_writer()
+
+        self.agent.sample_mode(itr)
 
         # 1. Render actual environment
         env = self.sampler.collector.envs[0]
