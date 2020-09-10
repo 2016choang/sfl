@@ -70,27 +70,27 @@ class LandmarkAgent(FeatureDSRAgent):
         self._landmarks.initialize(train_envs)
         self._landmarks.lines = lines
         self.eval_envs = eval_envs 
+    
+    @torch.no_grad()
+    def update_landmark_representation(self, itr):
+        if self.landmarks and self.landmarks.num_landmarks > 0:
+            # Update features and successor features of existing landmarks
+            # observation = self.landmarks.observations
+            # model_inputs = buffer_to(observation,
+            #     device=self.device)
+            # features = self.feature_model(model_inputs, mode='encode')
+            # self.landmarks.set_features(features)
+            idxs = np.arange(self.landmarks.num_landmarks)
+            for chunk_idxs in np.array_split(idxs, np.ceil(self.landmarks.num_landmarks / 128)):
+                features = self.landmarks.features[chunk_idxs] 
+                model_inputs = buffer_to(features,
+                    device=self.device)
+                dsr = self.model(model_inputs, mode='dsr')
+                self.landmarks.set_dsr(dsr, chunk_idxs)
 
     @torch.no_grad()
-    def update_landmarks(self, itr):
+    def update_landmark_graph(self, itr):
         if self.landmarks:
-            # Update features and successor features of existing landmarks
-            if self.landmarks.num_landmarks > 0:
-                # observation = self.landmarks.observations
-                # model_inputs = buffer_to(observation,
-                #     device=self.device)
-                # features = self.feature_model(model_inputs, mode='encode')
-                # self.landmarks.set_features(features)
-                idxs = np.arange(self.landmarks.num_landmarks)
-                for chunk_idxs in np.array_split(idxs, np.ceil(self.landmarks.num_landmarks / 128)):
-                    features = self.landmarks.features[chunk_idxs] 
-                    model_inputs = buffer_to(features,
-                        device=self.device)
-                    dsr = self.model(model_inputs, mode='dsr')
-                    self.landmarks.set_dsr(dsr, chunk_idxs)
-
-                self.landmarks.update()
-
             # Add new landmarks
             if self.landmarks.potential_landmarks:
                 features = self.landmarks.potential_landmarks['features']

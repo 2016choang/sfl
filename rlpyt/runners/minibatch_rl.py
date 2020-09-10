@@ -451,7 +451,8 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                  steps_sample_test=1e4,
                  test_set_size=6e3,
                  min_steps_landmark_mode=2e4,
-                 update_landmarks_interval_steps=1e3,
+                 update_landmark_representation_interval_steps=1e3,
+                 update_landmark_graph_interval_steps=1e3,
                  log_feature_info_interval_steps=1e3,
                  log_landmarks_interval_steps=1e4,
                  **kwargs):
@@ -466,7 +467,8 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
             self.max_itr_sample = None
         self.itr_sample_test = max(int(self.steps_sample_test // self.itr_batch_size), 1)
         self.min_itr_landmark_mode = max(int(self.min_steps_landmark_mode // self.itr_batch_size), 1)
-        self.update_landmarks_interval_itrs = max(int(self.update_landmarks_interval_steps // self.itr_batch_size), 1)
+        self.update_landmark_representation_interval_itrs = max(int(self.update_landmark_representation_interval_steps // self.itr_batch_size), 1)
+        self.update_landmark_graph_interval_itrs = max(int(self.update_landmark_graph_interval_steps // self.itr_batch_size), 1)
         self.log_feature_info_interval_itrs = max(int(self.log_feature_info_interval_steps // self.itr_batch_size), 1)
         self.log_landmarks_interval_itrs = max(int(self.log_landmarks_interval_steps // self.itr_batch_size), 1)
         return n_itr
@@ -517,15 +519,14 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
 
                 if (itr + 1) % self.log_feature_info_interval_itrs == 0:
                     self.log_feature_info(itr, feature_info)
+
+                # Update landmark representation
+                if (itr + 1) % self.update_landmark_representation_interval_itrs == 0:
+                    self.agent.update_landmark_representation(itr)
                 
-                # Update representations of landmarks
-                if (itr + 1) % self.update_landmarks_interval_itrs == 0:
-                    self.agent.update_landmarks(itr)
-                    # start_features_norm, start_s_features_norm, goal_features_norm, goal_s_features_norm = self.agent.get_norms()
-                    # logger.record_tabular_stat('StartFeaturesNorm', start_features_norm, itr)
-                    # logger.record_tabular_stat('StartSuccessorFeaturesNorm', start_s_features_norm, itr)
-                    # logger.record_tabular_stat('GoalFeaturesNorm', goal_features_norm, itr)
-                    # logger.record_tabular_stat('GoalSuccessorFeaturesNorm', goal_s_features_norm, itr)
+                # Update landmark graph
+                if (itr + 1) % self.update_landmark_graph_interval_itrs == 0:
+                    self.agent.update_landmark_graph(itr)
 
                 # Evaluate agent
                 if (itr + 1) % self.log_interval_itrs == 0:
