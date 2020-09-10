@@ -1113,20 +1113,6 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         # logger.record_tabular_stat('Generate Graph Attempts', np.average(self.agent.landmarks.generate_graph_attempts), itr)
 
         # 13. Localization metrics
-        figure = plt.figure(figsize=self.figsize)
-        average_closest_landmark_sim = self.agent.landmarks.closest_landmarks_sim / np.clip(self.agent.landmarks.closest_landmarks, 1, None)
-        plt.bar(np.arange(len(average_closest_landmark_sim)), average_closest_landmark_sim)
-        plt.xlabel('Landmark')
-        plt.ylabel('Similarity')
-        save_image('Closest Landmark Similarity', itr)
-        plt.close()
-
-        figure = plt.figure(figsize=self.figsize)
-        closest_landmark_freq = self.agent.landmarks.closest_landmarks
-        plt.bar(np.arange(len(closest_landmark_freq)), closest_landmark_freq)
-        plt.xlabel('Landmark')
-        plt.ylabel('Frequency')
-        save_image('Closest Landmark Frequency', itr)
-        plt.close()
+        tabular.record_tabular_stat('Localization Transitions', self.agent.landmarks.transitions, itr)
 
         self.agent.reset_logging()

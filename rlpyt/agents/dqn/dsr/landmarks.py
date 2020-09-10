@@ -161,6 +161,7 @@ class Landmarks(object):
         # DEBUGGING METRICS
         self.closest_landmarks = np.zeros(self.max_landmarks)
         self.closest_landmarks_sim = np.zeros(self.max_landmarks)
+        self.transitions = 0
 
     def save(self, filename):
         # Save landmarks data to a file
@@ -173,7 +174,9 @@ class Landmarks(object):
                 edge_random_transitions=self.edge_random_transitions,
                 edge_subgoal_steps=self.edge_subgoal_steps,
                 edge_subgoal_successes=self.edge_subgoal_successes,
-                edge_subgoal_transitions=self.edge_subgoal_transitions)
+                edge_subgoal_transitions=self.edge_subgoal_transitions,
+                closest_landmarks=self.closest_landmarks,
+                closest_landmarks_sim=self.closest_landmarks_sim)
 
     def update(self):
         # Decay empirical transition data by affinity_decay factor
@@ -277,13 +280,14 @@ class Landmarks(object):
                 closest_landmarks = torch.argmax(similarity, dim=0).cpu().numpy()  # get landmarks with highest similarity to current state 
                 closest_landmarks_sim = torch.max(similarity, dim=0)[0].cpu().numpy()
 
-                self.closest_landmarks[closest_landmarks] += 1
-                self.closest_landmarks_sim[closest_landmarks] += closest_landmarks_sim
-
+                self.closest_landmarks[closest_landmarks[localized_envs]] += 1
+                self.closest_landmarks_sim[closest_landmarks[localized_envs]] += closest_landmarks_sim
 
             new_localizations = localized_envs & (self.last_landmarks != closest_landmarks)  # localized to some new landmark
 
             transitions = (self.last_landmarks != -1) & new_localizations  # transitioned between landmarks
+            self.transitions += np.sum(transitions)
+
             transition_last_landmarks = self.last_landmarks[transitions]
             transition_next_landmarks = closest_landmarks[transitions]
 
