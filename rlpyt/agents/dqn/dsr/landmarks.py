@@ -87,6 +87,7 @@ class Landmarks(object):
         self.closest_landmarks = np.zeros(self.max_landmarks)
         self.closest_landmarks_sim = np.zeros(self.max_landmarks)
         self.transitions = 0
+        self.high_sim_positions = np.zeros((1, 6))
     
     def initialize(self, num_envs, mode='train'):
         self.num_envs = num_envs
@@ -186,7 +187,8 @@ class Landmarks(object):
                 edge_subgoal_successes=self.edge_subgoal_successes,
                 edge_subgoal_transitions=self.edge_subgoal_transitions,
                 closest_landmarks=self.closest_landmarks,
-                closest_landmarks_sim=self.closest_landmarks_sim)
+                closest_landmarks_sim=self.closest_landmarks_sim,
+                high_sim_positions=self.high_sim_positions[1:])
 
     def update(self):
         # Decay empirical transition data by affinity_decay factor
@@ -294,8 +296,12 @@ class Landmarks(object):
                     self.dist_at_localization.append(distance[0])
                     if distance < self.GT_localization_distance_threshold and angle_diff < self.GT_localization_angle_threshold:
                         self.correct_localizations += 1
+                    else:
+                        self.high_sim_positions = np.append(self.high_sim_positions, np.concatenate([pos, self.positions[landmark]]), axis=0)
                 else:
                     self.wall_intersections_at_localization += np.sum(intersection)
+                    self.high_sim_positions = np.append(self.high_sim_positions, np.concatenate([pos, self.positions[landmark]]), axis=0)
+                    
                 self.angle_diff_at_localization.append(angle_diff)
 
             self.attempted_localizations += np.sum(localized_envs)
