@@ -158,6 +158,10 @@ class Landmarks(object):
         # End / start distance to goal landmark
         self.goal_landmark_dist_completed = []
 
+        # DEBUGGING METRICS
+        self.closest_landmarks = np.zeros(self.max_landmarks)
+        self.closest_landmarks_sim = np.zeros(self.max_landmarks)
+
     def save(self, filename):
         # Save landmarks data to a file
         np.savez(filename,
@@ -270,7 +274,12 @@ class Landmarks(object):
                 closest_landmarks = np.argmin(GT_distance, axis=0)
             else:
                 localized_envs = torch.any(similarity >= self.localization_threshold, dim=0).cpu().numpy()  # localized to some landmark
-                closest_landmarks = torch.argmax(similarity, dim=0).cpu().numpy()  # get landmarks with highest similarity to current state 
+                closest_landmarks = torch.argmax(similarity, dim=0).detach().cpu().numpy()  # get landmarks with highest similarity to current state 
+                closest_landmark_sim = torch.max(similarity, dim=0).detach().cpu().numpy()
+
+                self.closest_landmarks[closest_landmarks] += 1
+                self.closest_landmarks_sim[closest_landmark_sim] += closest_landmark_sim
+
 
             new_localizations = localized_envs & (self.last_landmarks != closest_landmarks)  # localized to some new landmark
 
