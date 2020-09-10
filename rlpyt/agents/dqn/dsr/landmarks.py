@@ -82,6 +82,11 @@ class Landmarks(object):
         self.consecutive_graph_generation_successes = 0
 
         self.oracle_distance_matrix = None
+
+        # DEBUGGING METRICS
+        self.closest_landmarks = np.zeros(self.max_landmarks)
+        self.closest_landmarks_sim = np.zeros(self.max_landmarks)
+        self.transitions = 0
     
     def initialize(self, num_envs, mode='train'):
         self.num_envs = num_envs
@@ -157,11 +162,6 @@ class Landmarks(object):
 
         # End / start distance to goal landmark
         self.goal_landmark_dist_completed = []
-
-        # DEBUGGING METRICS
-        self.closest_landmarks = np.zeros(self.max_landmarks)
-        self.closest_landmarks_sim = np.zeros(self.max_landmarks)
-        self.transitions = 0
 
     def save(self, filename):
         # Save landmarks data to a file
