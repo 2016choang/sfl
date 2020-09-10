@@ -281,7 +281,7 @@ class Landmarks(object):
                 closest_landmarks_sim = torch.max(similarity, dim=0)[0].cpu().numpy()
 
                 self.closest_landmarks[closest_landmarks[localized_envs]] += 1
-                self.closest_landmarks_sim[closest_landmarks[localized_envs]] += closest_landmarks_sim
+                self.closest_landmarks_sim[closest_landmarks[localized_envs]] += closest_landmarks_sim[localized_envs]
 
             new_localizations = localized_envs & (self.last_landmarks != closest_landmarks)  # localized to some new landmark
 

@@ -1113,6 +1113,6 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         # logger.record_tabular_stat('Generate Graph Attempts', np.average(self.agent.landmarks.generate_graph_attempts), itr)
 
         # 13. Localization metrics
-        tabular.record_tabular_stat('Localization Transitions', self.agent.landmarks.transitions, itr)
+        logger.record_tabular_stat('Localization Transitions', self.agent.landmarks.transitions, itr)
 
         self.agent.reset_logging()
