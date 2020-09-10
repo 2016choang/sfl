@@ -262,7 +262,7 @@ class Landmarks(object):
 
     def analyze_current_state(self, features, dsr, position):
         if self.num_landmarks > 0:
-            norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, keepdim=True)
+            norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, dim=1, keepdim=True)
             similarity = torch.matmul(self.norm_dsr, norm_dsr.T)
 
             # Potential landmarks under similarity threshold w.r.t. existing landmarks
@@ -833,7 +833,7 @@ class Landmarks(object):
         norm_dsr = dsr[set_paths_idxs]
         selected_position = position[set_paths_idxs]
 
-        norm_dsr = norm_dsr.mean(dim=1) / torch.norm(norm_dsr.mean(dim=1), p=2, keepdim=True)
+        norm_dsr = norm_dsr.mean(dim=1) / torch.norm(norm_dsr.mean(dim=1), p=2, dim=1, keepdim=True)
         landmark_similarity = torch.matmul(self.norm_dsr, norm_dsr.T)
 
         # Select start landmarks based on SF similarity w.r.t. current observations
@@ -962,7 +962,7 @@ class Landmarks(object):
 
         # Localization based on SF similarity
         norm_dsr = current_dsr[self.landmark_mode]
-        norm_dsr = norm_dsr.mean(dim=1) / torch.norm(norm_dsr.mean(dim=1), p=2, keepdim=True)
+        norm_dsr = norm_dsr.mean(dim=1) / torch.norm(norm_dsr.mean(dim=1), p=2, dim=1, keepdim=True)
         landmark_similarity = torch.sum(norm_dsr * self.norm_dsr[current_landmarks], dim=1)
         reached_landmarks = landmark_similarity > self.reach_threshold
         reached_landmarks = reached_landmarks.detach().cpu().numpy() 
