@@ -1057,12 +1057,27 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
             logger.record_tabular_stat('Correct-EstimatedStartLandmarkDistanceRatio',
                                        np.average(self.agent.landmarks.dist_ratio_start_landmark), itr)
 
-        # 6. Distance / angle diff at algo-determined termination
+        # 7. Distance / angle diff at algo-determined termination
         if self.agent.landmarks.dist_at_termination:
             logger.record_tabular_stat('DistanceToLandmarkAtTermination',
                                        np.average(self.agent.landmarks.dist_at_termination), itr)
             logger.record_tabular_stat('AngleDifferenceAtTermination',
                                        np.average(self.agent.landmarks.angle_diff_at_termination), itr)
+            logger.record_tabular_stat('WallIntersectionsAtTermination',
+                                       self.agent.landmarks.wall_intersections_at_termination, itr)
+            logger.record_tabular_stat('CorrectTerminationRatio',
+                                       self.agent.landmarks.correct_terminations / np.clip(self.agent.landmarks.attempted_terminations, 1, None), itr)
+
+        # 8. Distance / angle diff at algo-determined localization
+        if self.agent.landmarks.dist_at_localization:
+            logger.record_tabular_stat('DistanceToLandmarkAtLocalization',
+                                       np.average(self.agent.landmarks.dist_at_localization), itr)
+            logger.record_tabular_stat('AngleDifferenceAtLocalization',
+                                       np.average(self.agent.landmarks.angle_diff_at_localization), itr)
+            logger.record_tabular_stat('WallIntersectionsAtLocalization',
+                                       self.agent.landmarks.wall_intersections_at_localization, itr)
+            logger.record_tabular_stat('CorrectLocalizationRatio',
+                                       self.agent.landmarks.correct_localizations / np.clip(self.agent.landmarks.attempted_localizations, 1, None), itr)
 
         # 8. Landmarks graph
         #       - black edges have had successful transitions between their incident nodes
