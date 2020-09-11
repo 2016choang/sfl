@@ -316,10 +316,10 @@ class Landmarks(object):
                     if distance < self.GT_localization_distance_threshold and angle_diff < self.GT_localization_angle_threshold:
                         self.correct_localizations += 1
                     else:
-                        self.high_sim_positions = np.append(self.high_sim_positions, np.concatenate([pos, self.positions[landmark]]), axis=0)
+                        self.high_sim_positions = np.append(self.high_sim_positions, np.concatenate([pos, self.positions[landmark]])[np.newaxis], axis=0)
                 else:
                     self.wall_intersections_at_localization += np.sum(intersection)
-                    self.high_sim_positions = np.append(self.high_sim_positions, np.concatenate([pos, self.positions[landmark]]), axis=0)
+                    self.high_sim_positions = np.append(self.high_sim_positions, np.concatenate([pos, self.positions[landmark]])[np.newaxis], axis=0)
                     
                 self.angle_diff_at_localization.append(angle_diff)
 
