@@ -88,7 +88,6 @@ class Landmarks(object):
         self.closest_landmarks = np.zeros(self.max_landmarks)
         self.closest_landmarks_sim = np.zeros(self.max_landmarks)
         self.transitions = 0
-        self.high_sim_positions = np.zeros((1, 6))
     
     def initialize(self, num_envs, mode='train'):
         self.num_envs = num_envs
@@ -113,7 +112,7 @@ class Landmarks(object):
         self.eval_end_pos = {}
         self.eval_distances = []
 
-        self.similarity_memory = np.full((self.memory_len, self.max_landmarks, self.num_envs), 0)
+        self.similarity_memory = np.full((self.memory_len, self.max_landmarks, self.num_envs), 0, dtype=float)
         self.memory_length = np.full(self.num_envs, 0, dtype=int)
 
         self.reset_logging()
@@ -181,6 +180,8 @@ class Landmarks(object):
 
         # End / start distance to goal landmark
         self.goal_landmark_dist_completed = []
+
+        self.high_sim_positions = np.zeros((1, 6))
 
     def save(self, filename):
         # Save landmarks data to a file
