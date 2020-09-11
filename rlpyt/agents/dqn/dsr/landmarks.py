@@ -1012,7 +1012,7 @@ class Landmarks(object):
         # norm_dsr = norm_dsr.mean(dim=1) / torch.norm(norm_dsr.mean(dim=1), p=2, dim=1, keepdim=True)
         # landmark_similarity = torch.sum(norm_dsr * self.norm_dsr[current_landmarks], dim=1)
 
-        similarity = np.sum(self.similarity_memory[self.landmark_mode, current_landmarks], axis=0) / self.memory_length[self.landmark_mode]
+        similarity = np.sum(self.similarity_memory[:, current_landmarks, self.landmark_mode], axis=0) / self.memory_length[self.landmark_mode]
         reached_landmarks = similarity > self.reach_threshold
         reached_landmarks = reached_landmarks.detach().cpu().numpy() 
 
