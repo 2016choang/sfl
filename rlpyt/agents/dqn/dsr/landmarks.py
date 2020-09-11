@@ -304,8 +304,8 @@ class Landmarks(object):
             # closest_landmarks = torch.argmax(similarity, dim=0).cpu().numpy()  # get landmarks with highest similarity to current state 
             # closest_landmarks_sim = torch.max(similarity, dim=0)[0].cpu().numpy()
 
-            similarity = np.sum(self.similarity_memory, axis=0) / self.memory_length
-            localized_envs = np.any(similarity >= self.localization_threshold, axis=0)  # localized to some landmark
+            similarity = np.median(self.similarity_memory, axis=0)
+            localized_envs = (self.memory_length == self.memory_len) & np.any(similarity >= self.localization_threshold, axis=0)  # localized to some landmark
             closest_landmarks = np.argmax(similarity, axis=0)  # get landmarks with highest similarity to current state 
             closest_landmarks_sim = np.max(similarity, axis=0)
 
@@ -319,8 +319,8 @@ class Landmarks(object):
                     self.dist_at_localization.append(distance[0])
                     if distance < self.GT_localization_distance_threshold and angle_diff < self.GT_localization_angle_threshold:
                         self.correct_localizations += 1
-                    else:
-                        self.high_sim_positions = np.append(self.high_sim_positions, np.concatenate([pos, self.positions[landmark]])[np.newaxis], axis=0)
+                    # else:
+                    #    self.high_sim_positions = np.append(self.high_sim_positions, np.concatenate([pos, self.positions[landmark]])[np.newaxis], axis=0)
                 else:
                     self.wall_intersections_at_localization += np.sum(intersection)
                     self.high_sim_positions = np.append(self.high_sim_positions, np.concatenate([pos, self.positions[landmark]])[np.newaxis], axis=0)
@@ -1027,8 +1027,8 @@ class Landmarks(object):
         # landmark_similarity = torch.sum(norm_dsr * self.norm_dsr[current_landmarks], dim=1)
 
         # M x L x E
-        similarity = np.sum(self.similarity_memory[:, current_landmarks, self.landmark_mode], axis=0) / self.memory_length[self.landmark_mode]
-        reached_landmarks = similarity > self.reach_threshold
+        similarity = np.median(self.similarity_memory[:, current_landmarks, self.landmark_mode], axis=0)
+        reached_landmarks = (self.memory_length == self.memory_len) & (similarity > self.reach_threshold)
 
         for pos, landmark in zip(current_position[np.where(self.landmark_mode)[0][reached_landmarks]],
                                  current_landmarks[reached_landmarks]):
