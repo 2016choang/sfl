@@ -30,11 +30,11 @@ class Landmarks(object):
                  subgoal_true_edges_threshold=10,
                  subgoal_success_threshold=10,
                  subgoal_success_true_edges_threshold=-1,
+                 SF_similarity_true_edges_threshold=-1,
                  use_digraph=True,
                  use_weighted_edges=False,
                  max_attempt_threshold=1,
                  attempt_percentile_threshold=5,
-                 sim_threshold=None,
                  sim_percentile_threshold=None,
                  GT_localization=False,
                  GT_localization_distance_threshold=50,
@@ -625,20 +625,21 @@ class Landmarks(object):
             true_edges = ((average_random_steps < self.random_true_edges_threshold) & (random_transitions > 0)) | \
                 ((average_subgoal_steps < self.subgoal_true_edges_threshold) & (subgoal_transitions > 0))
             
-            if self.subgoal_success_true_edges_threshold >= 0:
+            if self.subgoal_success_true_edges_threshold != -1:
                 percentage_subgoal_successes = subgoal_successes / np.clip(subgoal_transitions, 1, None)
                 true_edges |= (percentage_subgoal_successes > self.subgoal_success_true_edges_threshold)
+            
+            if self.SF_similarity_true_edges_threshold != -1:
+                SF_similarity = torch.matmul(self.norm_dsr, self.norm_dsr.T).cpu().numpy()
+                true_edges &= (SF_similarity > self.SF_similarity_true_edges_threshold)
 
-            # # AND to remove false edges, OR to add shortcuts (use higher threshold)
-            # SF_similarity = torch.clamp(torch.matmul(self.norm_dsr, self.norm_dsr.T), min=1e-3, max=1.0).detach().cpu().numpy()
-            # true_edges &= (SF_similarity > self.graph_SF_similarity_threshold)
 
             # feature_similarity = torch.clamp(torch.matmul(self.norm_dsr, self.norm_dsr.T), min=1e-3, max=1.0).detach().cpu().numpy()
             # true_edges &= (feature_similarity > self.graph_feature_similarity_threshold)
 
             if self.use_weighted_edges:
                 edge_weights = true_edges * ((0.5 * average_random_steps + average_subgoal_steps) / np.clip(0.5 * (random_transitions > 0) + (subgoal_transitions > 0), 1, None))
-                if self.subgoal_success_true_edges_threshold >= 0:
+                if self.subgoal_success_true_edges_threshold != -1:
                     edge_weights[(percentage_subgoal_successes <= self.subgoal_success_true_edges_threshold) & (true_edges)] += (edge_weights.max() * self.max_landmarks)
             else:
                 edge_weights = true_edges
