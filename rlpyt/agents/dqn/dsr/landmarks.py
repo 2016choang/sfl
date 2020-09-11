@@ -122,14 +122,16 @@ class Landmarks(object):
             self.last_landmarks[env_idx] = -1
             self.transition_random_steps[env_idx] = 0
             self.transition_subgoal_steps[env_idx] = 0
-            self.similarity_memory[:, :, env_idx].fill(0)
-            self.memory_length[env_idx] = 0
+            if self.similarity_memory is not None:
+                self.similarity_memory[:, :, env_idx].fill(0)
+                self.memory_length[env_idx] = 0
         else:
             self.last_landmarks.fill(-1)
             self.transition_random_steps.fill(0)
             self.transition_subgoal_steps.fill(0)
-            self.similarity_memory.fill(0)
-            self.memory_length.fill(0)
+            if self.similarity_memory is not None:
+                self.similarity_memory.fill(0)
+                self.memory_length.fill(0)
 
     def __bool__(self):
         return self._active
