@@ -292,8 +292,7 @@ class Landmarks(object):
             self.update_similarity_memory(similarity)
 
             # Potential landmarks under similarity threshold w.r.t. existing landmarks
-            potential_idxs = torch.sum(similarity < self.add_threshold, dim=0) >= self.num_landmarks
-            potential_idxs = potential_idxs.cpu().numpy()
+            potential_idxs = np.sum(similarity < self.add_threshold, axis=0) >= self.num_landmarks
 
             # Localization
             # localized_envs = torch.any(similarity >= self.localization_threshold, dim=0).cpu().numpy()  # localized to some landmark
