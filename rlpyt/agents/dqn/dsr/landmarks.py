@@ -78,7 +78,7 @@ class Landmarks(object):
         self.potential_landmark_adds = 0
         self._active = False
 
-        self.current_edge_threshold = self.sim_threshold if self.sim_threshold is not None else sim_percentile_threshold
+        # self.current_edge_threshold = self.sim_threshold if self.sim_threshold is not None else sim_percentile_threshold
         self.current_sim_threshold = 0
         self.consecutive_graph_generation_successes = 0
 
