@@ -112,8 +112,8 @@ class Landmarks(object):
         self.eval_end_pos = {}
         self.eval_distances = []
 
-        self.similarity_memory = np.full((self.memory_len, self.max_landmarks, self.num_envs), 0, dtype=float)
-        self.memory_length = np.full(self.num_envs, 0, dtype=int)
+        self.similarity_memory = None
+        self.memory_length = None
 
         self.reset_logging()
     
@@ -282,8 +282,8 @@ class Landmarks(object):
         self.edge_subgoal_transitions = self.edge_subgoal_transitions[:self.num_landmarks, :self.num_landmarks]
     
     def update_similarity_memory(self, similarity):
-        self.similarity_memory[:-1, :self.num_landmarks] = self.similarity_memory[1:, :self.num_landmarks]
-        self.similarity_memory[-1, :self.num_landmarks] = similarity
+        self.similarity_memory[:-1] = self.similarity_memory[1:]
+        self.similarity_memory[-1] = similarity
         self.memory_length[self.memory_length < self.memory_len] += 1
 
     def analyze_current_state(self, features, dsr, position):
@@ -301,7 +301,7 @@ class Landmarks(object):
             # closest_landmarks_sim = torch.max(similarity, dim=0)[0].cpu().numpy()
 
             similarity = np.sum(self.similarity_memory, axis=0) / self.memory_length
-            localized_envs = np.any(similarity[:self.num_landmarks] >= self.localization_threshold, axis=0)  # localized to some landmark
+            localized_envs = np.any(similarity >= self.localization_threshold, axis=0)  # localized to some landmark
             closest_landmarks = np.argmax(similarity, axis=0)  # get landmarks with highest similarity to current state 
             closest_landmarks_sim = np.max(similarity, axis=0)
 
@@ -412,6 +412,9 @@ class Landmarks(object):
         #     self.add_threshold -= 0.05
         # elif self.potential_landmark_adds == 0:
         #     self.add_threshold += 0.01
+
+        self.similarity_memory = np.full((self.memory_len, self.num_landmarks, self.num_envs), 0, dtype=float)
+        self.memory_length = np.full(self.num_envs, 0, dtype=int)
         
         self.potential_landmarks = {}
         self.potential_landmark_adds = 0
