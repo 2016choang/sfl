@@ -20,6 +20,7 @@ class Landmarks(object):
                  max_landmarks=20,
                  add_threshold=0.75,
                  top_k_similar=None,
+                 memory_len=1,
                  landmarks_per_update=None,
                  landmark_mode_interval=100,
                  steps_per_landmark=10,
@@ -112,6 +113,9 @@ class Landmarks(object):
         self.eval_end_pos = {}
         self.eval_distances = []
 
+        self.similarity_memory = np.full((self.num_envs, self.max_landmarks, self.memory_len), 0)
+        self.memory_length = np.full(self.num_envs, 0, dtype=int)
+
         self.reset_logging()
     
     def reset(self, env_idx=None):
@@ -119,10 +123,14 @@ class Landmarks(object):
             self.last_landmarks[env_idx] = -1
             self.transition_random_steps[env_idx] = 0
             self.transition_subgoal_steps[env_idx] = 0
+            self.similarity_memory[env_idx].fill(0)
+            self.memory_length[env_idx] = 0
         else:
             self.last_landmarks.fill(-1)
             self.transition_random_steps.fill(0)
             self.transition_subgoal_steps.fill(0)
+            self.similarity_memory.fill(0)
+            self.memory_length.fill(0)
 
     def __bool__(self):
         return self._active
@@ -271,20 +279,31 @@ class Landmarks(object):
         self.edge_subgoal_steps = self.edge_subgoal_steps[:self.num_landmarks, :self.num_landmarks]
         self.edge_subgoal_successes = self.edge_subgoal_successes[:self.num_landmarks, :self.num_landmarks]
         self.edge_subgoal_transitions = self.edge_subgoal_transitions[:self.num_landmarks, :self.num_landmarks]
+    
+    def update_similarity_memory(self, similarity):
+        self.similarity_memory[:, :self.num_landmarks, :-1] = self.similarity_memory[:, :self.num_landmarks, 1:]
+        self.similarity_memory[:, :self.num_landmarks, -1] = similarity
+        self.memory_length[self.memory_length < self.memory_len] += 1
 
     def analyze_current_state(self, features, dsr, position):
         if self.num_landmarks > 0:
             norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, dim=1, keepdim=True)
-            similarity = torch.matmul(self.norm_dsr, norm_dsr.T)
+            similarity = torch.matmul(self.norm_dsr, norm_dsr.T).cpu().numpy()
+            self.update_similarity_memory(similarity)
 
             # Potential landmarks under similarity threshold w.r.t. existing landmarks
             potential_idxs = torch.sum(similarity < self.add_threshold, dim=0) >= self.num_landmarks
             potential_idxs = potential_idxs.cpu().numpy()
 
             # Localization
-            localized_envs = torch.any(similarity >= self.localization_threshold, dim=0).cpu().numpy()  # localized to some landmark
-            closest_landmarks = torch.argmax(similarity, dim=0).cpu().numpy()  # get landmarks with highest similarity to current state 
-            closest_landmarks_sim = torch.max(similarity, dim=0)[0].cpu().numpy()
+            # localized_envs = torch.any(similarity >= self.localization_threshold, dim=0).cpu().numpy()  # localized to some landmark
+            # closest_landmarks = torch.argmax(similarity, dim=0).cpu().numpy()  # get landmarks with highest similarity to current state 
+            # closest_landmarks_sim = torch.max(similarity, dim=0)[0].cpu().numpy()
+
+            similarity = np.sum(self.similarity_memory, axis=2) / self.memory_length
+            localized_envs = np.any(similarity >= self.localization_threshold, axis=0)  # localized to some landmark
+            closest_landmarks = np.argmax(similarity, axis=0)  # get landmarks with highest similarity to current state 
+            closest_landmarks_sim = np.max(similarity, axis=0)
 
             self.closest_landmarks[closest_landmarks[localized_envs]] += 1
             self.closest_landmarks_sim[closest_landmarks[localized_envs]] += closest_landmarks_sim[localized_envs]
@@ -990,10 +1009,12 @@ class Landmarks(object):
         final_goal_landmarks = current_idxs == (self.path_lengths[self.landmark_mode] - 1)
 
         # Termination based on SF similarity
-        norm_dsr = current_dsr[self.landmark_mode]
-        norm_dsr = norm_dsr.mean(dim=1) / torch.norm(norm_dsr.mean(dim=1), p=2, dim=1, keepdim=True)
-        landmark_similarity = torch.sum(norm_dsr * self.norm_dsr[current_landmarks], dim=1)
-        reached_landmarks = landmark_similarity > self.reach_threshold
+        # norm_dsr = current_dsr[self.landmark_mode]
+        # norm_dsr = norm_dsr.mean(dim=1) / torch.norm(norm_dsr.mean(dim=1), p=2, dim=1, keepdim=True)
+        # landmark_similarity = torch.sum(norm_dsr * self.norm_dsr[current_landmarks], dim=1)
+
+        similarity = np.sum(self.similarity_memory[:, current_landmarks], axis=2) / self.memory_length
+        reached_landmarks = similarity > self.reach_threshold
         reached_landmarks = reached_landmarks.detach().cpu().numpy() 
 
         for pos, landmark in zip(current_position[np.where(self.landmark_mode)[0][reached_landmarks]],
