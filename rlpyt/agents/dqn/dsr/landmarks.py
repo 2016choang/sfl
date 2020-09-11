@@ -1014,7 +1014,6 @@ class Landmarks(object):
 
         similarity = np.sum(self.similarity_memory[:, current_landmarks, self.landmark_mode], axis=0) / self.memory_length[self.landmark_mode]
         reached_landmarks = similarity > self.reach_threshold
-        reached_landmarks = reached_landmarks.detach().cpu().numpy() 
 
         for pos, landmark in zip(current_position[np.where(self.landmark_mode)[0][reached_landmarks]],
                                  current_landmarks[reached_landmarks]):
