@@ -293,6 +293,8 @@ class Landmarks(object):
             norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, dim=1, keepdim=True)
             similarity = torch.matmul(self.norm_dsr, norm_dsr.T).cpu().numpy()
             self.update_similarity_memory(similarity)
+            if self.mode == 'eval':
+                return
 
             # Potential landmarks under similarity threshold w.r.t. existing landmarks
             potential_idxs = np.sum(similarity < self.add_threshold, axis=0) >= self.num_landmarks
@@ -360,6 +362,8 @@ class Landmarks(object):
             self.last_landmarks[new_localizations] = closest_landmarks[new_localizations]
             self.transition_random_steps[new_localizations] = 0
             self.transition_subgoal_steps[new_localizations] = 0
+        elif self.mode == 'eval':
+            return
         else:
             potential_idxs = np.ones(len(features), dtype=bool)
 
@@ -767,6 +771,9 @@ class Landmarks(object):
         self.graph.add_node(goal_index)
         self.graph.add_edge(closest_to_goal, goal_index)
         self.graph.add_edge(goal_index, closest_to_goal)
+
+        self.similarity_memory = np.full((self.memory_len, self.num_landmarks, self.num_envs), 0, dtype=float)
+        self.memory_length = np.full(self.num_envs, 0, dtype=int)
 
     def get_path_weight(self, nodes, weight):
         # Get weight of path

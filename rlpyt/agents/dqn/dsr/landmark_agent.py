@@ -146,8 +146,7 @@ class LandmarkAgent(FeatureDSRAgent):
             observation = observation.float()
 
             # Add potential landmarks during training
-            if self._mode != 'eval':
-                self.landmarks.analyze_current_state(features, dsr, position)
+            self.landmarks.analyze_current_state(features, dsr, position)
 
             self.landmarks.set_paths(dsr, position)
 
