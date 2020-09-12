@@ -212,7 +212,7 @@ class VizDoomEnv(Env):
             if self.grayscale:
                 new_obs = np.uint8(np.zeros(self._observation_space.shape[1:]))
             else:
-                new_obs = np.uint8(np.zeros(self._observation_space.shape))
+                new_obs = np.uint8(np.zeros(self._observation_space.shape[1:]))
 
         if self.current_record_file: 
             if done:
