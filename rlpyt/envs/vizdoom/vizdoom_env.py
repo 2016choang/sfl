@@ -74,10 +74,8 @@ class VizDoomEnv(Env):
         if self.grayscale:
             obs_shape = (num_img_obs, H, W)
         else:
-            if self.num_img_obs > 1:
-                obs_shape = (self.num_img_obs, self.game.get_screen_channels(), self.game.get_screen_height(), self.game.get_screen_width())
-            else:
-                obs_shape = (self.game.get_screen_channels(), self.game.get_screen_height(), self.game.get_screen_width())
+            self.channels = self.game.get_screen_channels()
+            obs_shape = (self.game.get_screen_channels() * self.num_img_obs, self.game.get_screen_height(), self.game.get_screen_width())
         self._observation_space = IntBox(low=0, high=255, shape=obs_shape,
             dtype="uint8")
         self._obs = np.zeros(shape=obs_shape, dtype="uint8")
@@ -212,7 +210,7 @@ class VizDoomEnv(Env):
             if self.grayscale:
                 new_obs = np.uint8(np.zeros(self._observation_space.shape[1:]))
             else:
-                new_obs = np.uint8(np.zeros(self._observation_space.shape[1:]))
+                new_obs = np.uint8(np.zeros((self.channels, *self._observation_space.shape[1:])))
 
         if self.current_record_file: 
             if done:
@@ -237,7 +235,7 @@ class VizDoomEnv(Env):
         return self._obs.copy()
 
     def set_start_state(self, position):
-        self._start_info = self.get_obs_at(position, idx=-1)
+        self._start_info = self.get_obs_at(position, idx=self.num_img_obs - 1)
     
     def set_goal_state(self, position):
         self._goal_info = self.get_obs_at(position, idx=0)
@@ -253,7 +251,7 @@ class VizDoomEnv(Env):
             self._obs = np.concatenate([self._obs[1:], img[np.newaxis]])
         else:
             if self.num_img_obs > 1:
-                self._obs = np.concatenate([self._obs[1:], new_obs[np.newaxis]])
+                self._obs = np.concatenate([self._obs[self.channels:], new_obs])
             else:
                 self._obs = new_obs
 
@@ -296,7 +294,9 @@ class VizDoomEnv(Env):
         else:
             if self.num_img_obs > 1:
                 return_obs = np.uint8(np.zeros(self._observation_space.shape))
-                return_obs[idx] = new_obs
+                from_idx = int(idx * self.channels)
+                to_idx = from_idx + self.channels
+                return_obs[from_idx:to_idx] = new_obs
                 return return_obs, position
             else:
                 return new_obs, position

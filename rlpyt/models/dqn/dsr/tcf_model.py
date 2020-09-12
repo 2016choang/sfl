@@ -50,25 +50,16 @@ class FixedVizDoomModel(torch.nn.Module):
         x = obs.type(torch.float)
         if mode == 'encode':
             features = []
-            if len(x) == 5:
-                frame_dim = 1
-            else:
-                frame_dim = 0
-            for i in range(x.shape[frame_dim]):
-                if frame_dim:
-                    frame = x[:, i]
-                else:
-                    frame = x[i]
-                lead_dim, T, B, img_shape = infer_leading_dims(frame, 3)
-                frame = frame.view(T * B, *img_shape).cpu()
-                frame = frame.permute(0, 2, 3, 1)
-                frame = self.fixed_model.layers[3].predict(frame)
-                if self.norm_output:
-                    frame = (frame - self.mean) / self.divisor
-                features.append(frame)
+            import pdb; pdb.set_trace()
+            frame = x
+            lead_dim, T, B, img_shape = infer_leading_dims(frame, 3)
+            frame = frame.view(T * B, *img_shape).cpu()
+            frame = frame.permute(0, 2, 3, 1)
+            frame = self.fixed_model.layers[3].predict(frame)
+            if self.norm_output:
+                frame = (frame - self.mean) / self.divisor
+            features.append(frame)
             x = np.concatenate(features, axis=1)
-            if frame_dim:
-                import pdb; pdb.set_trace()
             x = torch.from_numpy(x).to(device=obs.device)
             return restore_leading_dims(x, lead_dim, T, B)
         elif mode == 'output':
