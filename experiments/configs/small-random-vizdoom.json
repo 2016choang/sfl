@@ -24,11 +24,11 @@
         "max_landmarks": 2500,
         "landmarks_per_update": 50,
         "add_threshold": 0.8,
+        "memory_len": 5,
         "landmark_mode_interval": 500,
-        "memory_len": 15,
         "steps_per_landmark": 20,
         "max_landmark_mode_steps": 1000,
-        "localization_threshold": 0.9,
+        "localization_threshold": 0.0,
         "random_true_edges_threshold": 20,
         "subgoal_true_edges_threshold": 10,
         "subgoal_success_threshold": 10,
@@ -36,11 +36,11 @@
         "use_digraph": false,
         "use_weighted_edges": true,
         "GT_localization": false,
-        "GT_localization_distance_threshold": 63,
-        "GT_localization_angle_threshold": 90,
+        "GT_localization_distance_threshold": 50,
+        "GT_localization_angle_threshold": 45,
         "GT_termination": true,
-        "GT_termination_distance_threshold": 63,
-        "GT_termination_angle_threshold": 90,
+        "GT_termination_distance_threshold": 50,
+        "GT_termination_angle_threshold": 45,
         "GT_graph": false,
         "GT_graph_edge_threshold": 75,
         "reach_threshold": 0.95,
@@ -60,9 +60,9 @@
     },
     "env": {
         "goal_position": [
-            -450,
-            200,
-            0
+            64,
+            100,
+            270
         ],
         "start_position": [
             200,
@@ -78,9 +78,9 @@
     },
     "eval_env": {
         "goal_position": [
-            -450,
-            200,
-            0
+            64,
+            100,
+            270
         ],
         "start_position": [
             200,
@@ -97,12 +97,11 @@
     },
     "runner": {
         "log_interval_steps": 40000,
-        "log_dsr_interval_steps": 400000,
-        "min_steps_landmark_mode": 20000,
-        "update_landmark_representation_interval_steps": 2000,
-        "update_landmark_graph_interval_steps": 10000,
-        "log_feature_info_interval_steps": 40000,
-        "log_landmarks_interval_steps": 20000,
+        "log_dsr_interval_steps": 80000,
+        "min_steps_landmark_mode": 10000000,
+        "update_landmarks_interval_steps": 10000000,
+        "log_feature_info_interval_steps": 20000,
+        "log_landmarks_interval_steps": 10000000,
         "figsize": [14, 7]
     },
     "seed": 333,
