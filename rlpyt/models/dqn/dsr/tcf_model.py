@@ -26,10 +26,10 @@ class FixedVizDoomModel(torch.nn.Module):
             final_feature_size=None,
             norm_output=True,
             alpha=10.0,
+            image_shape=None,
             **kwargs
         ):
         save__init__args(locals())
-        import pdb; pdb.set_trace()
         super().__init__()
 
         self.fixed_model = ResnetBuilder.build_siamese_resnet_18((6, 120, 160), 2)
@@ -49,12 +49,17 @@ class FixedVizDoomModel(torch.nn.Module):
     def forward(self, obs, mode='encode'):
         x = obs.type(torch.float)
         if mode == 'encode':
-            lead_dim, T, B, img_shape = infer_leading_dims(x, 3)
-            x = x.view(T * B, *img_shape).cpu()
-            x = x.permute(0, 2, 3, 1)
-            x = self.fixed_model.layers[3].predict(x)
-            if self.norm_output:
-                x = (x - self.mean) / self.divisor
+            features = []
+            for frame in x:
+                lead_dim, T, B, img_shape = infer_leading_dims(frame, 3)
+                frame = frame.view(T * B, *img_shape).cpu()
+                frame = frame.permute(0, 2, 3, 1)
+                frame = self.fiframeed_model.layers[3].predict(frame)
+                if self.norm_output:
+                    frame = (frame - self.mean) / self.divisor
+                features.append(frame)
+            import pdb; pdb.set_trace()
+            x = np.concatenate(features)
             x = torch.from_numpy(x).to(device=obs.device)
             return restore_leading_dims(x, lead_dim, T, B)
         elif mode == 'output':
