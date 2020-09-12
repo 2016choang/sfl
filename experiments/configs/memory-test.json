@@ -1,0 +1,112 @@
+{
+    "agent": {
+        "eps_init": 0.05,
+        "eps_final": 0.05,
+        "eps_eval": 0.05,
+        "model_kwargs": {
+            "feature_size": 2048,
+            "dsr_params": {
+                "fc_sizes": [
+                    2048,
+                    1024
+                ],
+                "nonlinearity": "relu",
+                "batchnorm": true
+            }
+        },
+        "feature_model_kwargs": {
+            "feature_size": 2048,
+            "fixed_weights_path": "../sptm/experiments/0103_R/models/model_weights.h5"
+        },
+        "use_soft_q": false,
+        "GT_subgoal_policy": false
+    },
+    "landmarks": {
+        "max_landmarks": 2500,
+        "landmarks_per_update": 50,
+        "add_threshold": 0.8,
+        "memory_len": 3,
+        "landmark_mode_interval": 500,
+        "steps_per_landmark": 20,
+        "max_landmark_mode_steps": 1000,
+        "localization_threshold": 0.7,
+        "random_true_edges_threshold": 20,
+        "subgoal_success_threshold": 10,
+        "subgoal_true_edges_threshold": 10,
+        "use_digraph": false,
+        "use_weighted_edges": true,
+        "GT_localization": false,
+        "GT_localization_distance_threshold": 50,
+        "GT_localization_angle_threshold": 45,
+        "GT_termination": false,
+        "GT_termination_distance_threshold": 50,
+        "GT_termination_angle_threshold": 45,
+        "GT_graph": false,
+        "GT_graph_edge_threshold": 100,
+        "reach_threshold": 0.55,
+        "landmark_paths": 1,
+        "affinity_decay": 0.99
+    },
+    "algo": {
+        "discount": 0.95,
+        "batch_size": 128,
+        "min_steps_learn": 1000,
+        "learning_rate": 0.0001,
+        "replay_size": 100000,
+        "min_steps_dsr_learn": 1000,
+        "n_step_return": 5,
+        "target_update_interval": 1000,
+        "delta_clip": 5,
+        "scale_target": false
+    },
+    "env": {
+        "goal_position": [
+            200,
+            -30,
+            270
+        ],
+        "start_position": [
+            200,
+            -100,
+            0
+        ],
+        "config": "experiments/vizdoom/small_SPTM.cfg",
+        "seed": 100,
+        "grayscale": false,
+        "map_id": "map05",
+        "num_samples": -1,
+        "full_action_set": false
+    },
+    "eval_env": {
+        "goal_position": [
+            200,
+            -30,
+            270
+        ],
+        "start_position": [
+            200,
+            -100,
+            0
+        ],
+        "config": "experiments/vizdoom/small_SPTM.cfg",
+        "seed": 100,
+        "grayscale": false,
+        "map_id": "map05",
+        "num_samples": -1,
+        "full_action_set": false,
+        "goal_close_terminate": true
+    },
+    "runner": {
+        "log_interval_steps": 1700,
+        "log_dsr_interval_steps": 1700,
+        "min_steps_landmark_mode": 1100,
+        "update_landmark_representation_interval_steps": 250,
+        "update_landmark_graph_interval_steps": 500,
+        "log_feature_info_interval_steps": 1700,
+        "log_landmarks_interval_steps": 1700,
+        "figsize": [14, 7]
+    },
+    "seed": 333,
+    "feature": "TCF",
+    "samplers": 8
+}

@@ -52,12 +52,12 @@ class FixedVizDoomModel(torch.nn.Module):
             lead_dim, T, B, img_shape = infer_leading_dims(x, 3)
             x = x.view(T * B, *img_shape).cpu()
             features = []
-            for lead_c in range(x.shape[3], 3):
+            for lead_c in range(0, x.shape[1], 3):
                 frame = x[:, lead_c:lead_c + 3].permute(0, 2, 3, 1)
                 frame = self.fixed_model.layers[3].predict(frame)
                 if self.norm_output:
                     frame = (frame - self.mean) / self.divisor
-            features.append(frame)
+                features.append(frame)
             x = np.concatenate(features, axis=1)
             x = torch.from_numpy(x).to(device=obs.device)
             return restore_leading_dims(x, lead_dim, T, B)
