@@ -54,7 +54,7 @@ class FixedVizDoomModel(torch.nn.Module):
                 lead_dim, T, B, img_shape = infer_leading_dims(frame, 3)
                 frame = frame.view(T * B, *img_shape).cpu()
                 frame = frame.permute(0, 2, 3, 1)
-                frame = self.fiframeed_model.layers[3].predict(frame)
+                frame = self.fixed_model.layers[3].predict(frame)
                 if self.norm_output:
                     frame = (frame - self.mean) / self.divisor
                 features.append(frame)
