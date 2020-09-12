@@ -74,7 +74,10 @@ class VizDoomEnv(Env):
         if self.grayscale:
             obs_shape = (num_img_obs, H, W)
         else:
-            obs_shape = (self.game.get_screen_channels(), self.game.get_screen_height(), self.game.get_screen_width())
+            if self.num_img_obs > 1:
+                obs_shape = (self.num_img_obs, self.game.get_screen_channels(), self.game.get_screen_height(), self.game.get_screen_width())
+            else:
+                obs_shape = (self.game.get_screen_channels(), self.game.get_screen_height(), self.game.get_screen_width())
         self._observation_space = IntBox(low=0, high=255, shape=obs_shape,
             dtype="uint8")
         self._obs = np.zeros(shape=obs_shape, dtype="uint8")
@@ -234,10 +237,10 @@ class VizDoomEnv(Env):
         return self._obs.copy()
 
     def set_start_state(self, position):
-        self._start_info = self.get_obs_at(position, full=False)
+        self._start_info = self.get_obs_at(position, idx=-1)
     
     def set_goal_state(self, position):
-        self._goal_info = self.get_obs_at(position, full=True)
+        self._goal_info = self.get_obs_at(position, idx=0)
 
     ###########################################################################
     # Helpers
@@ -249,7 +252,10 @@ class VizDoomEnv(Env):
             # NOTE: order OLDEST to NEWEST should match use in frame-wise buffer.
             self._obs = np.concatenate([self._obs[1:], img[np.newaxis]])
         else:
-            self._obs = new_obs
+            if self.num_img_obs > 1:
+                self._obs = np.concatenate([self._obs[1:], new_obs[np.newaxis]])
+            else:
+                self._obs = new_obs
 
     def _reset_obs(self):
         self._obs[:] = 0
@@ -262,7 +268,7 @@ class VizDoomEnv(Env):
         reward = self.game.make_action([0, 0, 0, 0, 0, 0, 0], 1)
         return reward
 
-    def get_obs_at(self, position=None, full=False):
+    def get_obs_at(self, position=None, idx=0):
         state = self.game.get_state()
 
         if position is not None:
@@ -284,14 +290,16 @@ class VizDoomEnv(Env):
         if self.grayscale:
             new_obs = np.transpose(new_obs, [1, 2, 0])
             img = cv2.resize(cv2.cvtColor(new_obs, cv2.COLOR_RGB2GRAY), (H, W), interpolation=cv2.INTER_LINEAR)
-            if full:
-                return np.repeat(img[np.newaxis], self.num_img_obs, axis=0), position
-            else:
-                new_obs = np.uint8(np.zeros(self._observation_space.shape))
-                new_obs[-1] = img
-                return new_obs, position
-        else:
+            new_obs = np.uint8(np.zeros(self._observation_space.shape))
+            new_obs[-1] = img
             return new_obs, position
+        else:
+            if self.num_img_obs > 1:
+                return_obs = np.uint8(np.zeros(self._observation_space.shape))
+                return_obs[idx] = new_obs
+                return return_obs, position
+            else:
+                return new_obs, position
 
     def plot_topdown(self, objects=True):
         if self.game.is_episode_finished():

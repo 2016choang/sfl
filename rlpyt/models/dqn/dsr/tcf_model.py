@@ -29,6 +29,7 @@ class FixedVizDoomModel(torch.nn.Module):
             **kwargs
         ):
         save__init__args(locals())
+        import pdb; pdb.set_trace()
         super().__init__()
 
         self.fixed_model = ResnetBuilder.build_siamese_resnet_18((6, 120, 160), 2)
