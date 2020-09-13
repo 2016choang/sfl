@@ -111,8 +111,8 @@ class Landmarks(object):
         self.eval_end_pos = {}
         self.eval_distances = []
 
-        self.feature_memory = torch.zeros((self.memory_len, self.num_envs, self.feature_size))
-        self.dsr_memory = torch.zeros((self.memory_len, self.num_envs, self.feature_size))
+        self.feature_memory = torch.zeros((self.memory_len, self.num_envs, self.feature_size), device=device)
+        self.dsr_memory = torch.zeros((self.memory_len, self.num_envs, self.feature_size), device=device)
         self.memory_capacity = np.full(self.num_envs, 0, dtype=int)
 
         self.reset_logging()
