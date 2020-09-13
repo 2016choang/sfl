@@ -237,6 +237,7 @@ class Landmarks(object):
             self.edge_subgoal_successes = np.array([[0]])
             self.edge_subgoal_transitions = np.array([[0]])
             self.num_landmarks += 1
+            self.current_num_landmarks += 1
         else:
             # self.observations = torch.cat((self.observations, observation), dim=0)
             self.set_features(features, self.num_landmarks)
@@ -259,6 +260,7 @@ class Landmarks(object):
             self.edge_subgoal_transitions = np.append(self.edge_subgoal_transitions, np.zeros((1, self.num_landmarks + 1)), axis=0)
 
             self.num_landmarks += 1
+            self.current_num_landmarks += 1
 
     def force_remove_landmark(self):
         # Remove last landmark
@@ -927,7 +929,7 @@ class Landmarks(object):
 
         current_idxs = self.path_idxs[self.landmark_mode]
         current_landmarks = self.paths[self.landmark_mode, current_idxs]
-        return self.norm_dsr[current_landmarks,], self.landmark_mode, self.positions[current_landmarks]
+        return self.norm_dsr[current_landmarks, -1], self.landmark_mode, self.positions[current_landmarks]
 
     ################################## UNUSED CODE ################################## 
 

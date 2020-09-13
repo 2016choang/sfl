@@ -206,9 +206,13 @@ class LandmarkAgent(FeatureDSRAgent):
 
             model_inputs = buffer_to(features,
                     device=self.device)
-            dsr = self.model(model_inputs, mode='dsr')
+            dsr = self.model(model_inputs, mode='dsr').mean(dim=1)
+            norm_dsr = dsr / torch.norm(dsr, p=2, dim=1, keepdim=True)
 
-            self._eval_landmarks.force_add_landmark(features, dsr, pos)
+            features = torch.cat([features] * self.landmarks.memory_len)
+            norm_dsr = torch.cat([norm_dsr] * self.landmarks.memory_len)
+
+            self._eval_landmarks.force_add_landmark(features, norm_dsr, pos)
             self._eval_landmarks.connect_goal()
     
     def log_eval(self, idx, pos):
