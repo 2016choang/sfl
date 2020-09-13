@@ -714,7 +714,7 @@ class Landmarks(object):
         landmark_similarity = self.memory_similarity[-1, set_paths_idxs]
 
         # Select start landmarks based on SF similarity w.r.t. current observations
-        start_landmarks = landmark_similarity.argmax(axis=0).cpu().detach().numpy()
+        start_landmarks = landmark_similarity.argmax(axis=0)
         if relocalize_idxs is None:
             if self.mode == 'eval':
                 # Goal landmark is set as the last landmark to be added
