@@ -824,8 +824,8 @@ class Landmarks(object):
         end_distance = euclidean_distance(pos[:2], goal_pos[:2])
         self.eval_distances.append(end_distance)
 
-    def get_landmarks_data(self, current_dsr, current_position):
-        if not np.any(self.landmark_mode) or self.num_landmarks == 0:
+    def get_landmarks_data(self, current_position):
+        if not np.any(self.landmark_mode) or self.current_num_landmarks == 0:
             return None, self.landmark_mode, None
 
         current_idxs = self.path_idxs[self.landmark_mode]
