@@ -91,26 +91,10 @@ class LandmarkAgent(FeatureDSRAgent):
     @torch.no_grad()
     def update_landmark_graph(self, itr):
         if self.landmarks:
-            # Add new landmarks
-            if self.landmarks.potential_landmarks:
-                features = self.landmarks.potential_landmarks['features']
-
-                # unique_idxs = np.unique(observation.numpy(), return_index=True, axis=0)[1]
-                # position = self.landmarks.potential_landmarks['positions'][unique_idxs]
-                # observation = observation[unique_idxs]
-
-                # model_inputs = buffer_to(observation,
-                #     device=self.device)
-                # features = self.feature_model(model_inputs, mode='encode')
-                model_inputs = buffer_to(features,
-                    device=self.device)
-                dsr = self.model(model_inputs, mode='dsr')
-
-                self.landmarks.add_landmarks(features, dsr)
-
+            self.landmarks.current_num_landmarks = self.landmarks.num_landmarks
             if self.landmarks.num_landmarks > 0:
                 # Reset landmark mode for all environments
-                self.reset(reset_landmarks=False)
+                self.reset()
 
                 # Generate landmark graph
                 self.landmarks.generate_graph()
@@ -148,9 +132,9 @@ class LandmarkAgent(FeatureDSRAgent):
             # Add potential landmarks during training
             self.landmarks.analyze_current_state(features, dsr, position)
 
-            self.landmarks.set_paths(dsr, position)
+            self.landmarks.set_paths(position)
 
-            landmarks_dsr, landmark_mode, subgoal_landmarks = self.landmarks.get_landmarks_data(dsr, position)
+            landmarks_dsr, landmark_mode, subgoal_landmarks = self.landmarks.get_landmarks_data(position)
 
             if np.any(landmark_mode):
                 if self.GT_subgoal_policy and self._mode != 'eval':
@@ -177,7 +161,7 @@ class LandmarkAgent(FeatureDSRAgent):
             self.landmarks.transition_random_steps[~landmark_mode] += 1
 
             # Try to enter landmark mode in training
-            if self._mode != 'eval' and self.landmarks.num_landmarks > 0:
+            if self._mode != 'eval' and self.landmarks.current_num_landmarks > 0:
                 self.landmarks.enter_landmark_mode()
             
             mode = torch.from_numpy(landmark_mode)
@@ -186,14 +170,14 @@ class LandmarkAgent(FeatureDSRAgent):
         return AgentStep(action=action, agent_info=agent_info)
 
     def reset(self, reset_landmarks=True):
-        if self.landmarks and self.landmarks.num_landmarks > 0:
+        if self.landmarks and self.landmarks.current_num_landmarks > 0:
             # Always start in landmarks mode
             self.landmarks.enter_landmark_mode(override=-1)
             if reset_landmarks:
                 self.landmarks.reset()
 
     def reset_one(self, idx):
-        if self.landmarks and self.landmarks.num_landmarks > 0:
+        if self.landmarks and self.landmarks.current_num_landmarks > 0:
             # Always start in landmarks mode
             self.landmarks.enter_landmark_mode(override=idx)
             self.landmarks.reset(idx)
@@ -209,8 +193,6 @@ class LandmarkAgent(FeatureDSRAgent):
         self._eval_landmarks = copy.deepcopy(self._landmarks)
         self._eval_landmarks.initialize(self.eval_envs, 'eval')
         if self._eval_landmarks:
-            # if self._eval_landmarks.num_landmarks > 0:
-            #     self._eval_landmarks.generate_graph()
             obs, pos = goal_info
 
             observation = torchify_buffer(obs).unsqueeze(0).float()
