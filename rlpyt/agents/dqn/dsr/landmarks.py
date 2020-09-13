@@ -310,7 +310,6 @@ class Landmarks(object):
             elif self.aggregation_method == 'pmedian':
                 self.memory_similarity = torch.matmul(self.dsr_memory.unsqueeze(1), current_dsr).reshape(-1, self.num_envs, self.current_num_landmarks).cpu().numpy()
                 self.agg_similarity = np.median(self.memory_similarity, axis=0) # E x L
-                import pdb; pdb.set_trace()
             elif self.aggregation_method == 'pmin':
                 self.memory_similarity = torch.matmul(self.dsr_memory.unsqueeze(1), current_dsr).reshape(-1, self.num_envs, self.current_num_landmarks).cpu().numpy()
                 self.agg_similarity = np.min(self.memory_similarity, axis=0) # E x L
