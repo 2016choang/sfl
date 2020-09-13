@@ -82,13 +82,14 @@ class LandmarkAgent(FeatureDSRAgent):
             # self.landmarks.set_features(features)
             idxs = np.arange(self.landmarks.num_landmarks)
             for chunk_idxs in np.array_split(idxs, np.ceil(self.landmarks.num_landmarks / 128)):
-                original_dsr_shape = self.landmarks.norm_dsr.shape
-                features = self.landmarks.features[chunk_idxs].reshape(-1, self.model.feature_size)
+                features = self.landmarks.features[chunk_idxs]
+                original_shape = features.shape
+                features = features.reshape(-1, self.model.feature_size)
                 model_inputs = buffer_to(features,
                     device=self.device)
                 dsr = self.model(model_inputs, mode='dsr').mean(dim=1)
                 norm_dsr = dsr / torch.norm(dsr, p=2, dim=1, keepdim=True)
-                norm_dsr = norm_dsr.reshape(original_dsr_shape)
+                norm_dsr = norm_dsr.reshape(original_shape)
                 self.landmarks.set_dsr(norm_dsr, chunk_idxs)
 
     @torch.no_grad()
