@@ -372,8 +372,8 @@ class Landmarks(object):
 
     def add_landmark(self, idx, position, last_landmark=-1, random_steps=None, subgoal_steps=None):
         # Add landmark if it is not similar w.r.t. existing landmarks
-        features = self.feature_memory[:, idx]
-        dsr = self.dsr_memory[:, idx]
+        features = self.feature_memory[:, idx].unsqueeze(0)
+        dsr = self.dsr_memory[:, idx].unsqueeze(0)
         if self.num_landmarks == 0:
             # First landmark
             # self.observations = observation
