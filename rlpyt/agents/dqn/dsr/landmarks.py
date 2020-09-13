@@ -292,10 +292,11 @@ class Landmarks(object):
         return self.positions[:self.current_num_landmarks]
 
     def analyze_current_state(self, features, dsr, position):
-        if self.current_num_landmarks > 0:
+        if self.num_landmarks > 0:
             norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, dim=1, keepdim=True)
-
             self.update_memory(features, norm_dsr)
+
+        if self.current_num_landmarks > 0:
             #  DSR Memory: M x E x F
             #  Landmarks DSR: L x M x F
             self.memory_similarity = torch.bmm(self.dsr_memory, self.current_dsr.permute(1, 2, 0)).cpu().numpy()
@@ -388,7 +389,7 @@ class Landmarks(object):
             self.num_landmarks += 1
             return True
         else:
-            similarity = self.memory_similarity[-1, idx]  # Compute similarity w.r.t. each existing landmark |num landmarks|
+            similarity = torch.matmul(self.norm_dsr[:, -1], self.dsr_memory[-1, idx])  # Compute similarity w.r.t. each existing landmark |num landmarks|
 
             # Candidate landmark under similarity threshold w.r.t. existing landmarks
             if torch.sum(similarity < self.add_threshold) >= self.num_landmarks:
