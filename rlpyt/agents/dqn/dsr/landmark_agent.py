@@ -67,7 +67,7 @@ class LandmarkAgent(FeatureDSRAgent):
     @torch.no_grad()
     def initialize_landmarks(self, train_envs, eval_envs, lines):
         # Create Landmarks object
-        self._landmarks.initialize(train_envs)
+        self._landmarks.initialize(train_envs, self.model.feature_size, self.device)
         self._landmarks.lines = lines
         self.eval_envs = eval_envs 
     
