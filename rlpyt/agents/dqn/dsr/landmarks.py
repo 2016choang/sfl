@@ -277,7 +277,7 @@ class Landmarks(object):
         self.edge_subgoal_transitions = self.edge_subgoal_transitions[:self.num_landmarks, :self.num_landmarks]
     
     def update_memory(self, feature, norm_dsr):
-        self.feature_memory = torch.roll(-1, feature, dims=0)
+        self.feature_memory = torch.roll(self.feature_memory, -1, dims=0)
         self.feature_memory[-1] = feature
         self.dsr_memory = torch.roll(self.dsr_memory, -1, dims=0)
         self.dsr_memory[-1] = norm_dsr
