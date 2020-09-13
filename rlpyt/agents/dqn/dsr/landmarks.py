@@ -49,7 +49,7 @@ class Landmarks(object):
                  affinity_decay=0.9,
                 ):
         save__init__args(locals())
-        self.num_current_landmarks = 0
+        self.current_num_landmarks = 0
         self.num_landmarks = 0
         self.observations = None 
         self.features = None

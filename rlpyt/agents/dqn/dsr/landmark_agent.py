@@ -191,7 +191,7 @@ class LandmarkAgent(FeatureDSRAgent):
     def eval_mode(self, itr, goal_info):
         super().eval_mode(itr)
         self._eval_landmarks = copy.deepcopy(self._landmarks)
-        self._eval_landmarks.initialize(self.eval_envs, 'eval')
+        self._eval_landmarks.initialize(self.eval_envs, self.model.feature_size, self.device, 'eval')
         if self._eval_landmarks:
             obs, pos = goal_info
 
