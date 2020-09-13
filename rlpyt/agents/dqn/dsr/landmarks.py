@@ -293,7 +293,8 @@ class Landmarks(object):
 
     def analyze_current_state(self, features, dsr, position):
         if self.num_landmarks > 0:
-            norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, dim=1, keepdim=True)
+            mean_dsr = dsr.mean(dim=1)
+            norm_dsr = mean_dsr / torch.norm(mean_dsr, p=2, dim=1, keepdim=True)
             self.update_memory(features, norm_dsr)
 
         if self.current_num_landmarks > 0:

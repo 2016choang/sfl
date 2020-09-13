@@ -86,9 +86,10 @@ class LandmarkAgent(FeatureDSRAgent):
                 features = self.landmarks.features[chunk_idxs].reshape(-1, self.model.feature_size)
                 model_inputs = buffer_to(features,
                     device=self.device)
-                dsr = self.model(model_inputs, mode='dsr')
-                dsr = dsr.reshape(original_dsr_shape)
-                self.landmarks.set_dsr(dsr, chunk_idxs)
+                dsr = self.model(model_inputs, mode='dsr').mean(dim=1)
+                norm_dsr = dsr / torch.norm(dsr, p=2, dim=1, keepdim=True)
+                norm_dsr = norm_dsr.reshape(original_dsr_shape)
+                self.landmarks.set_dsr(norm_dsr, chunk_idxs)
 
     @torch.no_grad()
     def update_landmark_graph(self, itr):
