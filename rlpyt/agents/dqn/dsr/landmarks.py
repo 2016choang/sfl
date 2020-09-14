@@ -300,40 +300,36 @@ class Landmarks(object):
             potential_idxs = np.sum(similarity < self.add_threshold, axis=0) >= self.num_landmarks
 
             # Localization
-            # localized_envs = torch.any(similarity >= self.localization_threshold, dim=0).cpu().numpy()  # localized to some landmark
-            # closest_landmarks = torch.argmax(similarity, dim=0).cpu().numpy()  # get landmarks with highest similarity to current state 
-            # closest_landmarks_sim = torch.max(similarity, dim=0)[0].cpu().numpy()
-
-            similarity = np.median(self.similarity_memory, axis=0)
-            localized_envs = (self.memory_length == self.memory_len) & np.any(similarity >= self.localization_threshold, axis=0)  # localized to some landmark
-            closest_landmarks = np.argmax(similarity, axis=0)  # get landmarks with highest similarity to current state 
-            closest_landmarks_sim = np.max(similarity, axis=0)
-
-            self.closest_landmarks[closest_landmarks[localized_envs]] += 1
-            self.closest_landmarks_sim[closest_landmarks[localized_envs]] += closest_landmarks_sim[localized_envs]
-
-            for pos, landmark in zip(position[localized_envs], closest_landmarks[localized_envs]):
-                distance, intersection = self.get_oracle_distance_to_landmarks(pos, [landmark])
-                angle_diff = abs(pos[2] - self.positions[landmark, 2])
-                if not np.any(intersection):
-                    self.dist_at_localization.append(distance[0])
-                    if distance < self.GT_localization_distance_threshold and angle_diff < self.GT_localization_angle_threshold:
-                        self.correct_localizations += 1
-                    # else:
-                    #    self.high_sim_positions = np.append(self.high_sim_positions, np.concatenate([pos, self.positions[landmark]])[np.newaxis], axis=0)
-                else:
-                    self.wall_intersections_at_localization += np.sum(intersection)
-                    self.high_sim_positions = np.append(self.high_sim_positions, np.concatenate([pos, self.positions[landmark]])[np.newaxis], axis=0)
-                    
-                self.angle_diff_at_localization.append(angle_diff)
-
-            self.attempted_localizations += np.sum(localized_envs)
-
             if self.GT_localization:
                 GT_distance = np.column_stack([self.get_oracle_distance_to_landmarks(pos, intersection_penalty=True)[0] for pos in position])  # L x E
                 GT_angle = np.abs(position[np.newaxis, :, 2] - self.positions[:, np.newaxis, 2])  # L x E
                 localized_envs = np.any((GT_distance < self.GT_localization_distance_threshold) & (GT_angle < self.GT_localization_angle_threshold), axis=0)
                 closest_landmarks = np.argmin(GT_distance, axis=0)
+            else:
+                similarity = np.median(self.similarity_memory, axis=0)
+                localized_envs = (self.memory_length == self.memory_len) & np.any(similarity >= self.localization_threshold, axis=0)  # localized to some landmark
+                closest_landmarks = np.argmax(similarity, axis=0)  # get landmarks with highest similarity to current state 
+                closest_landmarks_sim = np.max(similarity, axis=0)
+
+                self.closest_landmarks[closest_landmarks[localized_envs]] += 1
+                self.closest_landmarks_sim[closest_landmarks[localized_envs]] += closest_landmarks_sim[localized_envs]
+
+                for pos, landmark in zip(position[localized_envs], closest_landmarks[localized_envs]):
+                    distance, intersection = self.get_oracle_distance_to_landmarks(pos, [landmark])
+                    angle_diff = abs(pos[2] - self.positions[landmark, 2])
+                    if not np.any(intersection):
+                        self.dist_at_localization.append(distance[0])
+                        if distance < self.GT_localization_distance_threshold and angle_diff < self.GT_localization_angle_threshold:
+                            self.correct_localizations += 1
+                        # else:
+                        #    self.high_sim_positions = np.append(self.high_sim_positions, np.concatenate([pos, self.positions[landmark]])[np.newaxis], axis=0)
+                    else:
+                        self.wall_intersections_at_localization += np.sum(intersection)
+                        self.high_sim_positions = np.append(self.high_sim_positions, np.concatenate([pos, self.positions[landmark]])[np.newaxis], axis=0)
+                        
+                    self.angle_diff_at_localization.append(angle_diff)
+
+                self.attempted_localizations += np.sum(localized_envs)
 
             new_localizations = localized_envs & (self.last_landmarks != closest_landmarks)  # localized to some new landmark
 
