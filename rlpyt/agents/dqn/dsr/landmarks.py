@@ -1047,7 +1047,7 @@ class Landmarks(object):
         # M x L x E
         similarity = np.median(self.similarity_memory[:, current_landmarks, self.landmark_mode], axis=0)
         not_full_memory = self.memory_length[self.landmark_mode] < self.memory_len
-        similarity[not_full_memory] = self.similarity_memory[-1, current_landmarks[not_full_memory], not_full_memory]
+        similarity[not_full_memory] = self.similarity_memory[-1, current_landmarks[not_full_memory], self.landmarks_mode][not_full_memory]
         reached_landmarks = similarity > self.reach_threshold
 
         for pos, landmark in zip(current_position[np.where(self.landmark_mode)[0][reached_landmarks]],
