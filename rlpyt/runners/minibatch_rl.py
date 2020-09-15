@@ -999,16 +999,21 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         average_random_steps = average_random_steps[self.agent.landmarks.edge_random_transitions > 0]
         average_subgoal_steps = self.agent.landmarks.edge_subgoal_steps / np.clip(self.agent.landmarks.edge_subgoal_transitions, 1, None)
         average_subgoal_steps = average_subgoal_steps[self.agent.landmarks.edge_subgoal_transitions > 0]
-        average_subgoal_successes = self.agent.landmarks.edge_subgoal_successes / np.clip(self.agent.landmarks.edge_subgoal_transitions, 1, None)
-        average_subgoal_successes = average_subgoal_successes[self.agent.landmarks.edge_subgoal_transitions > 0]
+        # average_subgoal_successes = self.agent.landmarks.edge_subgoal_successes / np.clip(self.agent.landmarks.edge_subgoal_transitions, 1, None)
+        # average_subgoal_successes = average_subgoal_successes[self.agent.landmarks.edge_subgoal_transitions > 0]
         logger.record_tabular_stat('TransitionRandomSteps',
                                    np.average(average_random_steps), itr)
         logger.record_tabular_stat('TransitionSubgoalSteps',
                                    np.average(average_subgoal_steps), itr)
-        logger.record_tabular_stat('TransitionSubgoalSuccesses',
-                                   np.average(average_subgoal_successes), itr)
+        # logger.record_tabular_stat('transitionsubgoalsuccesses',
+        #                            np.average(average_subgoal_successes), itr)
+        
+        subgoal_failures = self.agent.landmarks.edge_subgoal_failures
+        logger.record_tabular_stat('TransitionSubgoalFailures',
+                                   np.average(subgoal_failures[subgoal_failures > 0]), itr)
+        logger.record_tabular_stat('UniqueSubgoalFailures', np.sum(self.agent.landmarks.edge_subgoal_failures > 0), itr)
 
-        logger.record_tabular_stat('UniqueSubgoalSuccceses', np.sum(self.agent.landmarks.edge_subgoal_successes > 0), itr)
+        # logger.record_tabular_stat('UniqueSubgoalSuccceses', np.sum(self.agent.landmarks.edge_subgoal_successes > 0), itr)
 
         # 3. Statistics related to connected components of graph
         logger.record_tabular_stat('GraphConnectedComponents', np.average(self.agent.landmarks.graph_components), itr)
