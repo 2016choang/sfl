@@ -302,12 +302,12 @@ class Landmarks(object):
             potential_idxs = np.sum(similarity < self.add_threshold, axis=0) >= self.num_landmarks
 
             # Localization
-            similarity = np.median(self.similarity_memory, axis=0)
+            self.current_similarity = np.median(self.similarity_memory, axis=0)
             not_full_memory = np.broadcast_to(self.memory_length < self.memory_len, similarity.shape)
-            similarity[not_full_memory] = self.similarity_memory[-1][not_full_memory]
-            localized_envs = np.any(similarity >= self.localization_threshold, axis=0)  # localized to some landmark
-            closest_landmarks = np.argmax(similarity, axis=0)  # get landmarks with highest similarity to current state 
-            closest_landmarks_sim = np.max(similarity, axis=0)
+            self.current_similarity[not_full_memory] = self.similarity_memory[-1][not_full_memory]
+            localized_envs = np.any(self.current_similarity >= self.localization_threshold, axis=0)  # localized to some landmark
+            closest_landmarks = np.argmax(self.current_similarity, axis=0)  # get landmarks with highest similarity to current state 
+            closest_landmarks_sim = np.max(self.current_similarity, axis=0)
 
             self.closest_landmarks[closest_landmarks[localized_envs]] += 1
             self.closest_landmarks_sim[closest_landmarks[localized_envs]] += closest_landmarks_sim[localized_envs]
@@ -906,14 +906,10 @@ class Landmarks(object):
         if not np.any(set_paths_idxs):
             return
         
-        norm_dsr = dsr[set_paths_idxs]
         selected_position = position[set_paths_idxs]
 
-        norm_dsr = norm_dsr.mean(dim=1) / torch.norm(norm_dsr.mean(dim=1), p=2, dim=1, keepdim=True)
-        landmark_similarity = torch.matmul(self.norm_dsr, norm_dsr.T)
-
         # Select start landmarks based on SF similarity w.r.t. current observations
-        start_landmarks = landmark_similarity.argmax(axis=0).cpu().detach().numpy()
+        start_landmarks = np.argmax(self.current_similarity, axis=0)[set_paths_idxs]
         if relocalize_idxs is None:
             if self.mode == 'eval':
                 # Goal landmark is set as the last landmark to be added
@@ -925,16 +921,15 @@ class Landmarks(object):
         else:
             prev_start_landmarks = self.paths[relocalize_idxs, 0]
             goal_landmarks = self.paths[relocalize_idxs, self.path_lengths[relocalize_idxs] - 1]
-            for idx in np.arange(self.num_envs)[relocalize_idxs]:
+            for loop_idx, idx in enumerate(np.arange(self.num_envs)[relocalize_idxs]):
                 current_idx = self.path_idxs[idx]
                 if current_idx >= 2:
-                    import pdb; pdb.set_trace()
                     from_landmark = self.paths[idx, current_idx - 2]
                     to_landmark = self.paths[idx, current_idx - 1]
                     edge_data = self.graph[from_landmark][to_landmark]
                     self.graph.remove_edge(from_landmark, to_landmark)
-                    if not nx.has_path(self.graph, start_landmarks[idx], goal_landmarks[idx]):
-                        self.graph.add_edge(from_landmark, to_landmark, edge_data)
+                    if not nx.has_path(self.graph, start_landmarks[loop_idx], goal_landmarks[loop_idx]):
+                        self.graph.add_edge(from_landmark, to_landmark, **edge_data)
                     self.edge_subgoal_failures[from_landmark, to_landmark] += 1
 
             self.current_landmark_steps[relocalize_idxs] = 0
@@ -982,11 +977,11 @@ class Landmarks(object):
                         
             else:
                 goal_landmark = goal_landmarks[i]
-                if self.mode == 'eval':
-                    if not nx.has_path(self.graph, start_landmark, goal_landmark):
-                        self.landmark_mode[enter_idx] = False
-                        continue
-                    else:
+                if not nx.has_path(self.graph, start_landmark, goal_landmark):
+                    self.landmark_mode[enter_idx] = False
+                    continue
+                else:
+                    if self.mode == 'eval':
                         self.found_eval_path = True
 
             path = self.generate_path(start_landmark, goal_landmark)
