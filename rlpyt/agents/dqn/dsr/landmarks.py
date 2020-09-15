@@ -928,6 +928,7 @@ class Landmarks(object):
             for idx in np.arange(self.num_envs)[relocalize_idxs]:
                 current_idx = self.path_idxs[idx]
                 if current_idx >= 2:
+                    import pdb; pdb.set_trace()
                     from_landmark = self.paths[idx, current_idx - 2]
                     to_landmark = self.paths[idx, current_idx - 1]
                     edge_data = self.graph[from_landmark][to_landmark]
@@ -938,7 +939,7 @@ class Landmarks(object):
 
             self.current_landmark_steps[relocalize_idxs] = 0
             self.paths[relocalize_idxs, :] = -1
-            self.path_idxs[relocalize_idxs, :] = 0
+            self.path_idxs[relocalize_idxs] = 0
 
         enter_idxs = np.arange(self.num_envs)[set_paths_idxs]
 
