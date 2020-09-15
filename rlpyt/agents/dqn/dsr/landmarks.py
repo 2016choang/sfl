@@ -945,8 +945,6 @@ class Landmarks(object):
             inverse_visitations = 1. / visitations
 
         for i, enter_idx, start_pos, start_landmark in zip(range(len(enter_idxs)), enter_idxs, selected_position, start_landmarks):
-            if relocalize_idxs is not None and start_landmark == prev_start_landmarks[i]:
-                continue
 
             self.start_positions[enter_idx] = start_pos
             cur_x, cur_y, cur_angle = start_pos
@@ -1067,13 +1065,6 @@ class Landmarks(object):
         else:
             steps_limit_reached = False
 
-        # Relocalize agent which has failed to reach current landmark in steps_per_landmark
-        reached_within_steps = self.current_landmark_steps[self.landmark_mode] < self.steps_per_landmark
-        relocalize_idxs = self.landmark_mode.copy()
-        reached_within_steps = self.current_landmark_steps[self.landmark_mode] < self.steps_per_landmark
-        relocalize_idxs[self.landmark_mode] &= ~reached_landmarks & ~reached_within_steps
-        self.set_paths(current_dsr, current_position, relocalize_idxs)
-
         # If reached (not goal) landmark, move to next landmark
         reached_non_goal_landmarks = reached_landmarks & ~final_goal_landmarks
         reached_non_goal_landmarks_mask = np.where(self.landmark_mode)[0][reached_non_goal_landmarks]
@@ -1098,6 +1089,12 @@ class Landmarks(object):
 
         exit_landmark_mode = np.where(self.landmark_mode)[0][reached_goal_landmarks | steps_limit_reached]
         self.landmark_mode[exit_landmark_mode] = False
+
+        # Relocalize agent which has failed to reach current landmark in steps_per_landmark
+        relocalize_idxs = self.landmark_mode.copy()
+        reached_within_steps = self.current_landmark_steps[self.landmark_mode] < self.steps_per_landmark
+        relocalize_idxs[self.landmark_mode] &= ~reached_landmarks & ~reached_within_steps
+        self.set_paths(current_dsr, current_position, relocalize_idxs)
 
         # Increment landmark step counter
         self.landmark_steps[self.landmark_mode] += 1
