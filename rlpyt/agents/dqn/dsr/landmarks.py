@@ -36,6 +36,7 @@ class Landmarks(object):
                  max_attempt_threshold=1,
                  attempt_percentile_threshold=5,
                  sim_percentile_threshold=None,
+                 random_transitions_percentile=50,
                  GT_localization=False,
                  GT_localization_distance_threshold=50,
                  GT_localization_angle_threshold=30,
@@ -600,7 +601,7 @@ class Landmarks(object):
                 raise RuntimeError('Graph should be complete and therefore, strongly connected')
             return self.graph
         else:
-            temporally_nearby_threshold = np.max(self.num_landmarks // 10, 10)
+            temporally_nearby_threshold = max(self.num_landmarks // 10, 10)
             if self.use_digraph:
                 random_steps = self.edge_random_steps
                 random_transitions = self.edge_random_transitions
@@ -628,12 +629,15 @@ class Landmarks(object):
             # true_edges = ((average_random_steps < self.random_true_edges_threshold) & (random_transitions > 0)) | \
             #     ((average_subgoal_steps < self.subgoal_true_edges_threshold) & (subgoal_transitions > 0))
 
-            random_num_transitions_threshold = np.percentile(random_transitions[random_transitions > 0], self.random_num_transitions_percentile)
+            if np.any(random_transitions > 0):
+                random_transitions_threshold = np.percentile(random_transitions[random_transitions > 0], self.random_transitions_percentile)
+            else:
+                random_transitions_threshold = 0
 
-            if random_num_transitions_threshold == 0:
+            if random_transitions_threshold == 0:
                 true_edges = random_transitions > 0
             else:
-                true_edges = random_transitions >= random_num_transitions_threshold
+                true_edges = random_transitions >= random_transitions_threshold
             
             true_edges = temporally_nearby_landmarks & true_edges
 
