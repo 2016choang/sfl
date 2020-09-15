@@ -302,8 +302,8 @@ class Landmarks(object):
 
             # Localization
             similarity = np.median(self.similarity_memory, axis=0)
-            not_full_memory = self.memory_length < self.memory_len
-            similarity[:, not_full_memory] = self.similarity_memory[-1, :, not_full_memory]
+            not_full_memory = np.broadcast_to(self.memory_length < self.memory_len, similarity.shape)
+            similarity[not_full_memory] = self.similarity_memory[-1][not_full_memory]
             localized_envs = np.any(similarity >= self.localization_threshold, axis=0)  # localized to some landmark
             closest_landmarks = np.argmax(similarity, axis=0)  # get landmarks with highest similarity to current state 
             closest_landmarks_sim = np.max(similarity, axis=0)
