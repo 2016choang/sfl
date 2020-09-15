@@ -1008,6 +1008,8 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         logger.record_tabular_stat('TransitionSubgoalSuccesses',
                                    np.average(average_subgoal_successes), itr)
 
+        logger.record_tabular_stat('UniqueSubgoalSuccceses', np.sum(self.agent.landmarks.edge_subgoal_successes > 0), itr)
+
         # 3. Statistics related to connected components of graph
         logger.record_tabular_stat('GraphConnectedComponents', np.average(self.agent.landmarks.graph_components), itr)
         logger.record_tabular_stat('GraphSizeLargestComponent',

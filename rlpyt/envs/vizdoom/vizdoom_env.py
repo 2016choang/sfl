@@ -81,6 +81,7 @@ class VizDoomEnv(Env):
         self._obs = np.zeros(shape=obs_shape, dtype="uint8")
 
         self.game.new_episode()
+        self.remove_objects()
         self.set_start_state(start_position)
         self.set_goal_state(goal_position)
 
@@ -103,6 +104,11 @@ class VizDoomEnv(Env):
             self.generate_full_episode()
         else:
             self.generate_samples()
+    
+    def remove_objects(self):
+        for obj in self.game.get_state().objects:
+            if obj.name != 'DoomPlayer':
+                self.game.send_game_command('remove {}'.format(obj.name))
 
     def generate_full_episode(self):
         self.reset()
@@ -166,6 +172,7 @@ class VizDoomEnv(Env):
             self.game.new_episode(self.current_record_file)
         else:
             self.game.new_episode()
+        self.remove_objects()
         if self.start_position is not None:
             self.get_obs_at(self.start_position)
         self.state = self.game.get_state()

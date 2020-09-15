@@ -300,36 +300,37 @@ class Landmarks(object):
             potential_idxs = np.sum(similarity < self.add_threshold, axis=0) >= self.num_landmarks
 
             # Localization
+            similarity = np.median(self.similarity_memory, axis=0)
+            similarity[self.memory_length < self.memory_len] = self.similarity_memory[-1]
+            localized_envs = np.any(similarity >= self.localization_threshold, axis=0)  # localized to some landmark
+            closest_landmarks = np.argmax(similarity, axis=0)  # get landmarks with highest similarity to current state 
+            closest_landmarks_sim = np.max(similarity, axis=0)
+
+            self.closest_landmarks[closest_landmarks[localized_envs]] += 1
+            self.closest_landmarks_sim[closest_landmarks[localized_envs]] += closest_landmarks_sim[localized_envs]
+
+            for pos, landmark in zip(position[localized_envs], closest_landmarks[localized_envs]):
+                distance, intersection = self.get_oracle_distance_to_landmarks(pos, [landmark])
+                angle_diff = abs(pos[2] - self.positions[landmark, 2])
+                if not np.any(intersection):
+                    self.dist_at_localization.append(distance[0])
+                    if distance < self.GT_localization_distance_threshold and angle_diff < self.GT_localization_angle_threshold:
+                        self.correct_localizations += 1
+                    # else:
+                    #    self.high_sim_positions = np.append(self.high_sim_positions, np.concatenate([pos, self.positions[landmark]])[np.newaxis], axis=0)
+                else:
+                    self.wall_intersections_at_localization += np.sum(intersection)
+                    self.high_sim_positions = np.append(self.high_sim_positions, np.concatenate([pos, self.positions[landmark]])[np.newaxis], axis=0)
+                    
+                self.angle_diff_at_localization.append(angle_diff)
+
+            self.attempted_localizations += np.sum(localized_envs)
+            
             if self.GT_localization:
                 GT_distance = np.column_stack([self.get_oracle_distance_to_landmarks(pos, intersection_penalty=True)[0] for pos in position])  # L x E
                 GT_angle = np.abs(position[np.newaxis, :, 2] - self.positions[:, np.newaxis, 2])  # L x E
                 localized_envs = np.any((GT_distance < self.GT_localization_distance_threshold) & (GT_angle < self.GT_localization_angle_threshold), axis=0)
                 closest_landmarks = np.argmin(GT_distance, axis=0)
-            else:
-                similarity = np.median(self.similarity_memory, axis=0)
-                localized_envs = (self.memory_length == self.memory_len) & np.any(similarity >= self.localization_threshold, axis=0)  # localized to some landmark
-                closest_landmarks = np.argmax(similarity, axis=0)  # get landmarks with highest similarity to current state 
-                closest_landmarks_sim = np.max(similarity, axis=0)
-
-                self.closest_landmarks[closest_landmarks[localized_envs]] += 1
-                self.closest_landmarks_sim[closest_landmarks[localized_envs]] += closest_landmarks_sim[localized_envs]
-
-                for pos, landmark in zip(position[localized_envs], closest_landmarks[localized_envs]):
-                    distance, intersection = self.get_oracle_distance_to_landmarks(pos, [landmark])
-                    angle_diff = abs(pos[2] - self.positions[landmark, 2])
-                    if not np.any(intersection):
-                        self.dist_at_localization.append(distance[0])
-                        if distance < self.GT_localization_distance_threshold and angle_diff < self.GT_localization_angle_threshold:
-                            self.correct_localizations += 1
-                        # else:
-                        #    self.high_sim_positions = np.append(self.high_sim_positions, np.concatenate([pos, self.positions[landmark]])[np.newaxis], axis=0)
-                    else:
-                        self.wall_intersections_at_localization += np.sum(intersection)
-                        self.high_sim_positions = np.append(self.high_sim_positions, np.concatenate([pos, self.positions[landmark]])[np.newaxis], axis=0)
-                        
-                    self.angle_diff_at_localization.append(angle_diff)
-
-                self.attempted_localizations += np.sum(localized_envs)
 
             new_localizations = localized_envs & (self.last_landmarks != closest_landmarks)  # localized to some new landmark
 
@@ -351,7 +352,7 @@ class Landmarks(object):
             self.edge_random_transitions[transition_last_landmarks, transition_next_landmarks] += (random_transitions)
 
             self.edge_subgoal_steps[transition_last_landmarks, transition_next_landmarks] += (subgoal_steps * ~random_transitions)
-            self.edge_subgoal_successes[transition_last_landmarks, transition_next_landmarks] += (~random_transitions & (subgoal_steps < self.subgoal_success_threshold))
+            # self.edge_subgoal_successes[transition_last_landmarks, transition_next_landmarks] += (~random_transitions & (subgoal_steps < self.subgoal_success_threshold))
 
             self.edge_subgoal_transitions[transition_last_landmarks, transition_next_landmarks] += (~random_transitions)
             
@@ -599,6 +600,7 @@ class Landmarks(object):
                 raise RuntimeError('Graph should be complete and therefore, strongly connected')
             return self.graph
         else:
+            temporally_nearby_threshold = np.max(self.num_landmarks // 10, 10)
             if self.use_digraph:
                 random_steps = self.edge_random_steps
                 random_transitions = self.edge_random_transitions
@@ -606,6 +608,9 @@ class Landmarks(object):
                 subgoal_steps = self.edge_subgoal_steps
                 subgoal_successes = self.edge_subgoal_successes
                 subgoal_transitions = self.edge_subgoal_transitions
+
+                temporally_nearby_landmarks = np.tril(np.triu(np.ones((self.num_landmarks), dtype=bool), 1), temporally_nearby_threshold) 
+                temporally_nearby_landmarks += temporally_nearby_landmarks.T
 
             else:
                 random_steps = self.edge_random_steps + np.tril(self.edge_random_steps, -1).T
@@ -615,28 +620,40 @@ class Landmarks(object):
                 subgoal_successes = self.edge_subgoal_successes + np.tril(self.edge_subgoal_successes, -1).T
                 subgoal_transitions = self.edge_subgoal_transitions + np.tril(self.edge_subgoal_transitions, -1).T
 
+                temporally_nearby_landmarks = np.tril(np.triu(np.ones((self.num_landmarks), dtype=bool), 1), temporally_nearby_threshold) 
+
             average_random_steps = random_steps / np.clip(random_transitions, 1, None)
             average_subgoal_steps = subgoal_steps / np.clip(subgoal_transitions, 1, None)
 
-            true_edges = ((average_random_steps < self.random_true_edges_threshold) & (random_transitions > 0)) | \
-                ((average_subgoal_steps < self.subgoal_true_edges_threshold) & (subgoal_transitions > 0))
+            # true_edges = ((average_random_steps < self.random_true_edges_threshold) & (random_transitions > 0)) | \
+            #     ((average_subgoal_steps < self.subgoal_true_edges_threshold) & (subgoal_transitions > 0))
+
+            random_num_transitions_threshold = np.percentile(random_transitions[random_transitions > 0], self.random_num_transitions_percentile)
+
+            if random_num_transitions_threshold == 0:
+                true_edges = random_transitions > 0
+            else:
+                true_edges = random_transitions >= random_num_transitions_threshold
             
+            true_edges = temporally_nearby_landmarks & true_edges
+
             if self.subgoal_success_true_edges_threshold != -1:
-                percentage_subgoal_successes = subgoal_successes / np.clip(subgoal_transitions, 1, None)
-                true_edges |= (percentage_subgoal_successes > self.subgoal_success_true_edges_threshold)
+                true_edges = (subgoal_successes > 0) | true_edges
             
             if self.SF_similarity_true_edges_threshold != -1:
                 SF_similarity = torch.matmul(self.norm_dsr, self.norm_dsr.T).cpu().numpy()
                 true_edges &= (SF_similarity > self.SF_similarity_true_edges_threshold)
 
-
             # feature_similarity = torch.clamp(torch.matmul(self.norm_dsr, self.norm_dsr.T), min=1e-3, max=1.0).detach().cpu().numpy()
             # true_edges &= (feature_similarity > self.graph_feature_similarity_threshold)
 
             if self.use_weighted_edges:
-                edge_weights = true_edges * ((0.5 * average_random_steps + average_subgoal_steps) / np.clip(0.5 * (random_transitions > 0) + (subgoal_transitions > 0), 1, None))
+                edge_weights = temporally_nearby_landmarks * true_edges * (np.exp(-1 * random_transitions))
                 if self.subgoal_success_true_edges_threshold != -1:
-                    edge_weights[(percentage_subgoal_successes <= self.subgoal_success_true_edges_threshold) & (true_edges)] += (edge_weights.max() * self.max_landmarks)
+                    edge_weights[subgoal_successes <= self.subgoal_success_true_edges_threshold] += self.max_landmarks
+                # edge_weights = true_edges * ((0.5 * average_random_steps + average_subgoal_steps) / np.clip(0.5 * (random_transitions > 0) + (subgoal_transitions > 0), 1, None))
+                # if self.subgoal_success_true_edges_threshold != -1:
+                #     edge_weights[(percentage_subgoal_successes <= self.subgoal_success_true_edges_threshold) & (true_edges)] += (edge_weights.max() * self.max_landmarks)
             else:
                 edge_weights = true_edges
 
@@ -1024,7 +1041,8 @@ class Landmarks(object):
 
         # M x L x E
         similarity = np.median(self.similarity_memory[:, current_landmarks, self.landmark_mode], axis=0)
-        reached_landmarks = (self.memory_length[self.landmark_mode] == self.memory_len) & (similarity > self.reach_threshold)
+        similarity[self.memory_length[self.landmark_mode] < self.memory_len] = self.similarity_memory[-1, current_landmarks, self.landmark_mode]
+        reached_landmarks = similarity > self.reach_threshold
 
         for pos, landmark in zip(current_position[np.where(self.landmark_mode)[0][reached_landmarks]],
                                  current_landmarks[reached_landmarks]):
@@ -1045,6 +1063,14 @@ class Landmarks(object):
                 for pos, current_landmark in zip(current_position[self.landmark_mode], current_landmarks)])
             GT_angle = np.abs(current_position[self.landmark_mode, 2] - self.positions[current_landmarks, 2])
             reached_landmarks = (GT_distance < self.GT_termination_distance_threshold) & (GT_angle < self.GT_termination_angle_threshold)
+
+
+        reached_within_steps = (self.current_landmark_steps[self.landmark_mode] < self.steps_per_landmark) & reached_landmarks
+        for path, current_reached_idx in zip(self.paths[np.where(self.landmark_mode)[0][reached_within_steps]], current_idxs[reached_within_steps]):
+            if current_reached_idx >= 2:
+                from_landmark = path[current_reached_idx - 2]
+                to_landmark = path[current_reached_idx - 1]
+                self.edge_subgoal_successes[from_landmark, to_landmark] += 1
 
         if self.mode == 'eval':
             reached_landmarks[final_goal_landmarks] = False
