@@ -295,16 +295,17 @@ class Landmarks(object):
             norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, dim=1, keepdim=True)
             similarity = torch.matmul(self.norm_dsr, norm_dsr.T).cpu().numpy()
             self.update_similarity_memory(similarity)
+
+            # Localization
+            self.current_similarity = np.median(self.similarity_memory, axis=0)
+            not_full_memory = np.broadcast_to(self.memory_length < self.memory_len, similarity.shape)
+            self.current_similarity[not_full_memory] = self.similarity_memory[-1][not_full_memory]
             if self.mode == 'eval':
                 return
 
             # Potential landmarks under similarity threshold w.r.t. existing landmarks
             potential_idxs = np.sum(similarity < self.add_threshold, axis=0) >= self.num_landmarks
 
-            # Localization
-            self.current_similarity = np.median(self.similarity_memory, axis=0)
-            not_full_memory = np.broadcast_to(self.memory_length < self.memory_len, similarity.shape)
-            self.current_similarity[not_full_memory] = self.similarity_memory[-1][not_full_memory]
             localized_envs = np.any(self.current_similarity >= self.localization_threshold, axis=0)  # localized to some landmark
             closest_landmarks = np.argmax(self.current_similarity, axis=0)  # get landmarks with highest similarity to current state 
             closest_landmarks_sim = np.max(self.current_similarity, axis=0)
