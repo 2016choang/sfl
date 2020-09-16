@@ -1011,8 +1011,7 @@ class Landmarks(object):
             else:
                 goal_landmark = goal_landmarks[i]
                 if not nx.has_path(self.graph, start_landmark, goal_landmark):
-                    self.landmark_mode[enter_idx] = False
-                    continue
+                    start_landmark = goal_landmark
                 else:
                     if self.mode == 'eval':
                         self.found_eval_path = True
