@@ -768,7 +768,7 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
             try:
                 setting_names = [setting[0] for setting in self.sampler.eval_collector.eval_settings]
                 for setting_name in setting_names:
-                    for k in traj_infos[0][0]:
+                    for k in traj_infos[0][1]:
                         if not k.startswith("_"):
                             logger.record_tabular_misc_stat('{}{}'.format(setting_name, k),
                                 [info[k] for name, info in traj_infos if name == setting_name], itr)
@@ -802,7 +802,7 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         logger.record_tabular('TrajsInEval', len(eval_traj_infos))
         self._cum_eval_time += eval_time
         logger.record_tabular_stat('CumEvalTime', self._cum_eval_time, itr)
-        MinibatchRlBase.log_diagnostics(itr, eval_traj_infos, eval_time)
+        MinibatchRlBase.log_diagnostics(self, itr, eval_traj_infos, eval_time)
         env = self.sampler.collector.envs[0]
         state_entropy = entropy(env.visited.flatten(), base=2)
         if not np.isnan(state_entropy):
