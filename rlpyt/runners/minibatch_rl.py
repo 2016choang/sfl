@@ -791,8 +791,17 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         return traj_infos, eval_time
 
     def log_diagnostics(self, itr, eval_traj_infos, eval_time):
-        super().log_diagnostics(itr, eval_traj_infos, eval_time)
+        if not eval_traj_infos:
+            logger.log("WARNING: had no complete trajectories in eval.")
+        steps_in_eval = sum([info["Length"] for name, info in eval_traj_infos])
+        logger.record_tabular('StepsInEval', steps_in_eval)
+        logger.record_tabular('TrajsInEval', len(eval_traj_infos))
+        self._cum_eval_time += eval_time
+        logger.record_tabular_stat('CumEvalTime', self._cum_eval_time, itr)
         env = self.sampler.collector.envs[0]
+        state_entropy = entropy(env.visited.flatten(), base=2)
+        if not np.isnan(state_entropy):
+            logger.record_tabular_stat('Entropy', state_entropy, itr)
         state_entropy = entropy(env.visited_interval.flatten(), base=2)
         if not np.isnan(state_entropy):
             logger.record_tabular_stat('Interval Entropy', state_entropy, itr)
