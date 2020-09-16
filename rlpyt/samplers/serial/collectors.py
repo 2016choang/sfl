@@ -196,7 +196,6 @@ class SerialVizdoomEvalCollector(BaseEvalCollector):
                     traj_infos[b] = self.TrajInfoCls()
                     o = env.reset()
                     self.env_positions[b] = env.agent_pos
-                if d:
                     action[b] = 0  # Prev_action for next step.
                     r = 0
                     self.agent.reset_one(idx=b)

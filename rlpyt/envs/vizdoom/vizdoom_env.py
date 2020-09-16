@@ -345,7 +345,8 @@ class VizDoomEnv(Env):
         
         if objects:
             plt.plot(*self.start_info[1][:2], color='red', marker='D')
-            plt.plot(*self.goal_info[1][:2], color='green', marker='D')
+            if self.goal_info:
+                plt.plot(*self.goal_info[1][:2], color='green', marker='D')
         
         for s in state.sectors:
             # Plot sector on map
