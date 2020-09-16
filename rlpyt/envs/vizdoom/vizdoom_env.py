@@ -178,8 +178,8 @@ class VizDoomEnv(Env):
         else:
             self.game.new_episode()
         self.remove_objects()
-        if self.random_start:
-            self.get_obs_at(self.start_position)
+        if not self.random_start:
+            self.teleport(self.start_position)
         self.state = self.game.get_state()
         self.current_steps = 0
 
