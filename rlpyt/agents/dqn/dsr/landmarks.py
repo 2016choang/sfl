@@ -81,11 +81,8 @@ class Landmarks(object):
         self.potential_landmark_adds = 0
         self._active = False
 
-        # self.current_edge_threshold = self.sim_threshold if self.sim_threshold is not None else sim_percentile_threshold
         self.current_sim_threshold = 0
         self.consecutive_graph_generation_successes = 0
-
-        self.oracle_distance_matrix = None
 
         # DEBUGGING METRICS
         self.closest_landmarks = np.zeros(self.max_landmarks)
@@ -119,7 +116,7 @@ class Landmarks(object):
             self.similarity_memory = np.full((self.memory_len, self.num_landmarks, self.num_envs), 0, dtype=float)
         else:
             self.similarity_memory = None
-        self.memory_length = np.full(self.num_envs, 0, dtype=int)e
+        self.memory_length = np.full(self.num_envs, 0, dtype=int)
 
         self.reset_logging()
     
@@ -214,6 +211,8 @@ class Landmarks(object):
         self.closest_landmarks = landmarks['closest_landmarks']
         self.closest_landmarks_sim = landmarks['closest_landmarks_sim']
         self.high_sim_positions = landmarks['high_sim_positions']
+
+        self.generate_graph()
 
     def save(self, filename):
         # Save landmarks data to a file
