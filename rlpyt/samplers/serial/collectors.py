@@ -157,7 +157,7 @@ class SerialVizdoomEvalCollector(BaseEvalCollector):
             env.name = name
             goal_state = env.sample_state_from_point(goal_distance_range)
             env.set_goal_state(goal_state)
-            self.agent.update_eval_goal(goal_state)
+            self.agent.update_eval_goal(env.goal_info)
             env.step_budget = step_budget
             observations.append(env.reset())
             self.env_positions[b] = env.agent_pos
@@ -192,7 +192,7 @@ class SerialVizdoomEvalCollector(BaseEvalCollector):
                     env.name = name
                     goal_state = env.sample_state_from_point(goal_distance_range)
                     env.set_goal_state(goal_state)
-                    self.agent.update_eval_goal(goal_state)
+                    self.agent.update_eval_goal(env.goal_info)
                     env.step_budget = step_budget
                     traj_infos[b] = self.TrajInfoCls()
                     o = env.reset()
