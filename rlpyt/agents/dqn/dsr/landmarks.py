@@ -17,6 +17,7 @@ def euclidean_distance(first_point, second_point):
 class Landmarks(object):
 
     def __init__(self,
+
                  max_landmarks=20,
                  add_threshold=0.75,
                  top_k_similar=None,
@@ -186,6 +187,29 @@ class Landmarks(object):
         self.goal_landmark_dist_completed = []
 
         self.high_sim_positions = np.zeros((1, 6))
+    
+    def load(self, filename, device):
+        landmarks = np.load(filename)
+
+        self.positions = landmarks['positions']
+        self.num_landmarks = len(self.positions)
+        if self.num_landmarks > 0:
+            self.activate()
+
+        dsr = torch.from_numpy(landmarks['dsr']).to(device)
+        self.set_dsr(dsr)
+        features = torch.from_numpy(landmarks['features']).to(device)
+        self.set_features(features)
+
+        self.edge_random_steps = landmarks['edge_random_steps']
+        self.edge_random_transitions = landmarks['edge_random_transitions']
+        self.edge_subgoal_steps = landmarks['edge_subgoal_steps']
+        self.edge_subgoal_failures = landmarks['edge_subgoal_failures']
+        self.edge_subgoal_transitions = landmarks['edge_subgoal_transitions']
+
+        self.closest_landmarks = landmarks['closest_landmarks']
+        self.closest_landmarks_sim = landmarks['closest_landmarks_sim']
+        self.high_sim_positions = landmarks['high_sim_positions']
 
     def save(self, filename):
         # Save landmarks data to a file
@@ -537,9 +561,10 @@ class Landmarks(object):
             self.features = torch.cat((self.features, features), dim=0)
             self.norm_features = torch.cat((self.norm_features, norm_features), dim=0)
 
-    def set_dsr(self, dsr, idx=None):
+    def set_dsr(self, dsr, idx=None, take_mean=True):
         # Set/add DSR of new landmark at idx 
-        dsr = dsr.mean(dim=1)
+        if take_mean:
+            dsr = dsr.mean(dim=1)
         norm_dsr = dsr / torch.norm(dsr, p=2, dim=1, keepdim=True)
         if self.dsr is None or idx is None:
             self.dsr = dsr

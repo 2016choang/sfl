@@ -32,7 +32,7 @@ class VizDoomEnv(Env):
     def __init__(self,
                  config,
                  seed,
-                 goal_position,
+                 goal_position=None,
                  goal_close_terminate=False,
                  start_position=None,
                  grayscale=True,
@@ -83,6 +83,7 @@ class VizDoomEnv(Env):
         self.game.new_episode()
         self.remove_objects()
         self.set_start_state(start_position)
+        self.random_goal = (goal_position is None)
         self.set_goal_state(goal_position)
 
         state = self.game.get_state()
@@ -104,6 +105,9 @@ class VizDoomEnv(Env):
             self.generate_full_episode()
         else:
             self.generate_samples()
+
+        self.name = ''
+        self.step_budget = None
     
     def remove_objects(self):
         for obj in self.game.get_state().objects:
@@ -176,6 +180,7 @@ class VizDoomEnv(Env):
         if self.start_position is not None:
             self.get_obs_at(self.start_position)
         self.state = self.game.get_state()
+        self.current_steps = 0
 
         x, y = self.state.game_variables[:2]
         x = int(round(x - self.min_x)) // self.bin_size
@@ -194,20 +199,23 @@ class VizDoomEnv(Env):
         else:
             a = self._action_set[action]
             reward = self.game.make_action(a, self.frame_skip)
+        self.current_steps += 1
         done = self.game.is_episode_finished()
 
-        if reward < 0.1:
-            reward = 0
-
+        reward = 0
         reached_goal = False
 
         if not done:
             self.state = self.game.get_state()
             new_obs = self.state.screen_buffer
             x, y, theta = self.state.game_variables
-            reached_goal = check_if_close(np.array([x, y]), self.goal_info[1][:2])
-            if self.goal_close_terminate:
-                done = reached_goal
+            if self.goal_info:
+                reached_goal = check_if_close(np.array([x, y]), self.goal_info[1][:2])
+            if self.goal_close_terminate and reached_goal:
+                done = True
+                reward = 1
+            if self.current_steps >= self.step_budget:
+                done = True
             visited_x = int(round(x - self.min_x)) // self.bin_size
             visited_y = int(round(y - self.min_y)) // self.bin_size
             self.visited_interval[visited_x, visited_y] += 1
@@ -244,8 +252,30 @@ class VizDoomEnv(Env):
     def set_start_state(self, position):
         self._start_info = self.get_obs_at(position, idx=self.num_img_obs - 1)
     
+    def sample_state_from_point(self, dist_range, ref_point=None):
+        if ref_point is None:
+            ref_point = self._start_info[1][:2]
+        while True:
+            dist = np.random.uniform(*dist_range)
+            theta = np.random.uniform(0.0, 360.0)
+            radians = math.radians(theta)
+            x_delta = dist * math.cos(radians)
+            y_delta = dist * math.sin(radians)
+
+            sampled_x = ref_point[0] + x_delta
+            sampled_y = ref_point[1] + y_delta
+
+            sampled_view = np.random.uniform(0.0, 360.0)
+
+            if self.min_x < sampled_x and sampled_x < self.max_x and \
+                self.min_y < sampled_y and sampled_y < self.max_y:
+                return np.array([sampled_x, sampled_y, sampled_view])
+    
     def set_goal_state(self, position):
-        self._goal_info = self.get_obs_at(position, idx=0)
+        if position is not None:
+            self._goal_info = self.get_obs_at(position, idx=0)
+        else:
+            self._goal_info = None
 
     ###########################################################################
     # Helpers
