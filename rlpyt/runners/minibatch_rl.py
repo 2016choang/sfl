@@ -968,6 +968,19 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
                 save_image('Eval path to goal', itr)
                 plt.close()
 
+                # Agent's end position after executing landmark mode
+                figure = plt.figure(figsize=self.figsize)
+                eval_env.reset()
+                eval_env.plot_topdown()
+                eval_trajectory = self.sampler.eval_collector.eval_trajectories[eval_env_index]
+                plt.scatter(eval_trajectory[:, 0], eval_trajectory[:, 1], c=range(len(eval_trajectory)))
+                for pos, landmark in self.agent.landmarks.eval_end_pos.items():
+                    plt.text(pos[0] - 0.25, pos[1] + 0.25, str(landmark), fontsize=10)
+                    plt.scatter(pos[0], pos[1], marker='d', c='red')
+                plt.colorbar()
+                save_image('Eval end positions', itr)
+                plt.close()
+
             # # State visitation heatmap in evaluation mode
             # figure = plt.figure(figsize=(7, 7))
             # plt.imshow(eval_env.visited_interval.T, origin='lower')
@@ -976,20 +989,6 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
             # plt.close()
 
             eval_env.reset_logging()
-
-            # Agent's end position after executing landmark mode
-            figure = plt.figure(figsize=self.figsize)
-            eval_env.reset()
-            eval_env.plot_topdown()
-            eval_trajectory = self.sampler.eval_collector.eval_trajectories[eval_env_index]
-            plt.scatter(eval_trajectory[:, 0], eval_trajectory[:, 1], c=range(len(eval_trajectory)))
-            for pos, landmark in self.agent.landmarks.eval_end_pos.items():
-                plt.text(pos[0] - 0.25, pos[1] + 0.25, str(landmark), fontsize=10)
-                plt.scatter(pos[0], pos[1], marker='d', c='red')
-            plt.colorbar()
-            save_image('Eval end positions', itr)
-            plt.close()
-
 
     @torch.no_grad()
     def log_landmarks(self, itr):

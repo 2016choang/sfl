@@ -35,7 +35,7 @@ class LandmarkAgent(FeatureDSRAgent):
         local_args.pop('landmarks')
         save__init__args(local_args)
         self.landmark_mode_steps = 0
-        self.reached_goal = False
+        self.reached_goal = True # False
         super().__init__(**kwargs)
     
     def initialize(self, env_spaces, share_memory=False,
