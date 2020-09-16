@@ -765,11 +765,15 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         if traj_infos is None:
             traj_infos = self._traj_infos
         if traj_infos:
-            import pdb; pdb.set_trace()
-            for k in traj_infos[0]:
-                if not k.startswith("_"):
-                    logger.record_tabular_misc_stat(k,
-                        [info[k] for info in traj_infos], itr)
+            try:
+                setting_names = [setting[0] for setting in self.sampler.eval_collector.eval_settings]
+                for setting_name in setting_names:
+                    for k in traj_infos[0][0]:
+                        if not k.startswith("_"):
+                            logger.record_tabular_misc_stat('{}{}'.format(setting_name, k),
+                                [info[k] for name, info in traj_infos if name == setting_name], itr)
+            except:
+                import pdb; pdb.set_trace()
 
         if self._opt_infos:
             for k, v in self._opt_infos.items():
