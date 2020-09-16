@@ -39,6 +39,7 @@ class Landmarks(object):
                  attempt_percentile_threshold=5,
                  sim_percentile_threshold=None,
                  random_transitions_percentile=50,
+                 use_temporally_nearby_landmarks=True,
                  GT_localization=False,
                  GT_localization_distance_threshold=50,
                  GT_localization_angle_threshold=30,
@@ -671,7 +672,8 @@ class Landmarks(object):
             else:
                 true_edges = random_transitions >= random_transitions_threshold
             
-            true_edges = temporally_nearby_landmarks & true_edges
+            if self.use_temporally_nearby_landmarks:
+                true_edges = temporally_nearby_landmarks & true_edges
             
             if self.SF_similarity_true_edges_threshold != -1:
                 SF_similarity = torch.matmul(self.norm_dsr, self.norm_dsr.T).cpu().numpy()
@@ -681,7 +683,9 @@ class Landmarks(object):
             # true_edges &= (feature_similarity > self.graph_feature_similarity_threshold)
 
             if self.use_weighted_edges:
-                edge_weights = temporally_nearby_landmarks * true_edges * (np.exp(-1 * random_transitions))
+                edge_weights = true_edges * (np.exp(-1 * random_transitions))
+                if self.use_temporally_nearby_landmarks:
+                    edge_weights = temporally_nearby_landmarks * edge_weights
                 if self.subgoal_failures_true_edges_threshold != -1:
                     edge_weights[(edge_weights > 0) & (subgoal_failures > self.subgoal_failures_true_edges_threshold)] += self.max_landmarks
                     subgoal_failures[subgoal_failures > 0] -= self.subgoal_failures_decay_rate
