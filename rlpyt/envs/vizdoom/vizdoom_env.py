@@ -32,9 +32,9 @@ class VizDoomEnv(Env):
     def __init__(self,
                  config,
                  seed,
+                 start_position=None,
                  goal_position=None,
                  goal_close_terminate=False,
-                 start_position=None,
                  grayscale=True,
                  frame_skip=4,  # Frames per step (>=1).
                  num_img_obs=4,  # Number of (past) frames in observation (>=1).
@@ -85,6 +85,7 @@ class VizDoomEnv(Env):
 
         self.game.new_episode()
         self.remove_objects()
+        self.random_start = (start_position is None)
         self.set_start_state(start_position)
         self.random_goal = (goal_position is None)
         self.set_goal_state(goal_position)
@@ -177,7 +178,7 @@ class VizDoomEnv(Env):
         else:
             self.game.new_episode()
         self.remove_objects()
-        if self.start_position is not None:
+        if self.random_start:
             self.get_obs_at(self.start_position)
         self.state = self.game.get_state()
         self.current_steps = 0
@@ -189,6 +190,9 @@ class VizDoomEnv(Env):
 
         new_obs = self.state.screen_buffer
         self._update_obs(new_obs)
+        obs = self.get_obs()
+        if self.random_start:
+            self._start_info = (obs, self.state.game_variables)
         return self.get_obs()
 
     def step(self, action, position=None):
@@ -250,7 +254,10 @@ class VizDoomEnv(Env):
         return self._obs.copy()
 
     def set_start_state(self, position):
-        self._start_info = self.get_obs_at(position, idx=self.num_img_obs - 1)
+        if position is not None:
+            self._start_info = self.get_obs_at(position, idx=self.num_img_obs - 1)
+        else:
+            self._start_info = None
     
     def sample_state_from_point(self, dist_range, ref_point=None):
         if ref_point is None:
@@ -266,6 +273,15 @@ class VizDoomEnv(Env):
             sampled_y = ref_point[1] + y_delta
 
             sampled_view = np.random.uniform(0.0, 360.0)
+
+            disallowed_sectors = np.array([[1536, 1856, 0, 256],
+                                           [1280, 1856, 1024, 1280]])
+            if 'train' in self.config:
+                for sector in disallowed_sectors:
+                    min_x, max_x, min_y, max_y = sector
+                    if min_x < sampled_x and sampled_x < max_x and \
+                        min_y < sampled_y and sampled_y < max_y: 
+                        continue
 
             if self.min_x < sampled_x and sampled_x < self.max_x and \
                 self.min_y < sampled_y and sampled_y < self.max_y:
