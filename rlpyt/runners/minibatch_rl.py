@@ -761,20 +761,6 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         save__init__args(locals())
         super().__init__(**kwargs)
 
-    def _log_infos(self, traj_infos=None, itr=None):
-        if traj_infos is None:
-            traj_infos = self._traj_infos
-        if traj_infos:
-            for k in traj_infos[0]:
-                if not k.startswith("_"):
-                    logger.record_tabular_misc_stat(k,
-                        [info[k] for info in traj_infos], itr)
-
-        if self._opt_infos:
-            for k, v in self._opt_infos.items():
-                logger.record_tabular_misc_stat(k, v, itr)
-        self._opt_infos = {k: list() for k in self._opt_infos}  # (reset)
-
     def evaluate_agent(self, itr):
         # Save first evaluation run to file
         eval_env = self.sampler.eval_collector.envs[0]
@@ -782,7 +768,7 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         if itr > 0:
             self.pbar.stop()
         logger.log("Evaluating agent...")
-        self.agent.eval_mode(itr, eval_env.goal_info)  # Might be agent in sampler.
+        self.agent.eval_mode(itr)  # Might be agent in sampler.
         eval_time = -time.time()
         if self.agent.reached_goal:
             traj_infos = self.sampler.evaluate_agent(itr)

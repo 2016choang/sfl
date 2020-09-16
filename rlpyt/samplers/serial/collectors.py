@@ -65,8 +65,6 @@ class SerialEvalCollector(BaseEvalCollector):
                 f"({self.max_T}).")
         return completed_traj_infos
 
-
-
 class SerialLandmarksEvalCollector(BaseEvalCollector):
     """Does not record intermediate data."""
 
@@ -158,6 +156,7 @@ class SerialVizdoomEvalCollector(BaseEvalCollector):
             env.name = name
             goal_state = env.sample_state_from_point(goal_distance_range)
             env.set_goal_state(goal_state)
+            self.agent.update_eval_goal(goal_state)
             env.step_budget = step_budget
             observations.append(env.reset())
             self.env_positions[b] = env.agent_pos
@@ -192,6 +191,7 @@ class SerialVizdoomEvalCollector(BaseEvalCollector):
                     env.name = name
                     goal_state = env.sample_state_from_point(goal_distance_range)
                     env.set_goal_state(goal_state)
+                    self.agent.update_eval_goal(goal_state)
                     env.step_budget = step_budget
                     traj_infos[b] = self.TrajInfoCls()
                     o = env.reset()

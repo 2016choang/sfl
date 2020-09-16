@@ -204,14 +204,14 @@ class LandmarkAgent(FeatureDSRAgent):
         else:
             return False
 
-    def eval_mode(self, itr, goal_info):
+    def eval_mode(self, itr):
         super().eval_mode(itr)
         self._eval_landmarks = copy.deepcopy(self._landmarks)
         self._eval_landmarks.initialize(self.eval_envs, 'eval')
+    
+    def update_eval_goal(self, goal):
         if self._eval_landmarks:
-            # if self._eval_landmarks.num_landmarks > 0:
-            #     self._eval_landmarks.generate_graph()
-            obs, pos = goal_info
+            obs, pos = goal
 
             observation = torchify_buffer(obs).unsqueeze(0).float()
 
@@ -223,8 +223,12 @@ class LandmarkAgent(FeatureDSRAgent):
                     device=self.device)
             dsr = self.model(model_inputs, mode='dsr')
 
+            if self._eval_landmarks.existing_eval_goal:
+                self._eval_landmarks.force_remove_landmark()
+
             self._eval_landmarks.force_add_landmark(features, dsr, pos)
             self._eval_landmarks.connect_goal()
+            self._eval_landmarks.existing_eval_goal = True
     
     def log_eval(self, idx, pos):
         if self._eval_landmarks:

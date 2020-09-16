@@ -88,6 +88,8 @@ class Landmarks(object):
         self.closest_landmarks = np.zeros(self.max_landmarks)
         self.closest_landmarks_sim = np.zeros(self.max_landmarks)
         self.transitions = 0
+
+        self.existing_eval_goal = False
     
     def initialize(self, num_envs, mode='train'):
         self.num_envs = num_envs
