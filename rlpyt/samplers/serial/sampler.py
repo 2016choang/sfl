@@ -93,8 +93,11 @@ class VizdoomSampler(BaseSampler):
     with collectors which sample actions themselves (e.g. under cpu
     category)."""
 
-    def __init__(self, *args, CollectorCls=CpuResetCollector,
+    def __init__(self, *args, eval_settings, trajectories_per_setting,
+            CollectorCls=CpuResetCollector,
             eval_CollectorCls=SerialEvalCollector, **kwargs):
+        self.eval_settings = eval_settings
+        self.trajectories_per_setting = trajectories_per_setting
         super().__init__(*args, CollectorCls=CollectorCls,
             eval_CollectorCls=eval_CollectorCls, **kwargs)
 
