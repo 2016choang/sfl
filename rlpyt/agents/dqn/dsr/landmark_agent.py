@@ -224,7 +224,7 @@ class LandmarkAgent(FeatureDSRAgent):
             dsr = self.model(model_inputs, mode='dsr')
 
             if self._eval_landmarks.existing_eval_goal:
-                self._eval_landmarks.force_remove_landmark()
+                self._eval_landmarks.disconnect_goal()
 
             self._eval_landmarks.force_add_landmark(features, dsr, pos)
             self._eval_landmarks.connect_goal()

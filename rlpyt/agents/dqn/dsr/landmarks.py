@@ -796,6 +796,11 @@ class Landmarks(object):
         
         # return self.graph
     
+    def disconnect_goal(self):
+        self.graph.remove_node(self.num_landmarks - 1)
+        self.force_remove_landmark()
+        self.landmark_distances = self.edge_subgoal_transitions[:self.num_landmarks, :self.num_landmarks]
+    
     def connect_goal(self):
         if self.num_landmarks > 1:
             self.landmark_distances = np.append(self.landmark_distances, np.zeros((self.num_landmarks - 1, 1)), axis=1)
