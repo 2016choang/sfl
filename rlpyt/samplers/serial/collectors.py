@@ -150,7 +150,8 @@ class SerialVizdoomEvalCollector(BaseEvalCollector):
         observations = list()
         self.env_positions = np.full((len(self.envs), len(self.envs[0].agent_pos)), -1, dtype=int)
         self.eval_trajectories = [[] for _ in range(len(self.envs))]
-        eval_settings_queue = [setting for setting in self.eval_settings for _ in self.trajectories_per_setting]
+        eval_settings_queue = [setting for setting in self.eval_settings \
+            for _ in range(self.trajectories_per_setting)]
         for b, env in enumerate(self.envs):
             name, goal_distance_range, step_budget = eval_settings_queue.pop()
             env.name = name
