@@ -154,14 +154,16 @@ class SerialVizdoomEvalCollector(BaseEvalCollector):
             for _ in range(self.trajectories_per_setting)]
         for b, env in enumerate(self.envs):
             observations.append(env.reset())
+            saved_start_pos = env.agent_pos.copy()
             name, goal_distance_range, step_budget = eval_settings_queue.pop()
             env.name = name
             goal_state = env.sample_state_from_point(goal_distance_range)
             env.set_goal_state(goal_state)
             self.agent.update_eval_goal(env.goal_info)
             env.step_budget = step_budget
-            self.env_positions[b] = env.agent_pos
-            self.eval_trajectories[b].append(env.agent_pos)
+            env.teleport(saved_start_pos)
+            self.env_positions[b] = saved_start_pos
+            self.eval_trajectories[b].append(saved_start_pos)
         observation = buffer_from_example(observations[0], len(self.envs))
         for b, o in enumerate(observations):
             observation[b] = o
@@ -189,14 +191,16 @@ class SerialVizdoomEvalCollector(BaseEvalCollector):
                         finished = True
                         break
                     o = env.reset()
+                    saved_start_pos = env.agent_pos.copy()
                     name, goal_distance_range, step_budget = eval_settings_queue.pop()
                     env.name = name
                     goal_state = env.sample_state_from_point(goal_distance_range)
                     env.set_goal_state(goal_state)
                     self.agent.update_eval_goal(env.goal_info)
                     env.step_budget = step_budget
+                    env.teleport(saved_start_pos)
                     traj_infos[b] = self.TrajInfoCls()
-                    self.env_positions[b] = env.agent_pos
+                    self.env_positions[b] = saved_start_pos
                     action[b] = 0  # Prev_action for next step.
                     r = 0
                     self.agent.reset_one(idx=b)
