@@ -917,10 +917,9 @@ class Landmarks(object):
                 goal_landmarks = np.full(sum(set_paths_idxs), self.num_landmarks - 1, dtype=int)
             else:
                 # Select goal landmarks with probability given by inverse of visitation count
-                # visitations = np.clip(self.localizations, 1, None)
                 goal_landmarks = None
         else:
-            prev_start_landmarks = self.paths[relocalize_idxs, 0]
+            # prev_start_landmarks = self.paths[relocalize_idxs, 0]
             goal_landmarks = self.paths[relocalize_idxs, self.path_lengths[relocalize_idxs] - 1]
             for loop_idx, idx in enumerate(np.arange(self.num_envs)[relocalize_idxs]):
                 current_idx = self.path_idxs[idx]
@@ -1079,22 +1078,15 @@ class Landmarks(object):
         goal_landmarks = goal_landmarks[reached_goal_landmarks | steps_limit_reached]
         goal_positions = self.positions[goal_landmarks]
 
-        if self.mode != 'eval' and self.oracle_distance_matrix:
-            # In train, log end/start distance to goal ratio
-            end_distance = self.oracle_distance_matrix[end_positions[:, 0], end_positions[:, 1], goal_positions[:, 0], goal_positions[:, 1]]
-            start_positions = self.start_positions[self.landmark_mode][reached_goal_landmarks | steps_limit_reached]
-            start_distance = self.oracle_distance_matrix[start_positions[:, 0], start_positions[:, 1], goal_positions[:, 0], goal_positions[:, 1]]
-            dist_completed = end_distance / np.clip(start_distance, a_min=1, a_max=None)
-            self.goal_landmark_dist_completed.extend(dist_completed.tolist())
-
         exit_landmark_mode = np.where(self.landmark_mode)[0][reached_goal_landmarks | steps_limit_reached]
-        self.landmark_mode[exit_landmark_mode] = False
 
         # Relocalize agent which has failed to reach current landmark in steps_per_landmark
         relocalize_idxs = self.landmark_mode.copy()
         reached_within_steps = self.current_landmark_steps[self.landmark_mode] < self.steps_per_landmark
         relocalize_idxs[self.landmark_mode] &= ~reached_landmarks & ~reached_within_steps
         self.set_paths(current_dsr, current_position, relocalize_idxs)
+
+        self.landmark_mode[exit_landmark_mode] = False
 
         # Increment landmark step counter
         self.landmark_steps[self.landmark_mode] += 1
