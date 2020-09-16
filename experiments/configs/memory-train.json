@@ -34,7 +34,8 @@
         "random_transitions_percentile": 50,
         "subgoal_success_threshold": 5,
         "subgoal_true_edges_threshold": 5,
-        "subgoal_success_true_edges_threshold": 0,
+        "subgoal_failures_true_edges_threshold": 1,
+        "subgoal_failures_decay_rate": 0.25,
         "use_digraph": false,
         "use_weighted_edges": true,
         "GT_localization": false,
@@ -62,11 +63,6 @@
         "scale_target": false
     },
     "env": {
-        "goal_position": [
-            1000,
-            500,
-            0
-        ],
         "start_position": [
             1000,
             1000,
@@ -81,11 +77,6 @@
         "full_action_set": false
     },
     "eval_env": {
-        "goal_position": [
-            1000,
-            500,
-            0
-        ],
         "start_position": [
             1000,
             1000,
@@ -100,15 +91,20 @@
         "full_action_set": false,
         "goal_close_terminate": true
     },
+    "sampler": {
+        "batch_B": 8,
+        "eval_settings": [["easy", [0, 200], 100], ["medium", [200, 400], 200], ["hard", [400, 600], 300]], 
+        "trajectories_per_setting": 20
+    },
     "runner": {
-        "log_interval_steps": 40000,
+        "log_interval_steps": 80000,
         "log_dsr_interval_steps": 400000,
-        "min_steps_landmark_mode": 20000,
+        "min_steps_landmark_mode": 40000,
         "update_landmark_representation_interval_steps": 10000,
         "update_landmark_graph_interval_steps": 20000,
         "log_feature_info_interval_steps": 40000,
         "log_landmarks_interval_steps": 40000,
-        "figsize": [14, 7]
+        "figsize": [12, 12]
     },
     "seed": 333,
     "feature": "TCF",
