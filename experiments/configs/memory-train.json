@@ -21,21 +21,20 @@
         "use_soft_q": false,
         "GT_subgoal_policy": false
     },
-    "landmarks_path": "data/local/20200915/vizdoom/run_62/landmarks_itr_209999.npz",
     "landmarks": {
         "max_landmarks": 2500,
         "landmarks_per_update": 50,
         "add_threshold": 0.8,
-        "memory_len": 3,
+        "memory_len": 8,
         "landmark_mode_interval": 500,
-        "steps_per_landmark": 5,
+        "steps_per_landmark": 20,
         "max_landmark_mode_steps": 1000,
-        "localization_threshold": 0.5,
-        "random_true_edges_threshold": 20,
-        "subgoal_success_threshold": 10,
-        "subgoal_true_edges_threshold": 10,
-        "subgoal_failures_true_edges_threshold": 1,
-        "subgoal_failures_decay_rate": 0.25,
+        "localization_threshold": 0.90,
+        "random_true_edges_threshold": 10,
+        "random_transitions_percentile": 50,
+        "subgoal_success_threshold": 5,
+        "subgoal_true_edges_threshold": 5,
+        "subgoal_success_true_edges_threshold": 0,
         "use_digraph": false,
         "use_weighted_edges": true,
         "GT_localization": false,
@@ -46,7 +45,7 @@
         "GT_termination_angle_threshold": 45,
         "GT_graph": false,
         "GT_graph_edge_threshold": 100,
-        "reach_threshold": 0.5,
+        "reach_threshold": 0.90,
         "landmark_paths": 1,
         "affinity_decay": 0.99
     },
@@ -63,47 +62,55 @@
         "scale_target": false
     },
     "env": {
-        "start_position": [
-            200,
-            -100,
+        "goal_position": [
+            1000,
+            500,
             0
         ],
-        "config": "experiments/vizdoom/small_SPTM.cfg",
+        "start_position": [
+            1000,
+            1000,
+            0
+        ],
+        "config": "experiments/vizdoom/train_SPTM.cfg",
         "seed": 100,
         "grayscale": false,
         "map_id": "map05",
         "num_samples": -1,
+        "num_img_obs": 4,
         "full_action_set": false
     },
     "eval_env": {
-        "start_position": [
-            200,
-            -100,
+        "goal_position": [
+            1000,
+            500,
             0
         ],
-        "config": "experiments/vizdoom/small_SPTM.cfg",
+        "start_position": [
+            1000,
+            1000,
+            0
+        ],
+        "config": "experiments/vizdoom/train_SPTM.cfg",
         "seed": 100,
         "grayscale": false,
         "map_id": "map05",
         "num_samples": -1,
+        "num_img_obs": 4,
         "full_action_set": false,
         "goal_close_terminate": true
     },
     "runner": {
-        "log_interval_steps": 1700,
-        "log_dsr_interval_steps": 1700,
-        "min_steps_landmark_mode": 1100,
-        "update_landmark_representation_interval_steps": 250,
-        "update_landmark_graph_interval_steps": 500,
-        "log_feature_info_interval_steps": 1700,
-        "log_landmarks_interval_steps": 1700,
+        "log_interval_steps": 40000,
+        "log_dsr_interval_steps": 400000,
+        "min_steps_landmark_mode": 20000,
+        "update_landmark_representation_interval_steps": 10000,
+        "update_landmark_graph_interval_steps": 20000,
+        "log_feature_info_interval_steps": 40000,
+        "log_landmarks_interval_steps": 40000,
         "figsize": [14, 7]
     },
-    "sampler": {
-        "batch_B": 8,
-        "eval_settings": [["easy", [0, 300], 100], ["hard", [300, 600], 300]], 
-        "trajectories_per_setting": 2
-    },
     "seed": 333,
-    "feature": "TCF"
+    "feature": "TCF",
+    "samplers": 8
 }
