@@ -115,8 +115,11 @@ class Landmarks(object):
         self.eval_end_pos = {}
         self.eval_distances = []
 
-        self.similarity_memory = None
-        self.memory_length = None
+        if self.num_landmarks:
+            self.similarity_memory = np.full((self.memory_len, self.num_landmarks, self.num_envs), 0, dtype=float)
+        else:
+            self.similarity_memory = None
+        self.memory_length = np.full(self.num_envs, 0, dtype=int)e
 
         self.reset_logging()
     
