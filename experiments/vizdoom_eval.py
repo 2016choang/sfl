@@ -84,7 +84,8 @@ def build_and_train(config_file,
         raise NotImplementedError
 
     landmarks = Landmarks(**config['landmarks'])
-    landmarks.load(config['landmarks_path'], device)
+    if 'landmarks_path' in config:
+        landmarks.load(config['landmarks_path'], device)
     agent = agent_class(featureModelCls=featureModelCls,
                         initial_model_state_dict=model_checkpoint, 
                         initial_feature_model_state_dict=feature_model_checkpoint,
