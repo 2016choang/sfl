@@ -193,18 +193,19 @@ class Landmarks(object):
 
         self.positions = landmarks['positions']
         self.num_landmarks = len(self.positions)
-        if self.num_landmarks > 0:
-            self.activate()
 
         dsr = torch.from_numpy(landmarks['dsr']).to(device)
-        self.set_dsr(dsr)
+        self.set_dsr(dsr, take_mean=False)
         features = torch.from_numpy(landmarks['features']).to(device)
         self.set_features(features)
 
         self.edge_random_steps = landmarks['edge_random_steps']
         self.edge_random_transitions = landmarks['edge_random_transitions']
         self.edge_subgoal_steps = landmarks['edge_subgoal_steps']
-        self.edge_subgoal_failures = landmarks['edge_subgoal_failures']
+        if 'edge_subgoal_failures' in landmarks:
+            self.edge_subgoal_failures = landmarks['edge_subgoal_failures']
+        else:
+            self.edge_subgoal_failures = np.zeros_like(self.edge_subgoal_steps)
         self.edge_subgoal_transitions = landmarks['edge_subgoal_transitions']
 
         self.closest_landmarks = landmarks['closest_landmarks']

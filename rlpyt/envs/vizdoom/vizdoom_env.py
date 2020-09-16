@@ -80,6 +80,9 @@ class VizDoomEnv(Env):
             dtype="uint8")
         self._obs = np.zeros(shape=obs_shape, dtype="uint8")
 
+        self.name = ''
+        self.step_budget = None
+
         self.game.new_episode()
         self.remove_objects()
         self.set_start_state(start_position)
@@ -105,9 +108,6 @@ class VizDoomEnv(Env):
             self.generate_full_episode()
         else:
             self.generate_samples()
-
-        self.name = ''
-        self.step_budget = None
     
     def remove_objects(self):
         for obj in self.game.get_state().objects:
@@ -214,7 +214,7 @@ class VizDoomEnv(Env):
             if self.goal_close_terminate and reached_goal:
                 done = True
                 reward = 1
-            if self.current_steps >= self.step_budget:
+            if self.step_budget is not None and self.current_steps >= self.step_budget:
                 done = True
             visited_x = int(round(x - self.min_x)) // self.bin_size
             visited_y = int(round(y - self.min_y)) // self.bin_size
