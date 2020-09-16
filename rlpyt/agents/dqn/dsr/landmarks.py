@@ -1029,11 +1029,8 @@ class Landmarks(object):
         self.eval_end_pos[tuple(pos)] = current_landmark
 
         goal_pos = self.positions[-1]
-        if self.oracle_distance_matrix:
-            end_distance = self.oracle_distance_matrix[pos[0], pos[1], goal_pos[0], goal_pos[1]]
-        else:
-            # Use euclidean distance as rough estimate of distane to goal
-            end_distance = euclidean_distance(pos[:2], goal_pos[:2])
+        # Use euclidean distance as rough estimate of distane to goal
+        end_distance = euclidean_distance(pos[:2], goal_pos[:2])
         self.eval_distances.append(end_distance)
 
     def get_landmarks_data(self, current_dsr, current_position):
