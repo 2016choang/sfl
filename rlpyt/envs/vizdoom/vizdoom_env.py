@@ -273,7 +273,7 @@ class VizDoomEnv(Env):
     
     def set_goal_state(self, position):
         if position is not None:
-            self._goal_info = self.get_obs_at(position, idx=0)
+            self._goal_info = self.get_obs_at(position, idx=-1)
         else:
             self._goal_info = None
 
@@ -330,10 +330,13 @@ class VizDoomEnv(Env):
             return new_obs, position
         else:
             if self.num_img_obs > 1:
-                return_obs = np.uint8(np.zeros(self._observation_space.shape))
-                from_idx = int(idx * self.channels)
-                to_idx = from_idx + self.channels
-                return_obs[from_idx:to_idx] = new_obs
+                if idx == -1:
+                    return_obs = np.concatenate([new_obs] * self.num_img_obs)
+                else:
+                    return_obs = np.uint8(np.zeros(self._observation_space.shape))
+                    from_idx = int(idx * self.channels)
+                    to_idx = from_idx + self.channels
+                    return_obs[from_idx:to_idx] = new_obs
                 return return_obs, position
             else:
                 return new_obs, position

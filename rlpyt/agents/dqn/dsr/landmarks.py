@@ -1105,10 +1105,10 @@ class Landmarks(object):
 
         # If reached goal landmark or steps limit, exit landmark mode
         reached_goal_landmarks = reached_landmarks & final_goal_landmarks 
-        end_positions = current_position[self.landmark_mode][reached_goal_landmarks | steps_limit_reached]
+        # end_positions = current_position[self.landmark_mode][reached_goal_landmarks | steps_limit_reached]
         goal_landmarks = self.paths[self.landmark_mode, self.path_lengths[self.landmark_mode] - 1]
         goal_landmarks = goal_landmarks[reached_goal_landmarks | steps_limit_reached]
-        goal_positions = self.positions[goal_landmarks]
+        # goal_positions = self.positions[goal_landmarks]
 
         exit_landmark_mode = np.where(self.landmark_mode)[0][reached_goal_landmarks | steps_limit_reached]
 
