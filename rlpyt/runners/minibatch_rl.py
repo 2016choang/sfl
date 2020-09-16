@@ -798,6 +798,7 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         logger.record_tabular('TrajsInEval', len(eval_traj_infos))
         self._cum_eval_time += eval_time
         logger.record_tabular_stat('CumEvalTime', self._cum_eval_time, itr)
+        super().log_diagnostics(itr, eval_traj_infos, eval_time)
         env = self.sampler.collector.envs[0]
         state_entropy = entropy(env.visited.flatten(), base=2)
         if not np.isnan(state_entropy):
