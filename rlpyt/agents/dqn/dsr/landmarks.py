@@ -141,6 +141,8 @@ class Landmarks(object):
 
     def activate(self):
         self._active = True
+        if self.num_landmarks > 0:
+            self.generate_graph()
 
     def reset_logging(self):
         # Reset trackers for logging (every interval)
@@ -211,8 +213,6 @@ class Landmarks(object):
         self.closest_landmarks = landmarks['closest_landmarks']
         self.closest_landmarks_sim = landmarks['closest_landmarks_sim']
         self.high_sim_positions = landmarks['high_sim_positions']
-
-        self.generate_graph()
 
     def save(self, filename):
         # Save landmarks data to a file
