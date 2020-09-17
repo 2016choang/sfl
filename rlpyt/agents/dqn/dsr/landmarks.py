@@ -40,6 +40,7 @@ class Landmarks(object):
                  sim_percentile_threshold=None,
                  random_transitions_percentile=50,
                  use_temporally_nearby_landmarks=True,
+                 k_nearest_neighbors=0,
                  GT_localization=False,
                  GT_localization_distance_threshold=50,
                  GT_localization_angle_threshold=30,
@@ -533,7 +534,7 @@ class Landmarks(object):
 
                     new_landmark = replace_idx
                     
-                    replaced_landmarks = self.last_landmarks == replace_idx
+                    replaced_landmarks = (self.last_landmarks == replace_idx)
                     self.last_landmarks[replaced_landmarks] = -1
                     self.transition_random_steps[replaced_landmarks] = 0
                     self.transition_random_steps[replaced_landmarks] = 0
@@ -675,9 +676,17 @@ class Landmarks(object):
             if self.use_temporally_nearby_landmarks:
                 true_edges = temporally_nearby_landmarks & true_edges
             
+            if self.k_nearest_neighbors > 0:
+                nearest_neighbors = np.argpartition(true_edges * random_transitions, -self.k_nearest_neighbors)[:, -self.k_nearest_neighbors:]
+                N = self.num_landmarks
+                k_filter = np.zeros((N, N), dtype=bool)
+                idx = np.vstack([np.arange(N)] * self.k_nearest_neighbors).T
+                k_filter[idx, nearest_neighbors] = True
+                true_edges = k_filter & true_edges
+            
             if self.SF_similarity_true_edges_threshold != -1:
                 SF_similarity = torch.matmul(self.norm_dsr, self.norm_dsr.T).cpu().numpy()
-                true_edges &= (SF_similarity > self.SF_similarity_true_edges_threshold)
+                true_edges = (SF_similarity > self.SF_similarity_true_edges_threshold) & true_edges
 
             # feature_similarity = torch.clamp(torch.matmul(self.norm_dsr, self.norm_dsr.T), min=1e-3, max=1.0).detach().cpu().numpy()
             # true_edges &= (feature_similarity > self.graph_feature_similarity_threshold)
@@ -965,10 +974,11 @@ class Landmarks(object):
                 if current_idx >= 2:
                     from_landmark = self.paths[idx, current_idx - 2]
                     to_landmark = self.paths[idx, current_idx - 1]
-                    edge_data = self.graph[from_landmark][to_landmark]
-                    self.graph.remove_edge(from_landmark, to_landmark)
-                    if not nx.has_path(self.graph, start_landmarks[loop_idx], goal_landmarks[loop_idx]):
-                        self.graph.add_edge(from_landmark, to_landmark, **edge_data)
+                    if self.graph.has_edge(from_landmark, to_landmark):
+                        edge_data = self.graph[from_landmark][to_landmark]
+                        self.graph.remove_edge(from_landmark, to_landmark)
+                        if not nx.has_path(self.graph, start_landmarks[loop_idx], goal_landmarks[loop_idx]):
+                            self.graph.add_edge(from_landmark, to_landmark, **edge_data)
                     self.edge_subgoal_failures[from_landmark, to_landmark] += 1
 
             self.current_landmark_steps[relocalize_idxs] = 0
@@ -1102,15 +1112,14 @@ class Landmarks(object):
         # If reached (not goal) landmark, move to next landmark
         reached_non_goal_landmarks = reached_landmarks & ~final_goal_landmarks
         reached_non_goal_landmarks_mask = np.where(self.landmark_mode)[0][reached_non_goal_landmarks]
-        self.last_landmarks[reached_non_goal_landmarks_mask] = current_landmarks[reached_non_goal_landmarks]
         self.current_landmark_steps[reached_non_goal_landmarks_mask] = 0
         self.path_idxs[reached_non_goal_landmarks_mask] += 1
 
         # If reached goal landmark or steps limit, exit landmark mode
         reached_goal_landmarks = reached_landmarks & final_goal_landmarks 
         # end_positions = current_position[self.landmark_mode][reached_goal_landmarks | steps_limit_reached]
-        goal_landmarks = self.paths[self.landmark_mode, self.path_lengths[self.landmark_mode] - 1]
-        goal_landmarks = goal_landmarks[reached_goal_landmarks | steps_limit_reached]
+        # goal_landmarks = self.paths[self.landmark_mode, self.path_lengths[self.landmark_mode] - 1]
+        # goal_landmarks = goal_landmarks[reached_goal_landmarks | steps_limit_reached]
         # goal_positions = self.positions[goal_landmarks]
 
         exit_landmark_mode = np.where(self.landmark_mode)[0][reached_goal_landmarks | steps_limit_reached]
