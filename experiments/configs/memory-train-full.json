@@ -90,7 +90,7 @@
             "medium": [200, [200 ,400]],
             "hard": [300, [400, 600]]
         },
-        "start_goal_pairs_path": "experiments/configs/9794-train-start-goal-pairs.json",
+        "start_goal_pairs_path": "experiments/configs/225-train-random-start-goal-pairs.json",
         "trajectories_per_setting": 20
     },
     "runner": {
@@ -103,6 +103,6 @@
         "log_landmarks_interval_steps": 40000,
         "figsize": [12, 12]
     },
-    "seed": 3599,
+    "seed": 8702,
     "feature": "TCF"
 }
