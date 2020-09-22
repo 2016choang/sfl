@@ -3,6 +3,7 @@ from collections import deque, defaultdict
 import io
 import os
 import psutil
+import re
 import time
 import math
 
@@ -760,13 +761,42 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
                  **kwargs):
         save__init__args(locals())
         super().__init__(**kwargs)
+    
+    def eval(self, train_dir, eval_itrs=None):
+        self.startup()
+        device = self.agent.device 
+        files = sorted(list(os.listdir(train_dir)))
+        for f in files:
+            match = re.search('itr_([0-9]+).pkl', f)
+            if match:
+                itr = match.group(1)
+                if eval_itrs is None or itr is in eval_itrs:
+                    landmarks_checkpoint = 'landmarks_itr_{}.npz'.format(itr)
+                    if landmarks_checkpoint in files:
+                        with logger.prefix(f"itr #{itr}"):
+                            self.pbar = ProgBarCounter(1)
+                            checkpoint = os.path.join(train_dir, f)
+                            agent_state_dict = torch.load(checkpoint, map_location=device)['agent_state_dict']
+                            feature_model_checkpoint = agent_state_dict['feature_model']
+                            model_checkpoint = agent_state_dict['model']
+
+                            self.agent.feature_model(feature_model_checkpoint)
+                            self.agent.model.load_state_dict(model_checkpoint)
+                            self.agent.target_model.load_state_dict(model_checkpoint)
+                            
+                            landmarks_checkpoint = os.path.join(train_dir, landmarks_checkpoint)
+                            self.agent.landmarks.load(landmarks_checkpoint, device)
+
+                            self.agent.landmarks.activate()
+                            eval_traj_infos, eval_time = self.evaluate_agent(itr)
+                            self.pbar.update(1)
+                            self.log_diagnostics(itr, eval_traj_infos, eval_time)
 
     def _log_infos(self, traj_infos=None, itr=None):
         if traj_infos is None:
             traj_infos = self._traj_infos
         if traj_infos:
-            setting_names = [setting[0] for setting in self.sampler.eval_collector.eval_settings]
-            for setting_name in setting_names:
+            for setting_name in self.sampler.eval_collector.eval_settings:
                 for k in traj_infos[0][1]:
                     if not k.startswith("_"):
                         logger.record_tabular_misc_stat('{}{}'.format(setting_name, k),

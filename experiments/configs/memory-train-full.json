@@ -104,5 +104,5 @@
         "figsize": [12, 12]
     },
     "seed": 3599,
-    "feature": "TCF",
+    "feature": "TCF"
 }
