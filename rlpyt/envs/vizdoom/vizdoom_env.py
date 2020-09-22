@@ -276,14 +276,17 @@ class VizDoomEnv(Env):
 
             disallowed_sectors = np.array([[1536, 1856, 0, 256],
                                            [1280, 1856, 1024, 1280]])
+            
+            invalid = False
             if 'train' in self.config:
                 for sector in disallowed_sectors:
                     min_x, max_x, min_y, max_y = sector
                     if min_x < sampled_x and sampled_x < max_x and \
                         min_y < sampled_y and sampled_y < max_y: 
-                        continue
+                        invalid = True
+                        break
 
-            if self.min_x < sampled_x and sampled_x < self.max_x and \
+            if not invalid and self.min_x < sampled_x and sampled_x < self.max_x and \
                 self.min_y < sampled_y and sampled_y < self.max_y:
                 return np.array([sampled_x, sampled_y, sampled_view])
     
