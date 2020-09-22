@@ -85,7 +85,12 @@
     },
     "sampler": {
         "batch_B": 8,
-        "eval_settings": [["easy", [0, 200], 100], ["medium", [200, 400], 200], ["hard", [400, 600], 300]], 
+        "eval_settings": {
+            "easy": [100, [0, 200]],
+            "medium": [200, [200 ,400]],
+            "hard": [300, [400, 600]]
+        },
+        "start_goal_pairs_path": "experiments/configs/9794-train-start-goal-pairs.json",
         "trajectories_per_setting": 20
     },
     "runner": {

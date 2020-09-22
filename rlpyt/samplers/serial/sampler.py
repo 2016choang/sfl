@@ -1,3 +1,4 @@
+import json
 
 from rlpyt.samplers.base import BaseSampler
 from rlpyt.samplers.buffer import build_samples_buffer
@@ -93,11 +94,12 @@ class VizdoomSampler(BaseSampler):
     with collectors which sample actions themselves (e.g. under cpu
     category)."""
 
-    def __init__(self, *args, eval_settings, trajectories_per_setting,
+    def __init__(self, *args, eval_settings, start_goal_pairs_path,
             CollectorCls=CpuResetCollector,
             eval_CollectorCls=SerialEvalCollector, **kwargs):
         self.eval_settings = eval_settings
-        self.trajectories_per_setting = trajectories_per_setting
+        with open(start_goal_pairs_path, 'r') as f:
+            self.start_goal_pairs = json.load(f)
         super().__init__(*args, CollectorCls=CollectorCls,
             eval_CollectorCls=eval_CollectorCls, **kwargs)
 
@@ -142,7 +144,7 @@ class VizdoomSampler(BaseSampler):
                 agent=agent,
                 TrajInfoCls=self.TrajInfoCls,
                 eval_settings=self.eval_settings,
-                trajectories_per_setting=self.trajectories_per_setting,
+                start_goal_pairs=self.start_goal_pairs,
             )
 
         agent_inputs, traj_infos = collector.start_envs(

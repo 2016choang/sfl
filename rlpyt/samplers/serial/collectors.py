@@ -140,7 +140,7 @@ class SerialVizdoomEvalCollector(BaseEvalCollector):
             agent,
             TrajInfoCls,
             eval_settings,
-            trajectories_per_setting,
+            start_goal_pairs
             ):
         save__init__args(locals())
 
@@ -150,20 +150,19 @@ class SerialVizdoomEvalCollector(BaseEvalCollector):
         observations = list()
         self.env_positions = np.full((len(self.envs), len(self.envs[0].agent_pos)), -1, dtype=int)
         self.eval_trajectories = [[] for _ in range(len(self.envs))]
-        eval_settings_queue = [setting for setting in self.eval_settings \
-            for _ in range(self.trajectories_per_setting)]
+        eval_settings_queue = [[name, self.eval_settings[name][0], pair[0], pair[1]] for name, pairs in \
+            self.start_goal_pairs.items() for pair in pairs]
         for b, env in enumerate(self.envs):
-            observations.append(env.reset())
-            saved_start_pos = env.agent_pos.copy()
-            name, goal_distance_range, step_budget = eval_settings_queue.pop()
+            env.random_start = False
+            name, step_budget, start_pos, goal_pos = eval_settings_queue.pop()
             env.name = name
-            goal_state = env.sample_state_from_point(goal_distance_range)
-            env.set_goal_state(goal_state)
-            self.agent.update_eval_goal(env.goal_info)
             env.step_budget = step_budget
-            env.teleport(saved_start_pos)
-            self.env_positions[b] = saved_start_pos
-            self.eval_trajectories[b].append(saved_start_pos)
+            env.start_position = start_pos
+            env.set_goal_state(goal_pos)
+            observations.append(env.reset())
+            self.agent.update_eval_goal(env.goal_info)
+            self.env_positions[b] = env.agent_pos
+            self.eval_trajectories[b].append(env.agent_pos)
         observation = buffer_from_example(observations[0], len(self.envs))
         for b, o in enumerate(observations):
             observation[b] = o
@@ -190,17 +189,15 @@ class SerialVizdoomEvalCollector(BaseEvalCollector):
                     if not eval_settings_queue:
                         finished = True
                         break
-                    o = env.reset()
-                    saved_start_pos = env.agent_pos.copy()
-                    name, goal_distance_range, step_budget = eval_settings_queue.pop()
+                    name, step_budget, start_pos, goal_pos = eval_settings_queue.pop()
                     env.name = name
-                    goal_state = env.sample_state_from_point(goal_distance_range)
-                    env.set_goal_state(goal_state)
-                    self.agent.update_eval_goal(env.goal_info)
                     env.step_budget = step_budget
-                    env.teleport(saved_start_pos)
+                    env.start_position = start_pos
+                    env.set_goal_state(goal_pos)
+                    o = env.reset()
+                    self.agent.update_eval_goal(env.goal_info)
                     traj_infos[b] = self.TrajInfoCls()
-                    self.env_positions[b] = saved_start_pos
+                    self.env_positions[b] = env.agent_pos
                     action[b] = 0  # Prev_action for next step.
                     r = 0
                     self.agent.reset_one(idx=b)
