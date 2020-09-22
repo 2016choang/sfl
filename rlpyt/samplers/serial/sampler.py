@@ -95,11 +95,14 @@ class VizdoomSampler(BaseSampler):
     category)."""
 
     def __init__(self, *args, eval_settings, start_goal_pairs_path,
+            trajectories_per_setting,
             CollectorCls=CpuResetCollector,
             eval_CollectorCls=SerialEvalCollector, **kwargs):
         self.eval_settings = eval_settings
         with open(start_goal_pairs_path, 'r') as f:
-            self.start_goal_pairs = json.load(f)
+            start_goal_pairs = json.load(f)
+            self.start_goal_pairs = {name: pairs[:trajectories_per_setting] \
+                for name, pairs in start_goal_pairs.items()}
         super().__init__(*args, CollectorCls=CollectorCls,
             eval_CollectorCls=eval_CollectorCls, **kwargs)
 
