@@ -64,11 +64,11 @@
     },
     "env": {
         "start_position": [
-            200,
-            -100,
+            1000,
+            1000,
             0
         ],
-        "config": "experiments/vizdoom/small_SPTM.cfg",
+        "config": "experiments/vizdoom/train_SPTM.cfg",
         "seed": 100,
         "grayscale": false,
         "map_id": "map05",
@@ -77,11 +77,11 @@
     },
     "eval_env": {
         "start_position": [
-            200,
-            -100,
+            1000,
+            1000,
             0
         ],
-        "config": "experiments/vizdoom/small_SPTM.cfg",
+        "config": "experiments/vizdoom/train_SPTM.cfg",
         "seed": 100,
         "grayscale": false,
         "map_id": "map05",

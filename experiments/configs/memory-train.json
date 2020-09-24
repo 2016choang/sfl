@@ -22,16 +22,18 @@
         "GT_subgoal_policy": false
     },
     "landmarks": {
-        "max_landmarks": 2500,
+        "max_landmarks": 5000,
         "landmarks_per_update": 50,
         "add_threshold": 0.8,
         "memory_len": 8,
         "landmark_mode_interval": 500,
-        "steps_per_landmark": 20,
+        "steps_per_landmark": 30,
         "max_landmark_mode_steps": 1000,
         "localization_threshold": 0.90,
         "random_true_edges_threshold": 10,
         "random_transitions_percentile": 50,
+        "use_temporally_nearby_landmarks": true,
+        "k_nearest_neighbors": 0,
         "subgoal_success_threshold": 5,
         "subgoal_true_edges_threshold": 5,
         "subgoal_failures_true_edges_threshold": 1,
@@ -63,11 +65,7 @@
         "scale_target": false
     },
     "env": {
-        "start_position": [
-            1000,
-            1000,
-            0
-        ],
+        "start_position": [1000, 1000, 0],
         "config": "experiments/vizdoom/train_SPTM.cfg",
         "seed": 100,
         "grayscale": false,
@@ -77,11 +75,7 @@
         "full_action_set": false
     },
     "eval_env": {
-        "start_position": [
-            1000,
-            1000,
-            0
-        ],
+        "start_position": [1000, 1000, 0],
         "config": "experiments/vizdoom/train_SPTM.cfg",
         "seed": 100,
         "grayscale": false,
@@ -93,7 +87,7 @@
     },
     "sampler": {
         "batch_B": 8,
-        "eval_settings": [["easy", [0, 200], 100], ["medium", [200, 400], 200], ["hard", [400, 600], 300]], 
+        "eval_settings": [["easy", [0, 200], 100], ["medium", [200, 400], 200], ["hard", [400, 600], 300], ["hardest", [600, 800], 400]], 
         "trajectories_per_setting": 20
     },
     "runner": {
