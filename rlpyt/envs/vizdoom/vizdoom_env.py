@@ -35,6 +35,7 @@ class VizDoomEnv(Env):
                  start_position=None,
                  goal_position=None,
                  goal_close_terminate=False,
+                 step_budget=2500,
                  grayscale=True,
                  frame_skip=4,  # Frames per step (>=1).
                  num_img_obs=4,  # Number of (past) frames in observation (>=1).
@@ -81,7 +82,7 @@ class VizDoomEnv(Env):
         self._obs = np.zeros(shape=obs_shape, dtype="uint8")
 
         self.name = ''
-        self.step_budget = None
+        self.step_budget = step_budget
 
         self.game.new_episode()
         self.remove_objects()

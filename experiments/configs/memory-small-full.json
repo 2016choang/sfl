@@ -65,22 +65,34 @@
         "scale_target": false
     },
     "env": {
-        "config": "experiments/vizdoom/train_SPTM.cfg",
-        "seed": 100,
-        "grayscale": false,
-        "map_id": "map05",
-        "num_samples": -1,
-        "num_img_obs": 4,
-        "full_action_set": true
-    },
-    "eval_env": {
-        "config": "experiments/vizdoom/train_SPTM.cfg",
+        "start_position": [
+            128,
+            -64,
+            270
+        ],
+        "config": "experiments/vizdoom/small_SPTM.cfg",
         "seed": 100,
         "grayscale": false,
         "map_id": "map05",
         "num_samples": -1,
         "num_img_obs": 4,
         "full_action_set": true,
+        "step_budget": 400
+    },
+    "eval_env": {
+        "start_position": [
+            128,
+            -64,
+            270
+        ],
+        "config": "experiments/vizdoom/small_SPTM.cfg",
+        "seed": 100,
+        "grayscale": false,
+        "map_id": "map05",
+        "num_samples": -1,
+        "num_img_obs": 4,
+        "full_action_set": true,
+        "step_budget": 400,
         "goal_close_terminate": true
     },
     "sampler": {
@@ -88,9 +100,10 @@
         "eval_settings": {
             "easy": [100, [0, 200]],
             "medium": [200, [200 ,400]],
-            "hard": [300, [400, 600]]
+            "hard": [300, [400, 600]],
+            "hardest": [400, [600, 800]]
         },
-        "start_goal_pairs_path": "experiments/configs/225-train-random-start-goal-pairs.json",
+        "start_goal_pairs_path": "experiments/configs/2589-small-fixed-start-goal-pairs.json",
         "trajectories_per_setting": 20
     },
     "runner": {
