@@ -393,7 +393,7 @@ class MinigridGeneralWrapper(Wrapper):
                  max_steps=500,
                  terminate=False,
                  start_pos=None,
-                 true_goal_pos=[16, 19],
+                 true_goal_pos=[16, 19, 0],
                  reset_same=False,
                  reset_episodes=1):
         super().__init__(env)
@@ -412,6 +412,10 @@ class MinigridGeneralWrapper(Wrapper):
         else:
             self.start_pos = None
         self.true_goal_pos = np.array(true_goal_pos)
+        
+        self._start_info = self.get_start_state()
+        self._goal_info = self.get_goal_state()
+
         self.reset_episodes = reset_episodes
         self.episodes = 0
 
@@ -467,22 +471,14 @@ class MinigridGeneralWrapper(Wrapper):
     def clear_env(self):
         raise NotImplementedError
 
-    @property
-    def oracle_distance_matrix(self):
-        if self._oracle_distance_matrix is None:
-            self._oracle_distance_matrix = self.compute_oracle_distance_matrix()
-        return self._oracle_distance_matrix
-
-    def get_initial_landmarks(self):
-        return [self.get_goal_state(), self.get_start_state()]
-
     def get_start_state(self):
         self.reset()
         self.episodes -= 1  # does not count towards number of episodes per start position
 
         # self.env.unwrapped.agent_pos = self.env.unwrapped.goal_pos
         # TODO: Hard-coded state next to goal state for now!
-        self.env.unwrapped.agent_pos = self.start_pos
+        self.env.unwrapped.agent_pos = self.start_pos[:2]
+        self.env.unwrapped.agent_dir = self.start_pos[2]
         obs = self.get_current_state()[0]
         self.reset_episode()
         return (obs, self.start_pos)
@@ -494,7 +490,8 @@ class MinigridGeneralWrapper(Wrapper):
 
         # self.env.unwrapped.agent_pos = self.env.unwrapped.goal_pos
         # TODO: Hard-coded state next to goal state for now!
-        self.env.unwrapped.agent_pos = self.true_goal_pos
+        self.env.unwrapped.agent_pos = self.true_goal_pos[:2]
+        self.env.unwrapped.agent_dir = self.true_goal_pos[2]
         obs = self.get_current_state()[0]
         self.reset_episode()
         return (obs, self.true_goal_pos)
@@ -515,7 +512,7 @@ class MinigridGeneralWrapper(Wrapper):
         self.visited[tuple(self.env.unwrapped.agent_pos)] += 1
 
         reward = 0
-        done = (self.env.unwrapped.agent_pos == self.true_goal_pos).all()
+        done = (self.env.unwrapped.agent_pos == self.true_goal_pos[:2]).all()
         
         if done:
             reward = self._reward()
@@ -542,10 +539,12 @@ class MinigridGeneralWrapper(Wrapper):
         if self.reset_same or self.episodes != self.reset_episodes:
             if self.start_pos is None:
                 self.start_pos = self.get_random_start()
-            self.env.unwrapped.agent_pos = self.start_pos
+            self.env.unwrapped.agent_pos = self.start_pos[:2]
+            self.env.unwrapped.agent_dir = self.start_pos[2]
         else:
             self.start_pos = self.get_random_start()
-            self.env.unwrapped.agent_pos = self.start_pos
+            self.env.unwrapped.agent_pos = self.start_pos[:2]
+            self.env.unwrapped.agent_dir = self.start_pos[2]
             self.episodes = 0
         
         self.env.step(0)
@@ -565,11 +564,29 @@ class MinigridGeneralWrapper(Wrapper):
                 return np.dot(resized, [0.2989, 0.5870, 0.1140])
             else:
                 return resized
+    
+    @property
+    def agent_pos(self):
+        return np.array([*self.env.unwrapped.agent_pos, self.env.unwrapped.agent_pos])
+
+    @property
+    def start_info(self):
+        return self._start_info
+    
+    @property
+    def goal_info(self):
+        return self._goal_info
+
+    @property
+    def oracle_distance_matrix(self):
+        if self._oracle_distance_matrix is None:
+            self._oracle_distance_matrix = self.compute_oracle_distance_matrix()
+        return self._oracle_distance_matrix
 
 class MinigridDoorKeyWrapper(MinigridGeneralWrapper):
 
     def get_random_start(self):
-        return self.env.place_agent()
+        return np.array([*self.env.place_agent(), self.env.unwrapped.agent_dir])
 
     def get_possible_pos(self):
         positions = set()
@@ -610,7 +627,7 @@ class MinigridMultiRoomWrapper(MinigridGeneralWrapper):
     
     def get_random_start(self):
         room = self.env.rooms[np.random.randint(self.num_rooms)]
-        return self.env.place_agent(room.top, room.size)
+        return np.array([*self.env.place_agent(room.top, room.size), self.env.unwrapped.agent_dir])
 
     def get_possible_pos(self):
         positions = set()

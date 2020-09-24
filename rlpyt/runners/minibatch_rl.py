@@ -344,14 +344,18 @@ class MinibatchDSREval(MinibatchRlEval):
             logger.record_tabular_stat('Entropy', state_entropy, itr)
 
     def log_dsr(self, itr):
+        self.agent.sample_mode(itr)
+
         # 1. Render actual environemnt
         env = self.sampler.collector.envs[0]
-        figure = plt.figure(figsize=(7, 7))
-        plt.imshow(env.render(8))
-        save_image('Environment', itr)
-        plt.close()
+        
+        if itr < (self.log_dsr_interval_itrs * 2):
+            figure = plt.figure(figsize=(7, 7))
+            plt.imshow(env.render(8))
+            save_image('Environment', itr)
+            plt.close()
 
-        # 2. Heatmap of state vistations during training
+        # 2. Heatmap of state visitations during training
         figure = plt.figure(figsize=(7, 7))
         plt.imshow(env.visited.T)
         circle = plt.Circle(tuple(env.start_pos), 0.2, color='r')
@@ -454,6 +458,7 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                  min_steps_landmark_mode=2e4,
                  update_landmark_representation_interval_steps=1e3,
                  update_landmark_graph_interval_steps=1e3,
+                 figsize=(7, 7),
                  log_feature_info_interval_steps=1e3,
                  log_landmarks_interval_steps=1e4,
                  **kwargs):
@@ -478,9 +483,8 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         n_itr = super().startup()
         train_envs = len(self.sampler.collector.envs)
         eval_envs = len(self.sampler.eval_collector.envs)
-        # oracle_distance_matrix = self.sampler.collector.envs[0].oracle_distance_matrix  
-        lines = np.array([(l.x1, l.y1, l.x2, l.y2) for l in self.sampler.collector.envs[0].state.sectors[0].lines if l.is_blocking])
-        self.agent.initialize_landmarks(train_envs, eval_envs, lines)
+        oracle_distance_matrix = self.sampler.collector.envs[0].oracle_distance_matrix  
+        self.agent.initialize_landmarks(train_envs, eval_envs, None, oracle_distance_matrix)
         return n_itr
 
     def train(self):
@@ -518,6 +522,7 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                 logger.log_itr_info(itr, opt_info)
                 self.store_diagnostics(itr, traj_infos, opt_info)
 
+                # Log feature information
                 if (itr + 1) % self.log_feature_info_interval_itrs == 0:
                     self.log_feature_info(itr, feature_info)
 
@@ -535,8 +540,7 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                 if (itr + 1) % self.log_interval_itrs == 0:
                     eval_traj_infos, eval_time = self.evaluate_agent(itr)
                     # self.log_eval_features(itr)
-                    if eval_traj_infos is not None:
-                        self.log_diagnostics(itr, eval_traj_infos, eval_time)
+                    self.log_diagnostics(itr, eval_traj_infos, eval_time)
                     self.algo.update_scheduler(self._opt_infos)
                     self.log_eval_landmarks(itr)
 
@@ -551,7 +555,9 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         self.shutdown()
 
     def log_feature_info(self, itr, feature_info):
-        pass
+        summary_writer = logger.get_tf_summary_writer()
+        for key, value in feature_info.items():
+            summary_writer.add_histogram(key, value, itr)
 
     def log_eval_features(self, itr):
         eval_loss, eval_opt_info = self.algo.eval_feature_loss()
@@ -561,34 +567,36 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
 
     def log_eval_landmarks(self, itr):
         # Log eval landmarks information
-        if self.agent.landmarks:
+        if self.agent.landmarks and self.agent.reached_goal:
             summary_writer = logger.get_tf_summary_writer()
-            eval_path_str = '\n'.join(','.join(map(str, path)) + ' ({:.3f})'.format(self.agent.landmarks.path_p[i]) \
-                for i, path in enumerate(self.agent.landmarks.possible_paths) if len(path) <= 20)
-            summary_writer.add_text("Path to goal", eval_path_str, itr)
             logger.record_tabular_stat('EndDistanceToGoal', np.average(self.agent.landmarks.eval_distances), itr)
 
-            eval_env = self.sampler.eval_collector.envs[0]
-            eval_grid = eval_env.visited.T.copy()
+            if self.agent.landmarks.found_eval_path:
+                eval_path_str = '\n'.join(','.join(map(str, path)) + ' ({:.3f})'.format(self.agent.landmarks.path_p[i]) \
+                    for i, path in enumerate(self.agent.landmarks.possible_paths) if len(path) <= 20)
+                summary_writer.add_text("Path to goal", eval_path_str, itr)
 
-            # State visitation heatmap in evaluation mode and
-            # agent's end position after executing landmark mode
-            figure = plt.figure(figsize=(7, 7))
-            plt.imshow(eval_grid)
-            for pos, landmark in self.agent.landmarks.eval_end_pos.items():
-                plt.text(pos[0] - 0.25, pos[1] + 0.25, str(landmark), fontsize=6)
-            circle = plt.Circle(tuple(eval_env.start_pos), 0.2, color='r')
-            plt.gca().add_artist(circle)
-            circle = plt.Circle(tuple(eval_env.true_goal_pos), 0.2, color='purple')
-            plt.gca().add_artist(circle)
-            plt.colorbar()
-            save_image('Eval visitations and end positions', itr)
-            plt.close()
+                eval_env = self.sampler.eval_collector.envs[0]
+                eval_grid = eval_env.visited.T.copy()
+
+                # State visitation heatmap in evaluation mode and
+                # agent's end position after executing landmark mode
+                figure = plt.figure(figsize=(7, 7))
+                plt.imshow(eval_grid)
+                for pos, landmark in self.agent.landmarks.eval_end_pos.items():
+                    plt.text(pos[0] - 0.25, pos[1] + 0.25, str(landmark), fontsize=6)
+                circle = plt.Circle(tuple(eval_env.start_pos), 0.2, color='r')
+                plt.gca().add_artist(circle)
+                circle = plt.Circle(tuple(eval_env.true_goal_pos), 0.2, color='purple')
+                plt.gca().add_artist(circle)
+                plt.colorbar()
+                save_image('Eval visitations and end positions', itr)
+                plt.close()
 
     @torch.no_grad()
     def log_landmarks(self, itr):
         # If no landmark info to log
-        if not self.agent.landmarks:
+        if not self.agent.landmarks or self.agent.landmarks.num_landmarks == 0:
             return
         
         self.agent.sample_mode(itr)
@@ -598,98 +606,47 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         # Save landmarks data
         self.agent.landmarks.save(os.path.join(logger.get_snapshot_dir(), 'landmarks_itr_{}.npz'.format(itr)))
 
-        # # 1. Reach rate of ith landmark
-        # figure = plt.figure(figsize=(7, 7))
-        # landmark_true_reach_percentage = self.agent.landmarks.landmark_true_reaches / np.clip(self.agent.landmarks.landmark_attempts, 1, None)
-        # ind = np.arange(len(landmark_true_reach_percentage))
-        # plt.bar(ind, landmark_true_reach_percentage)
-        # plt.xlabel('ith Landmark')
-        # plt.ylabel('Reach Percentage')
-        # plt.legend()
-        # save_image('Landmarks reach rates', itr)
-        # plt.close()
-
-        # # 2. Percent distance covered to ith landmark
-        # figure = plt.figure(figsize=(7, 7))
-        # landmark_dist_completed = self.agent.landmark_dist_completed
-        # for i, progress in enumerate(landmark_dist_completed):
-        #     if progress:
-        #         landmark_dist_completed[i] = np.average(progress)
-        #     else:
-        #         landmark_dist_completed[i] = 0
-        # ind = np.arange(len(landmark_dist_completed))
-        # plt.bar(ind, landmark_dist_completed)
-        # plt.xlabel('ith Landmark')
-        # plt.ylabel('Percent Distance Covered')
-        # save_image('Landmarks percent distance covered', itr)
-
-        # 3. Percent distance covered to goal landmark
-        if self.agent.landmarks.goal_landmark_dist_completed:
-            logger.record_tabular_stat('PercentDistanceCoveredToGoal',
-                                       np.average(self.agent.landmarks.goal_landmark_dist_completed), itr)
-
-        # 4. Statistics related to adding/removing landmarks
+        # 1. Statistics related to adding/removing landmarks
         logger.record_tabular_stat('LandmarksAdded', self.agent.landmarks.landmark_adds, itr)
         logger.record_tabular_stat('LandmarksRemoved', self.agent.landmarks.landmark_removes, itr)
 
-        # 5. Percent of times we select correct starting landmark
-        if self.agent.landmarks.total_landmark_paths:
-            logger.record_tabular_stat('PercentCorrectStartLandmark',
-                                       self.agent.landmarks.correct_start_landmark / self.agent.landmarks.total_landmark_paths, itr)
+        # 2. Statistics related to transitions between landmarks
+        logger.record_tabular_stat('Localization Transitions', self.agent.landmarks.transitions, itr)
 
-        # 6. Ratio of distance to correct start landmark over distance
-        #    to estimated start landmark
-        if self.agent.landmarks.dist_ratio_start_landmark:
-            logger.record_tabular_stat('Correct-EstimatedStartLandmarkDistanceRatio',
-                                       np.average(self.agent.landmarks.dist_ratio_start_landmark), itr)
-
-        # 7. Statistics related to success rates of transitions between landmarks
-        overall_success_rates = self.agent.landmarks.successes / np.clip(self.agent.landmarks.attempts, 1, None)
-        interval_success_rates = self.agent.landmarks.interval_successes / np.clip(self.agent.landmarks.interval_attempts, 1, None)
-
-        if hasattr(env, 'rooms'):
-            oracle_edges = self.agent.landmarks.get_oracle_edges(env)
-            figure = plt.figure(figsize=(7, 7))
-            oracle_edges_matrix = np.maximum(oracle_edges, oracle_edges.T)
-            G = nx.from_numpy_array(oracle_edges_matrix.astype(int), create_using=nx.DiGraph)
-            pos = nx.circular_layout(G)
-
-            nx.draw_networkx_nodes(G, pos, node_size=600)
-            nx.draw_networkx_edges(G, pos, edgelist=G.edges, width=2, edge_color='black')
-
-            edge_labels = nx.get_edge_attributes(G, 'weight')
-            for k, _ in edge_labels.items():
-                if self.agent.landmarks.attempts[k] > 0:
-                    edge_label = round(overall_success_rates[k], 3)
-                else:
-                    edge_label = -1
-                edge_labels[k] = edge_label
-
-            nx.draw_networkx_labels(G, pos, font_size=8, font_family='sans-serif')
-            nx.draw_networkx_edge_labels(G, pos, font_size=6, font_family='sans-serif', edge_labels=edge_labels, connectionstyle='arc3,rad=0.1')
-            plt.axis('off')
-            save_image('Oracle landmarks graph', itr)
-            plt.close()
-        else:
-            oracle_edges = True
-
-        oracle_overall_success_rates = overall_success_rates[oracle_edges & (self.agent.landmarks.attempts > 0)]
-        oracle_interval_success_rates = interval_success_rates[oracle_edges & (self.agent.landmarks.interval_attempts > 0)]
-        logger.record_tabular_stat('OverallLandmarkSuccessRate',
-                                   np.average(oracle_overall_success_rates), itr)
-        logger.record_tabular_stat('IntervalLandmarkSuccessRate',
-                                   np.average(oracle_interval_success_rates), itr)
+        average_random_steps = self.agent.landmarks.edge_random_steps / np.clip(self.agent.landmarks.edge_random_transitions, 1, None)
+        average_random_steps = average_random_steps[self.agent.landmarks.edge_random_transitions > 0]
+        average_subgoal_steps = self.agent.landmarks.edge_subgoal_steps / np.clip(self.agent.landmarks.edge_subgoal_transitions, 1, None)
+        average_subgoal_steps = average_subgoal_steps[self.agent.landmarks.edge_subgoal_transitions > 0]
+        # average_subgoal_successes = self.agent.landmarks.edge_subgoal_successes / np.clip(self.agent.landmarks.edge_subgoal_transitions, 1, None)
+        # average_subgoal_successes = average_subgoal_successes[self.agent.landmarks.edge_subgoal_transitions > 0]
+        logger.record_tabular_stat('TransitionRandomSteps',
+                                   np.average(average_random_steps), itr)
+        logger.record_tabular_stat('TransitionSubgoalSteps',
+                                   np.average(average_subgoal_steps), itr)
+        # logger.record_tabular_stat('transitionsubgoalsuccesses',
+        #                            np.average(average_subgoal_successes), itr)
         
-        # 8. Visitation counts of landmarks
-        figure = plt.figure(figsize=(7, 7))
-        visitations = self.agent.landmarks.visitations
+        subgoal_failures = self.agent.landmarks.edge_subgoal_failures
+        logger.record_tabular_stat('TransitionSubgoalFailures',
+                                   np.average(subgoal_failures[subgoal_failures > 0]), itr)
+        logger.record_tabular_stat('UniqueSubgoalFailures', np.sum(self.agent.landmarks.edge_subgoal_failures > 0), itr)
+        # logger.record_tabular_stat('UniqueSubgoalSuccceses', np.sum(self.agent.landmarks.edge_subgoal_successes > 0), itr)
+
+        # 3. Statistics related to connected components of graph
+        logger.record_tabular_stat('GraphConnectedComponents', np.average(self.agent.landmarks.graph_components), itr)
+        logger.record_tabular_stat('GraphSizeLargestComponent',
+                                   np.average(self.agent.landmarks.graph_size_largest_component), itr)
+
+        # 4. Visitation counts of landmarks
+        figure = plt.figure(figsize=self.figsize)
+        visitations = np.sum(self.agent.landmarks.edge_random_transitions, axis=0) + np.sum(self.agent.landmarks.edge_subgoal_transitions, axis=0)
         plt.bar(np.arange(len(visitations)), visitations)
         plt.xlabel('Landmark')
         plt.ylabel('Visitations')
         save_image('Landmark visitation counts', itr)
         plt.close()
 
-        # 9. Landmarks by spatial location
+        # 5. Landmarks by spatial location
         landmarks_grid = env.visited.T.copy()
         landmarks_grid[landmarks_grid == 0] = -1
         landmarks_grid[landmarks_grid != -1] = 0
@@ -710,6 +667,65 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         plt.colorbar()
         save_image('Landmarks', itr)
         plt.close()
+
+        # 5. Distance to algo-chosen start landmark
+        if self.agent.landmarks.dist_start_landmark:
+            logger.record_tabular_stat('EstimatedStartLandmarkDistance',
+                                       np.average(self.agent.landmarks.dist_start_landmark), itr)
+
+        # 6. Ratio of distance to correct start landmark over distance
+        #    to estimated start landmark
+        if self.agent.landmarks.dist_ratio_start_landmark:
+            logger.record_tabular_stat('Correct-EstimatedStartLandmarkDistanceRatio',
+                                       np.average(self.agent.landmarks.dist_ratio_start_landmark), itr)
+
+        # 7. Distance / angle diff at algo-determined localization
+        if self.agent.landmarks.dist_at_localization:
+            logger.record_tabular_stat('DistanceToLandmarkAtLocalization',
+                                       np.average(self.agent.landmarks.dist_at_localization), itr)
+            logger.record_tabular_stat('AngleDifferenceAtLocalization',
+                                       np.average(self.agent.landmarks.angle_diff_at_localization), itr)
+            logger.record_tabular_stat('WallIntersectionsAtLocalization',
+                                       self.agent.landmarks.wall_intersections_at_localization, itr)
+            logger.record_tabular_stat('CorrectLocalizationRatio',
+                                       self.agent.landmarks.correct_localizations / np.clip(self.agent.landmarks.attempted_localizations, 1, None), itr)
+
+        # 8. Distance / angle diff at algo-determined termination
+        if self.agent.landmarks.dist_at_termination:
+            logger.record_tabular_stat('DistanceToLandmarkAtTermination',
+                                       np.average(self.agent.landmarks.dist_at_termination), itr)
+            logger.record_tabular_stat('AngleDifferenceAtTermination',
+                                       np.average(self.agent.landmarks.angle_diff_at_termination), itr)
+            logger.record_tabular_stat('WallIntersectionsAtTermination',
+                                       self.agent.landmarks.wall_intersections_at_termination, itr)
+            logger.record_tabular_stat('CorrectTerminationRatio',
+                                       self.agent.landmarks.correct_terminations / np.clip(self.agent.landmarks.attempted_terminations, 1, None), itr)
+
+        # if hasattr(env, 'rooms'):
+        #     oracle_edges = self.agent.landmarks.get_oracle_edges(env)
+        #     figure = plt.figure(figsize=(7, 7))
+        #     oracle_edges_matrix = np.maximum(oracle_edges, oracle_edges.T)
+        #     G = nx.from_numpy_array(oracle_edges_matrix.astype(int), create_using=nx.DiGraph)
+        #     pos = nx.circular_layout(G)
+
+        #     nx.draw_networkx_nodes(G, pos, node_size=600)
+        #     nx.draw_networkx_edges(G, pos, edgelist=G.edges, width=2, edge_color='black')
+
+        #     edge_labels = nx.get_edge_attributes(G, 'weight')
+        #     for k, _ in edge_labels.items():
+        #         if self.agent.landmarks.attempts[k] > 0:
+        #             edge_label = round(overall_success_rates[k], 3)
+        #         else:
+        #             edge_label = -1
+        #         edge_labels[k] = edge_label
+
+        #     nx.draw_networkx_labels(G, pos, font_size=8, font_family='sans-serif')
+        #     nx.draw_networkx_edge_labels(G, pos, font_size=6, font_family='sans-serif', edge_labels=edge_labels, connectionstyle='arc3,rad=0.1')
+        #     plt.axis('off')
+        #     save_image('Oracle landmarks graph', itr)
+        #     plt.close()
+        # else:
+        #     oracle_edges = True
 
         # 10. Landmarks graph
         #       - black edges have had successful transitions between their incident nodes
@@ -740,16 +756,16 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
             save_image('Landmarks graph', itr)
             plt.close()
 
-        # # 11. Neighbors of the goal landmark
-        # summary_writer = logger.get_tf_summary_writer()
-        # goal_neighbors = ', '.join('({}, {:.3f})'.format(node, data['weight']) for node, data in G[0].items())
-        # summary_writer.add_text("Goal neighbors", goal_neighbors, itr)
+        # 11. Neighbors of the goal landmark
+        summary_writer = logger.get_tf_summary_writer()
+        goal_neighbors = ', '.join('({}, {:.3f})'.format(node, data['weight']) for node, data in G[0].items())
+        summary_writer.add_text("Goal neighbors", goal_neighbors, itr)
 
-        # 12. Landmarks add threshold (dynamically adjusted)
-        logger.record_tabular_stat('Add Threshold', self.agent.landmarks.add_threshold, itr)
+        # # 12. Landmarks add threshold (dynamically adjusted)
+        # logger.record_tabular_stat('Add Threshold', self.agent.landmarks.add_threshold, itr)
 
-        # 13. Landmarks low attempt threshold
-        logger.record_tabular_stat('Low Attempt Threshold', self.agent.landmarks.get_low_attempt_threshold(use_max=False), itr)
+        # # 13. Landmarks low attempt threshold
+        # logger.record_tabular_stat('Low Attempt Threshold', self.agent.landmarks.get_low_attempt_threshold(use_max=False), itr)
 
         self.agent.reset_logging()
 
@@ -757,10 +773,17 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
     _eval = True
 
     def __init__(self,
-                 figsize=(7, 7),
                  **kwargs):
         save__init__args(locals())
         super().__init__(**kwargs)
+    
+    def startup(self):
+        n_itr = MinibatchDSREval.startup()
+        train_envs = len(self.sampler.collector.envs)
+        eval_envs = len(self.sampler.eval_collector.envs)
+        lines = np.array([(l.x1, l.y1, l.x2, l.y2) for l in self.sampler.collector.envs[0].state.sectors[0].lines if l.is_blocking])
+        self.agent.initialize_landmarks(train_envs, eval_envs, lines)
+        return n_itr
     
     # def eval(self, train_dir, eval_itrs=None):
     #     self.startup()
@@ -837,11 +860,6 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         state_entropy = entropy(env.visited_interval.flatten(), base=2)
         if not np.isnan(state_entropy):
             logger.record_tabular_stat('Interval Entropy', state_entropy, itr)
-
-    def log_feature_info(self, itr, feature_info):
-        summary_writer = logger.get_tf_summary_writer()
-        for key, value in feature_info.items():
-            summary_writer.add_histogram(key, value, itr)
 
     def log_dsr(self, itr):
         summary_writer = logger.get_tf_summary_writer()
@@ -1038,15 +1056,8 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         logger.record_tabular_stat('LandmarksRemoved', self.agent.landmarks.landmark_removes, itr)
         
         # 2. Statistics related to transitions between landmarks
-        # overall_success_rates = self.agent.landmarks.successes / np.clip(self.agent.landmarks.attempts, 1, None)
-        # interval_success_rates = self.agent.landmarks.interval_successes / np.clip(self.agent.landmarks.interval_attempts, 1, None)
+        logger.record_tabular_stat('Localization Transitions', self.agent.landmarks.transitions, itr)
 
-        # oracle_overall_success_rates = overall_success_rates[(self.agent.landmarks.attempts > 0)]
-        # oracle_interval_success_rates = interval_success_rates[(self.agent.landmarks.interval_attempts > 0)]
-        # logger.record_tabular_stat('OverallLandmarkSuccessRate',
-        #                            np.average(oracle_overall_success_rates), itr)
-        # logger.record_tabular_stat('IntervalLandmarkSuccessRate',
-        #                            np.average(oracle_interval_success_rates), itr)
         average_random_steps = self.agent.landmarks.edge_random_steps / np.clip(self.agent.landmarks.edge_random_transitions, 1, None)
         average_random_steps = average_random_steps[self.agent.landmarks.edge_random_transitions > 0]
         average_subgoal_steps = self.agent.landmarks.edge_subgoal_steps / np.clip(self.agent.landmarks.edge_subgoal_transitions, 1, None)
@@ -1064,7 +1075,6 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         logger.record_tabular_stat('TransitionSubgoalFailures',
                                    np.average(subgoal_failures[subgoal_failures > 0]), itr)
         logger.record_tabular_stat('UniqueSubgoalFailures', np.sum(self.agent.landmarks.edge_subgoal_failures > 0), itr)
-
         # logger.record_tabular_stat('UniqueSubgoalSuccceses', np.sum(self.agent.landmarks.edge_subgoal_successes > 0), itr)
 
         # 3. Statistics related to connected components of graph
@@ -1176,22 +1186,10 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         # goal_neighbors = ', '.join('({}, {:.3f})'.format(node, data['weight']) for node, data in G[0].items())
         # summary_writer.add_text("Goal neighbors", goal_neighbors, itr)
 
-        # 12. Landmarks add threshold (dynamically adjusted)
-        logger.record_tabular_stat('Add Threshold', self.agent.landmarks.add_threshold, itr)
+        # # 12. Landmarks add threshold (dynamically adjusted)
+        # logger.record_tabular_stat('Add Threshold', self.agent.landmarks.add_threshold, itr)
 
         # # 13. Landmarks low attempt threshold
         # logger.record_tabular_stat('Low Attempt Threshold', self.agent.landmarks.get_low_attempt_threshold(use_max=False), itr)
-
-        # # 14. Landmarks edge auxiliary threshold
-        # logger.record_tabular_stat('Graph Edge Threshold', self.agent.landmarks.current_edge_threshold, itr)
-
-        # # 15. Landmarks edge SF sim threshold
-        # logger.record_tabular_stat('Graph SF Sim Threshold', self.agent.landmarks.current_sim_threshold, itr)
-        
-        # # 16. Attempts used to generate fully connected landmark graph 
-        # logger.record_tabular_stat('Generate Graph Attempts', np.average(self.agent.landmarks.generate_graph_attempts), itr)
-
-        # 13. Localization metrics
-        logger.record_tabular_stat('Localization Transitions', self.agent.landmarks.transitions, itr)
 
         self.agent.reset_logging()

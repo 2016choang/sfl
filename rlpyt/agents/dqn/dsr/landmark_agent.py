@@ -65,11 +65,12 @@ class LandmarkAgent(FeatureDSRAgent):
         return self._eval_landmarks
 
     @torch.no_grad()
-    def initialize_landmarks(self, train_envs, eval_envs, lines):
+    def initialize_landmarks(self, train_envs, eval_envs, lines=None, oracle_distance_matrix=None):
         # Create Landmarks object
         self._landmarks.initialize(train_envs)
-        self._landmarks.lines = lines
         self.eval_envs = eval_envs 
+        self._landmarks.lines = lines
+        self._landmarks.oracle_distance_matrix = oracle_distance_matrix
     
     @torch.no_grad()
     def update_landmark_representation(self, itr):
@@ -82,7 +83,14 @@ class LandmarkAgent(FeatureDSRAgent):
             # self.landmarks.set_features(features)
             idxs = np.arange(self.landmarks.num_landmarks)
             for chunk_idxs in np.array_split(idxs, np.ceil(self.landmarks.num_landmarks / 128)):
-                features = self.landmarks.features[chunk_idxs] 
+                if self.landmarks.use_observations:
+                    observation = self.landmarks.observations[chunk_idxs]
+                    model_inputs = buffer_to(observation,
+                        device=self.device)
+                    features = self.feature_model(model_inputs, mode='encode')
+                    self.landmarks.set_features(features, chunk_idxs)
+                else:
+                    features = self.landmarks.features[chunk_idxs] 
                 model_inputs = buffer_to(features,
                     device=self.device)
                 dsr = self.model(model_inputs, mode='dsr')
@@ -93,20 +101,20 @@ class LandmarkAgent(FeatureDSRAgent):
         if self.landmarks:
             # Add new landmarks
             if self.landmarks.potential_landmarks:
-                features = self.landmarks.potential_landmarks['features']
+                if self.landmarks.use_observations:
+                    observation = self.landarks.potential_landmarks['observation']
+                    model_inputs = buffer_to(observation,
+                        device=self.device)
+                    features = self.feature_model(model_inputs, mode='encode')
+                else:
+                    observation = None
+                    features = self.landmarks.potential_landmarks['features']
 
-                # unique_idxs = np.unique(observation.numpy(), return_index=True, axis=0)[1]
-                # position = self.landmarks.potential_landmarks['positions'][unique_idxs]
-                # observation = observation[unique_idxs]
-
-                # model_inputs = buffer_to(observation,
-                #     device=self.device)
-                # features = self.feature_model(model_inputs, mode='encode')
                 model_inputs = buffer_to(features,
                     device=self.device)
                 dsr = self.model(model_inputs, mode='dsr')
 
-                self.landmarks.add_landmarks(features, dsr)
+                self.landmarks.add_landmarks(observation, features, dsr)
 
             if self.landmarks.num_landmarks > 0:
                 # Reset landmark mode for all environments
@@ -146,7 +154,7 @@ class LandmarkAgent(FeatureDSRAgent):
             observation = observation.float()
 
             # Add potential landmarks during training
-            self.landmarks.analyze_current_state(features, dsr, position)
+            self.landmarks.analyze_current_state(observation, features, dsr, position)
 
             self.landmarks.set_paths(dsr, position)
 
@@ -226,7 +234,7 @@ class LandmarkAgent(FeatureDSRAgent):
             if self._eval_landmarks.existing_eval_goal:
                 self._eval_landmarks.disconnect_goal()
 
-            self._eval_landmarks.force_add_landmark(features, dsr, pos)
+            self._eval_landmarks.force_add_landmark(observation, features, dsr, pos)
             self._eval_landmarks.connect_goal()
             self._eval_landmarks.existing_eval_goal = True
     

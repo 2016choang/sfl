@@ -41,7 +41,6 @@ def build_and_train(config_file,
 
     env_id = config['env_id']
     mode = config['mode']
-    tabular = config['tabular']
     seed = config['seed']
     samplers = config['samplers']
     set_seed(seed)
@@ -58,11 +57,11 @@ def build_and_train(config_file,
         env_kwargs=dict(id=env_id, mode=mode, minigrid_config=config['env']),
         eval_env_kwargs=dict(id=env_id, mode=mode, minigrid_config=config['eval_env']),
         batch_T=1,  # One time-step per sampler iteration.
-        batch_B=samplers,  # One environment (i.e. sampler Batch dimension).
         max_decorrelation_steps=0,
         eval_n_envs=1,
         eval_max_steps=int(5e3),
         eval_max_trajectories=10,
+        **config['sampler']
     )    
 
     if checkpoint is not None:
@@ -82,6 +81,8 @@ def build_and_train(config_file,
         raise NotImplementedError
 
     landmarks = Landmarks(**config['landmarks'])
+    if 'landmarks_path' in config:
+        landmarks.load(config['landmarks_path'], device)
     agent = agent_class(featureModelCls=featureModelCls,
                         initial_model_state_dict=model_checkpoint, 
                         initial_feature_model_state_dict=feature_model_checkpoint,
@@ -99,10 +100,9 @@ def build_and_train(config_file,
     )
     config['env_id'] = env_id
     name = "dsr_" + env_id
-    log_dir = mode
+    log_dir = "minigrid"
     with logger_context(log_dir, run_ID, name, config, snapshot_mode='gap', snapshot_gap=snapshot_gap, tensorboard=True):
         runner.train()
-
 
 if __name__ == "__main__":
     import argparse

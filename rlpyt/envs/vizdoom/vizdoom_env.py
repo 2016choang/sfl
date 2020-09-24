@@ -384,13 +384,14 @@ class VizDoomEnv(Env):
         return self.state.game_variables
     
     @property
-    def oracle_distance_matrix(self):
-        return None
-    
-    @property
     def start_info(self):
         return self._start_info
 
     @property
     def goal_info(self):
         return self._goal_info
+
+    @property
+    def oracle_distance_matrix(self):
+        return None
+    
