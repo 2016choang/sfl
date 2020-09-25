@@ -42,7 +42,6 @@ def build_and_train(config_file,
     env_id = config['env_id']
     mode = config['mode']
     seed = config['seed']
-    samplers = config['samplers']
     set_seed(seed)
 
     if cuda_idx is not None:
