@@ -948,15 +948,14 @@ class Landmarks(object):
         return np.any(intersections, axis=1)
 
     def get_oracle_distance_to_landmarks(self, pos, idxs=None, intersection_penalty=False):
-        if self.oracle_distance_matrix:
+        if idxs:
             positions = self.positions[idxs, :2]
+        else:
+            positions = self.positions[:, :2]
+        if self.oracle_distance_matrix is not None:
             distance = self.oracle_distance_matrix[pos[0], pos[1], positions[:, 0], positions[:, 1]]
             intersections = np.full(distance.shape, False, dtype=bool)
         else:
-            if idxs:
-                positions = self.positions[idxs, :2]
-            else:
-                positions = self.positions[:, :2]
             distance = np.linalg.norm(positions - pos[:2], ord=2, axis=1)
 
             broadcasted_pos = np.broadcast_to(pos[np.newaxis, :2], positions.shape)

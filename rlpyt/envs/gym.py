@@ -49,10 +49,10 @@ class GymEnvWrapper(Wrapper):
         build_info_tuples(info)
         self.update_obs_func = update_obs_func
 
-    def step(self, action):
+    def step(self, action, *args):
         
         a = self.action_space.revert(action)
-        o, r, d, info = self.env.step(a)
+        o, r, d, info = self.env.step(a, *args)
         obs = self.observation_space.convert(o)
         if self._time_limit:
             if "TimeLimit.truncated" in info:
@@ -396,7 +396,6 @@ class MinigridGeneralWrapper(Wrapper):
                  true_goal_pos=[16, 19, 0],
                  reset_same=False,
                  reset_episodes=1):
-        super().__init__(env)
         self.env = env
         
         self.size = size
@@ -406,7 +405,11 @@ class MinigridGeneralWrapper(Wrapper):
         self.max_steps = max_steps
         self.terminate = terminate
 
+        self.visited = np.zeros((self.env.grid.height, self.env.grid.width), dtype=int)
         self.reset_same = reset_same
+        self.reset_episodes = reset_episodes
+        self.episodes = 0
+
         if start_pos is not None:
             self.start_pos = np.array(start_pos)
         else:
@@ -415,9 +418,6 @@ class MinigridGeneralWrapper(Wrapper):
         
         self._start_info = self.get_start_state()
         self._goal_info = self.get_goal_state()
-
-        self.reset_episodes = reset_episodes
-        self.episodes = 0
 
         if self.encoding == 'gray':
             self.observation_space = Box(0, 1, size)
@@ -434,7 +434,6 @@ class MinigridGeneralWrapper(Wrapper):
         else:
             self.action_space = Discrete(4)
 
-        self.visited = np.zeros((self.env.grid.height, self.env.grid.width), dtype=int)
         self._oracle_distance_matrix = None
     
     def compute_oracle_distance_matrix(self):
@@ -502,7 +501,7 @@ class MinigridGeneralWrapper(Wrapper):
         obs = self.get_obs(obs)
         return obs, reward, done, info
         
-    def step(self, action):
+    def step(self, action, position=None):
         if not self.all_actions and action == 3:
             # 0 -- turn left, 1 -- turn right, 2 -- move forward, 3 -- toggle door
             obs, _, _, info = self.env.step(5)
@@ -567,7 +566,7 @@ class MinigridGeneralWrapper(Wrapper):
     
     @property
     def agent_pos(self):
-        return np.array([*self.env.unwrapped.agent_pos, self.env.unwrapped.agent_pos])
+        return np.array([*self.env.unwrapped.agent_pos, self.env.unwrapped.agent_dir])
 
     @property
     def start_info(self):
