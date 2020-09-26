@@ -304,6 +304,7 @@ class MinibatchDSREval(MinibatchRlEval):
 
     def __init__(self,
                  log_dsr_interval_steps=1e4,
+                 figsize=(7, 7),
                  **kwargs):
         save__init__args(locals())
         super().__init__(**kwargs)
@@ -350,13 +351,13 @@ class MinibatchDSREval(MinibatchRlEval):
         env = self.sampler.collector.envs[0]
         
         if itr < (self.log_dsr_interval_itrs * 2):
-            figure = plt.figure(figsize=(7, 7))
+            figure = plt.figure(figsize=self.figsize)
             plt.imshow(env.render(8))
             save_image('Environment', itr)
             plt.close()
 
         # 2. Heatmap of state visitations during training
-        figure = plt.figure(figsize=(7, 7))
+        figure = plt.figure(figsize=self.figsize)
         plt.imshow(env.visited.T)
         circle = plt.Circle(tuple(env.start_pos), 0.2, color='r')
         plt.gca().add_artist(circle)
@@ -376,7 +377,7 @@ class MinibatchDSREval(MinibatchRlEval):
         subgoal = tuple(env.true_goal_pos[:2])
 
         # 3. Distance visualization in feature space
-        figure = plt.figure(figsize=(7, 7))
+        figure = plt.figure(figsize=self.figsize)
         feature_heatmap = self.agent.get_representation_heatmap(features, subgoal=subgoal, mean_axes=2)
         plt.imshow(feature_heatmap.T)
         circle = plt.Circle(subgoal, 0.2, color='r')
@@ -391,7 +392,7 @@ class MinibatchDSREval(MinibatchRlEval):
         feature_tsne, rooms = self.agent.get_tsne(dsr_env, features, mean_axes=2)
         colors = [cm.jet(x) for x in np.linspace(0.0, 1.0, num_rooms)]
         
-        figure = plt.figure(figsize=(7, 7))
+        figure = plt.figure(figsize=self.figsize)
         tsne_data = feature_tsne[rooms == 0]
         plt.scatter(tsne_data[:, 0], tsne_data[:, 1], label='Doorway', marker='*', color=colors[0])
         for i in range(1, num_rooms):
@@ -402,7 +403,7 @@ class MinibatchDSREval(MinibatchRlEval):
         plt.close()
 
         # 5. Distance visualization in SF space
-        figure = plt.figure(figsize=(7, 7))
+        figure = plt.figure(figsize=self.figsize)
         dsr_heatmap = self.agent.get_representation_heatmap(dsr, subgoal=subgoal)
         plt.imshow(dsr_heatmap.T)
         circle = plt.Circle(subgoal, 0.2, color='r')
@@ -415,7 +416,7 @@ class MinibatchDSREval(MinibatchRlEval):
         dsr_tsne, rooms = self.agent.get_tsne(dsr_env, dsr, mean_axes=2)
         colors = [cm.jet(x) for x in np.linspace(0.0, 1.0, num_rooms)]
         
-        figure = plt.figure(figsize=(7, 7))
+        figure = plt.figure(figsize=self.figsize)
         tsne_data = dsr_tsne[rooms == 0]
         plt.scatter(tsne_data[:, 0], tsne_data[:, 1], label='Doorway', marker='*', color=colors[0])
         for i in range(1, num_rooms):
@@ -426,7 +427,7 @@ class MinibatchDSREval(MinibatchRlEval):
         plt.close()
 
         # 7. Visualization of Q-values (SF-based)
-        figure = plt.figure(figsize=(7, 7))
+        figure = plt.figure(figsize=self.figsize)
         q_values = self.agent.get_q_values(dsr_env, dsr, subgoal=subgoal)
         plt.imshow(q_values.max(axis=2).T)
         for x in range(q_values.shape[0]):
@@ -458,7 +459,6 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                  min_steps_landmark_mode=2e4,
                  update_landmark_representation_interval_steps=1e3,
                  update_landmark_graph_interval_steps=1e3,
-                 figsize=(7, 7),
                  log_feature_info_interval_steps=1e3,
                  log_landmarks_interval_steps=1e4,
                  **kwargs):
@@ -581,7 +581,7 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
 
                 # State visitation heatmap in evaluation mode and
                 # agent's end position after executing landmark mode
-                figure = plt.figure(figsize=(7, 7))
+                figure = plt.figure(figsize=self.figsize)
                 plt.imshow(eval_grid)
                 for pos, landmark in self.agent.landmarks.eval_end_pos.items():
                     plt.text(pos[0] - 0.25, pos[1] + 0.25, str(landmark), fontsize=6)
@@ -656,7 +656,7 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
             node_labels[position[1], position[0]].append(i)
             landmarks_grid[position[1], position[0]] += 1
 
-        figure = plt.figure(figsize=(7, 7))
+        figure = plt.figure(figsize=self.figsize)
         plt.imshow(landmarks_grid)
         for pos, nodes in node_labels.items():
             plt.text(pos[1] -0.25, pos[0] + 0.25, ','.join(map(str, nodes)), fontsize=6)
