@@ -158,7 +158,7 @@ class LandmarkAgent(FeatureDSRAgent):
 
             self.landmarks.set_paths(dsr, position)
 
-            landmarks_dsr, landmark_mode, subgoal_landmarks = self.landmarks.get_landmarks_data(dsr, position)
+            landmarks_dsr, landmark_mode, subgoal_landmarks = self.landmarks.get_landmarks_data(observation, dsr, position)
 
             if np.any(landmark_mode):
                 if self.GT_subgoal_policy and self._mode != 'eval':
