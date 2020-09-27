@@ -346,11 +346,14 @@ class Landmarks(object):
             potential_idxs = np.sum(similarity < self.add_threshold, axis=0) >= self.num_landmarks
 
             if self.use_observations and self.localization_threshold == 1:
-                import pdb; pdb.set_trace()
+                obs_diff = torch.abs(observation[None, :] - self.observations[:, None]).sum(dim=[2, 3, 4])
+                localized_envs = np.any(obs_diff == 0, axis=0)
+                closest_landmarks = np.argmin(obs_diff, axis=0)
+                closest_landmarks_sim = np.max(self.current_similarity, axis=0)
             else:
                 localized_envs = np.any(self.current_similarity >= self.localization_threshold, axis=0)  # localized to some landmark
-            closest_landmarks = np.argmax(self.current_similarity, axis=0)  # get landmarks with highest similarity to current state 
-            closest_landmarks_sim = np.max(self.current_similarity, axis=0)
+                closest_landmarks = np.argmax(self.current_similarity, axis=0)  # get landmarks with highest similarity to current state 
+                closest_landmarks_sim = np.max(self.current_similarity, axis=0)
 
             self.closest_landmarks[closest_landmarks[localized_envs]] += 1
             self.closest_landmarks_sim[closest_landmarks[localized_envs]] += closest_landmarks_sim[localized_envs]
@@ -1070,7 +1073,7 @@ class Landmarks(object):
         end_distance = euclidean_distance(pos[:2], goal_pos[:2])
         self.eval_distances.append(end_distance)
 
-    def get_landmarks_data(self, current_dsr, current_position):
+    def get_landmarks_data(self, observation, current_dsr, current_position):
         if not np.any(self.landmark_mode) or self.num_landmarks == 0:
             return None, self.landmark_mode, None
 
@@ -1088,7 +1091,12 @@ class Landmarks(object):
         similarity = np.median(current_similarity, axis=0)
         not_full_memory = self.memory_length[self.landmark_mode] < self.memory_len
         similarity[not_full_memory] = current_similarity[-1, not_full_memory]
-        reached_landmarks = similarity > self.reach_threshold
+        if self.use_observations and self.reach_threshold == 1:
+            obs_diff = torch.abs(observation[None, :] - self.observations[:, None]).sum(dim=[2, 3, 4])
+            reached_landmarks = obs_diff[self.landmark_mode, current_landmarks] == 0
+            import pdb; pdb.set_trace()
+        else:
+            reached_landmarks = similarity > self.reach_threshold
 
         for pos, landmark in zip(current_position[np.where(self.landmark_mode)[0][reached_landmarks]],
                                  current_landmarks[reached_landmarks]):
