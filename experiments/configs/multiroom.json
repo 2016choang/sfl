@@ -7,7 +7,8 @@
             "feature_size": 64,
             "dsr_params": {
                 "fc_sizes": [512],
-                "nonlinearity": "relu"
+                "nonlinearity": "relu",
+                "batchnorm": false
             }   
         },
         "feature_model_kwargs": {
@@ -19,13 +20,14 @@
         "GT_subgoal_policy": false
     },
     "landmarks": {
+        "use_observations": true,
         "max_landmarks": 20,
-        "add_threshold": 0.85,
+        "add_threshold": 0.95,
         "memory_len": 1,
         "landmark_mode_interval": 20,
         "steps_per_landmark": 10,
         "max_landmark_mode_steps": 40,
-        "localization_threshold": 0.95,
+        "localization_threshold": 0.98,
         "random_true_edges_threshold": 10,
         "random_transitions_percentile": 50,
         "use_temporally_nearby_landmarks": true,
@@ -36,15 +38,15 @@
         "subgoal_failures_decay_rate": 0.25,
         "use_digraph": true,
         "use_weighted_edges": true,
-        "GT_localization": false,
-        "GT_localization_distance_threshold": 1,
+        "GT_localization": true,
+        "GT_localization_distance_threshold": 0,
         "GT_localization_angle_threshold": 4,
-        "GT_termination": false,
-        "GT_termination_distance_threshold": 1,
+        "GT_termination": true,
+        "GT_termination_distance_threshold": 0,
         "GT_termination_angle_threshold": 4,
         "GT_graph": false,
         "GT_graph_edge_threshold": 100,
-        "reach_threshold": 0.95,
+        "reach_threshold": 0.98,
         "landmark_paths": 5,
         "affinity_decay": 0.99
     },
