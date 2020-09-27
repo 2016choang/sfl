@@ -451,7 +451,7 @@ class Landmarks(object):
         landmarks_added = 0
 
         for idx in range(len(features)):
-            if observation:
+            if observation is not None:
                 obs = observation[[idx]]
             else:
                 obs = None
@@ -476,7 +476,7 @@ class Landmarks(object):
         # Add landmark if it is not similar w.r.t. existing landmarks
         if self.num_landmarks == 0:
             # First landmark
-            if observation:
+            if observation is not None:
                 self.observations = observation
             self.set_features(features)
             self.set_dsr(dsr)
@@ -501,7 +501,7 @@ class Landmarks(object):
 
                 # Add landmark
                 if self.num_landmarks < self.max_landmarks:
-                    if observation:
+                    if observation is not None:
                         self.observations = torch.cat((self.observations, observation), dim=0)
                     self.set_features(features, self.num_landmarks)
                     self.set_dsr(dsr, self.num_landmarks)
@@ -532,7 +532,7 @@ class Landmarks(object):
                     visitations = np.sum(self.edge_random_transitions, axis=0) + np.sum(self.edge_subgoal_transitions, axis=0)
                     replace_idx = np.argmin(visitations)
 
-                    if observation:
+                    if observation is not None:
                         self.observations[replace_idx] = observation
                     self.set_features(features, replace_idx)
                     self.set_dsr(dsr, replace_idx)

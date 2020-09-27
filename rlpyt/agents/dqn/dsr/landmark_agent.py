@@ -102,7 +102,7 @@ class LandmarkAgent(FeatureDSRAgent):
             # Add new landmarks
             if self.landmarks.potential_landmarks:
                 if self.landmarks.use_observations:
-                    observation = self.landarks.potential_landmarks['observation']
+                    observation = self.landmarks.potential_landmarks['observations']
                     model_inputs = buffer_to(observation,
                         device=self.device)
                     features = self.feature_model(model_inputs, mode='encode')
