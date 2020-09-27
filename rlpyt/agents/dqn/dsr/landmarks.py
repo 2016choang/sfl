@@ -347,7 +347,7 @@ class Landmarks(object):
                 return
 
             # Potential landmarks under similarity threshold w.r.t. existing landmarks
-            potential_idxs = np.sum(similarity < self.add_threshold, axis=0) >= self.num_landmarks
+            potential_idxs = np.sum(similarity < self.add_threshold, axis=0) >= (self.num_landmarks - 1)
 
             if self.use_observations and self.localization_threshold == 1:
                 localized_envs = np.any(self.obs_diff == 0, axis=0)
@@ -501,7 +501,7 @@ class Landmarks(object):
             similarity = torch.matmul(self.norm_dsr, norm_dsr.T) # Compute similarity w.r.t. each existing landmark |num landmarks|
 
             # Candidate landmark under similarity threshold w.r.t. existing landmarks
-            if torch.sum(similarity < self.add_threshold) >= self.num_landmarks:
+            if torch.sum(similarity < self.add_threshold) >= (self.num_landmarks - 1):
                 self.landmark_adds += 1
 
                 # Add landmark
