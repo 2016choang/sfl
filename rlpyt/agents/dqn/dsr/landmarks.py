@@ -534,9 +534,15 @@ class Landmarks(object):
 
                 # Replace existing landmark
                 else:
-                    visitations = np.sum(self.edge_random_transitions, axis=0) + np.sum(self.edge_subgoal_transitions, axis=0)
-                    replace_idx = np.argmin(visitations)
+                    landmark_similarity = torch.matmul(self.norm_dsr, self.norm_dsr.T).cpu().numpy()
+                    landmark_similarity[np.eye(self.num_landmarks, dtype=bool)] = -1
 
+                    A, B = np.unravel_index(np.argmax(landmark_similarity), landmark_similarity.shape)
+                    if similarity[A].item() > similarity[B].item():
+                        replace_idx = A
+                    else:
+                        replace_idx = B
+                    
                     if observation is not None:
                         self.observations[replace_idx] = observation
                     self.set_features(features, replace_idx)

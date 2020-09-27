@@ -22,7 +22,7 @@
     "landmarks": {
         "use_observations": true,
         "max_landmarks": 20,
-        "add_threshold": 0.95,
+        "add_threshold": 0.90,
         "memory_len": 1,
         "landmark_mode_interval": 25,
         "steps_per_landmark": 5,
@@ -100,7 +100,7 @@
         "update_landmark_representation_interval_steps": 2000,
         "update_landmark_graph_interval_steps": 2000,
         "log_landmarks_interval_steps": 8000,
-        "figsize": [14, 14]
+        "figsize": [12, 12]
     },
     "env_id": "MiniGrid-MultiRoom-N4-S5-v0",
     "mode": "multiroom",
