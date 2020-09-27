@@ -757,9 +757,9 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
             plt.close()
 
         # 11. Neighbors of the goal landmark
-        summary_writer = logger.get_tf_summary_writer()
-        goal_neighbors = ', '.join('({}, {:.3f})'.format(node, data['weight']) for node, data in G[0].items())
-        summary_writer.add_text("Goal neighbors", goal_neighbors, itr)
+        # summary_writer = logger.get_tf_summary_writer()
+        # goal_neighbors = ', '.join('({}, {:.3f})'.format(node, data['weight']) for node, data in G[0].items())
+        # summary_writer.add_text("Goal neighbors", goal_neighbors, itr)
 
         # # 12. Landmarks add threshold (dynamically adjusted)
         # logger.record_tabular_stat('Add Threshold', self.agent.landmarks.add_threshold, itr)
