@@ -727,8 +727,9 @@ class Landmarks(object):
                 if self.use_temporally_nearby_landmarks:
                     edge_weights = temporally_nearby_landmarks * edge_weights
                 if self.subgoal_failures_true_edges_threshold != -1:
-                    edge_weights[(edge_weights > 0) & (subgoal_failures > self.subgoal_failures_true_edges_threshold)] += self.max_landmarks
-                    subgoal_failures[subgoal_failures > 0] -= self.subgoal_failures_decay_rate
+                    edge_weights[(edge_weights > 0) & (subgoal_failures > self.subgoal_failures_true_edges_threshold)] = \
+                        edge_weights[(edge_weights > 0) & (subgoal_failures > self.subgoal_failures_true_edges_threshold)] + self.max_landmarks
+                    subgoal_failures[subgoal_failures > 0] = subgoal_failures[subgoal_failures > 0] - self.subgoal_failures_decay_rate
                 # edge_weights = true_edges * ((0.5 * average_random_steps + average_subgoal_steps) / np.clip(0.5 * (random_transitions > 0) + (subgoal_transitions > 0), 1, None))
                 # if self.subgoal_success_true_edges_threshold != -1:
                 #     edge_weights[(percentage_subgoal_successes <= self.subgoal_success_true_edges_threshold) & (true_edges)] += (edge_weights.max() * self.max_landmarks)
