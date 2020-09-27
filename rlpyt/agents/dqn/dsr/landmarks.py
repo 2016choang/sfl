@@ -343,7 +343,6 @@ class Landmarks(object):
             if self.use_observations and self.localization_threshold == 1:
                 self.obs_diff = torch.abs(observation[None, :] - self.observations[:, None]).sum(dim=[2, 3, 4]).cpu().numpy()
 
-
             if self.mode == 'eval':
                 return
 
@@ -1073,7 +1072,10 @@ class Landmarks(object):
 
         goal_pos = self.positions[-1]
         # Use euclidean distance as rough estimate of distane to goal
-        end_distance = euclidean_distance(pos[:2], goal_pos[:2])
+        if self.oracle_distance_matrix is not None:
+            end_distance = self.oracle_distance_matrix[pos[0], pos[1], goal_pos[0], goal_pos[1]]
+        else:
+            end_distance = euclidean_distance(pos[:2], goal_pos[:2])
         self.eval_distances.append(end_distance)
 
     def get_landmarks_data(self, observation, current_dsr, current_position):
