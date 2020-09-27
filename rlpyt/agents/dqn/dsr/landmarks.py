@@ -365,7 +365,7 @@ class Landmarks(object):
                 angle_diff = abs(pos[2] - self.positions[landmark, 2])
                 if not np.any(intersection):
                     self.dist_at_localization.append(distance[0])
-                    if distance < self.GT_localization_distance_threshold and angle_diff < self.GT_localization_angle_threshold:
+                    if distance <= self.GT_localization_distance_threshold and angle_diff <= self.GT_localization_angle_threshold:
                         self.correct_localizations += 1
                     # else:
                     #    self.high_sim_positions = np.append(self.high_sim_positions, np.concatenate([pos, self.positions[landmark]])[np.newaxis], axis=0)
@@ -380,7 +380,7 @@ class Landmarks(object):
             if self.GT_localization:
                 GT_distance = np.column_stack([self.get_oracle_distance_to_landmarks(pos, intersection_penalty=True)[0] for pos in position])  # L x E
                 GT_angle = np.abs(position[np.newaxis, :, 2] - self.positions[:, np.newaxis, 2])  # L x E
-                localized_envs = np.any((GT_distance < self.GT_localization_distance_threshold) & (GT_angle < self.GT_localization_angle_threshold), axis=0)
+                localized_envs = np.any((GT_distance <= self.GT_localization_distance_threshold) & (GT_angle <= self.GT_localization_angle_threshold), axis=0)
                 closest_landmarks = np.argmin(GT_distance, axis=0)
 
             new_localizations = localized_envs & (self.last_landmarks != closest_landmarks)  # localized to some new landmark
@@ -1107,7 +1107,7 @@ class Landmarks(object):
             angle_diff = abs(pos[2] - self.positions[landmark, 2])
             if not np.any(intersection):
                 self.dist_at_termination.append(distance[0])
-                if distance < self.GT_termination_distance_threshold and angle_diff < self.GT_termination_angle_threshold:
+                if distance <= self.GT_termination_distance_threshold and angle_diff <= self.GT_termination_angle_threshold:
                     self.correct_terminations += 1
             else:
                 self.wall_intersections_at_termination += np.sum(intersection)
@@ -1119,7 +1119,7 @@ class Landmarks(object):
             GT_distance = np.hstack([self.get_oracle_distance_to_landmarks(pos, [current_landmark], intersection_penalty=True)[0] \
                 for pos, current_landmark in zip(current_position[self.landmark_mode], current_landmarks)])
             GT_angle = np.abs(current_position[self.landmark_mode, 2] - self.positions[current_landmarks, 2])
-            reached_landmarks = (GT_distance < self.GT_termination_distance_threshold) & (GT_angle < self.GT_termination_angle_threshold)
+            reached_landmarks = (GT_distance <= self.GT_termination_distance_threshold) & (GT_angle <= self.GT_termination_angle_threshold)
 
         if self.mode == 'eval':
             reached_landmarks[final_goal_landmarks] = False
