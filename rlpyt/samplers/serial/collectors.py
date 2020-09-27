@@ -86,6 +86,7 @@ class SerialLandmarksEvalCollector(BaseEvalCollector):
         self.eval_trajectories = [[] for _ in range(len(self.envs))]
         for b, env in enumerate(self.envs):
             observations.append(env.reset())
+            self.agent.update_eval_goal(env.goal_info)
             self.env_positions[b] = env.agent_pos
             self.eval_trajectories[b].append(env.agent_pos)
         observation = buffer_from_example(observations[0], len(self.envs))
