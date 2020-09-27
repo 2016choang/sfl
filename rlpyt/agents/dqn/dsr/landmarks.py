@@ -345,7 +345,10 @@ class Landmarks(object):
             # Potential landmarks under similarity threshold w.r.t. existing landmarks
             potential_idxs = np.sum(similarity < self.add_threshold, axis=0) >= self.num_landmarks
 
-            localized_envs = np.any(self.current_similarity >= self.localization_threshold, axis=0)  # localized to some landmark
+            if self.use_observations and self.localization_threshold == 1:
+                import pdb; pdb.set_trace()
+            else:
+                localized_envs = np.any(self.current_similarity >= self.localization_threshold, axis=0)  # localized to some landmark
             closest_landmarks = np.argmax(self.current_similarity, axis=0)  # get landmarks with highest similarity to current state 
             closest_landmarks_sim = np.max(self.current_similarity, axis=0)
 
@@ -708,7 +711,8 @@ class Landmarks(object):
             # true_edges &= (feature_similarity > self.graph_feature_similarity_threshold)
 
             if self.use_weighted_edges:
-                edge_weights = true_edges * (np.exp(-1 * random_transitions))
+                # edge_weights = true_edges * (np.exp(-1 * random_transitions))
+                edge_weights = true_edges * (1.0 / np.clip(random_transitions, 1, None))
                 if self.use_temporally_nearby_landmarks:
                     edge_weights = temporally_nearby_landmarks * edge_weights
                 if self.subgoal_failures_true_edges_threshold != -1:
