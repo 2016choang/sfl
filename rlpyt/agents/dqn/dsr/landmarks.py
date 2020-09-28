@@ -448,7 +448,6 @@ class Landmarks(object):
     def add_landmarks(self, observation, features, dsr):
         # Add landmarks if it is not similar w.r.t existing landmarks
         # by selecting from pool of potential landmarks
-
         positions = self.potential_landmarks['positions']
         last_landmarks = self.potential_landmarks['last_landmarks']
         random_steps = self.potential_landmarks['random_steps']
@@ -456,7 +455,11 @@ class Landmarks(object):
 
         landmarks_added = 0
 
-        for idx in range(len(features)):
+        norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, keepdim=True) # Current SF (A x 512) --> 512, mean over the actions and norm
+        max_landmark_similarity = torch.matmul(self.norm_dsr, norm_dsr.T).max(dim=0)
+        candidates = torch.topk(max_landmark_similarity, self.landmarks_per_update * 10, largest=False, sorted=True).indices.detach().cpu().numpy()
+
+        for idx in candidates:
             if observation is not None:
                 obs = observation[[idx]]
             else:
