@@ -50,6 +50,7 @@ class Landmarks(object):
                  GT_termination_angle_threshold=30,
                  GT_graph=False,
                  GT_graph_edge_threshold=100,
+                 relocalization=True,
                  landmark_paths=1,
                  reach_threshold=0.99,
                  affinity_decay=0.9,
@@ -1171,10 +1172,11 @@ class Landmarks(object):
         exit_landmark_mode = np.where(self.landmark_mode)[0][reached_goal_landmarks | steps_limit_reached]
 
         # Relocalize agent which has failed to reach current landmark in steps_per_landmark
-        relocalize_idxs = self.landmark_mode.copy()
-        reached_within_steps = self.current_landmark_steps[self.landmark_mode] < self.steps_per_landmark
-        relocalize_idxs[self.landmark_mode] &= ~reached_landmarks & ~reached_within_steps
-        self.set_paths(current_dsr, current_position, relocalize_idxs)
+        if self.relocalization:
+            relocalize_idxs = self.landmark_mode.copy()
+            reached_within_steps = self.current_landmark_steps[self.landmark_mode] < self.steps_per_landmark
+            relocalize_idxs[self.landmark_mode] &= ~reached_landmarks & ~reached_within_steps
+            self.set_paths(current_dsr, current_position, relocalize_idxs)
 
         self.landmark_mode[exit_landmark_mode] = False
 
