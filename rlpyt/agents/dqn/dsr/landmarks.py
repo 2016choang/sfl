@@ -869,14 +869,14 @@ class Landmarks(object):
 
             self.landmark_distances[closest_to_goal, -1] = 1
             self.landmark_distances[-1, closest_to_goal] = 1
+            goal_index = self.num_landmarks - 1
+
+            self.graph.add_node(goal_index)
+            self.graph.add_edge(closest_to_goal, goal_index)
+            self.graph.add_edge(goal_index, closest_to_goal)
         else:
             self.landmark_distances = np.ones((1, 1))
-        
-        goal_index = self.num_landmarks - 1
-
-        self.graph.add_node(goal_index)
-        self.graph.add_edge(closest_to_goal, goal_index)
-        self.graph.add_edge(goal_index, closest_to_goal)
+            self.graph = nx.from_numpy_array(self.landmark_distances, create_using=nx.DiGraph)
 
         self.similarity_memory = np.full((self.memory_len, self.num_landmarks, self.num_envs), 0, dtype=float)
         self.memory_length = np.full(self.num_envs, 0, dtype=int)
