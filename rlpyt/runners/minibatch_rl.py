@@ -372,8 +372,8 @@ class MinibatchDSREval(MinibatchRlEval):
         dsr_env.reset()
 
         features, dsr = self.agent.get_representations(dsr_env)
-        torch.save(features, os.path.join(logger.get_snapshot_dir(), 'features_itr_{}.pt'.format(itr)))
-        torch.save(dsr, os.path.join(logger.get_snapshot_dir(), 'dsr_itr_{}.pt'.format(itr)))
+        # torch.save(features, os.path.join(logger.get_snapshot_dir(), 'features_itr_{}.pt'.format(itr)))
+        # torch.save(dsr, os.path.join(logger.get_snapshot_dir(), 'dsr_itr_{}.pt'.format(itr)))
         subgoal = tuple(env.true_goal_pos[:2])
 
         # 3. Distance visualization in feature space
