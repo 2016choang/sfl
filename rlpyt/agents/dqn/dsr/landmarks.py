@@ -552,12 +552,12 @@ class Landmarks(object):
                     self.edge_random_steps[replace_idx, :] = 0
                     self.edge_random_steps[:, replace_idx] = 0
                     self.edge_random_transitions[replace_idx, :] = 0
-                    self.edge_random_transitions[replace_idx, :] = 0
+                    self.edge_random_transitions[:, replace_idx] = 0
                     self.edge_subgoal_steps[replace_idx, :] = 0
                     self.edge_subgoal_steps[:, replace_idx] = 0
+                    self.edge_subgoal_failures[replace_idx, :] = 0
                     self.edge_subgoal_failures[:, replace_idx] = 0
-                    self.edge_subgoal_failures[:, replace_idx] = 0
-                    self.edge_subgoal_transitions[:, replace_idx] = 0
+                    self.edge_subgoal_transitions[replace_idx, :] = 0
                     self.edge_subgoal_transitions[:, replace_idx] = 0
 
                     self.landmark_removes += 1
