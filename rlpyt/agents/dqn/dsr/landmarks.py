@@ -41,6 +41,7 @@ class Landmarks(object):
                  random_transitions_percentile=50,
                  use_temporally_nearby_landmarks=True,
                  k_nearest_neighbors=0,
+                 GT_start=False,
                  GT_localization=False,
                  GT_localization_distance_threshold=50,
                  GT_localization_angle_threshold=30,
@@ -1042,7 +1043,7 @@ class Landmarks(object):
             dist_to_estimated_best_start = oracle_distance_to_landmarks.min()
 
             # Find correct start landmark based on true distances
-            if self.GT_localization:
+            if self.GT_start:
                 start_landmark = oracle_distance_to_landmarks.argmin()
 
             self.dist_start_landmark.append(dist_to_selected_start)
