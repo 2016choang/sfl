@@ -458,6 +458,7 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                  test_set_size=6e3,
                  min_steps_landmark_mode=2e4,
                  update_landmark_representation_interval_steps=1e3,
+                 add_landmarks_interval_steps=1e3,
                  update_landmark_graph_interval_steps=1e3,
                  log_feature_info_interval_steps=1e3,
                  log_landmarks_interval_steps=1e4,
@@ -474,7 +475,9 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         self.itr_sample_test = max(int(self.steps_sample_test // self.itr_batch_size), 1)
         self.min_itr_landmark_mode = max(int(self.min_steps_landmark_mode // self.itr_batch_size), 1)
         self.update_landmark_representation_interval_itrs = max(int(self.update_landmark_representation_interval_steps // self.itr_batch_size), 1)
+        self.add_landmarks_interval_itrs = max(int(self.add_landmarks_interval_steps // self.itr_batch_size), 1)
         self.update_landmark_graph_interval_itrs = max(int(self.update_landmark_graph_interval_steps // self.itr_batch_size), 1)
+        assert (self.add_landmarks_interval_itrs % self.update_landmark_graph_interval_itrs) == 0
         self.log_feature_info_interval_itrs = max(int(self.log_feature_info_interval_steps // self.itr_batch_size), 1)
         self.log_landmarks_interval_itrs = max(int(self.log_landmarks_interval_steps // self.itr_batch_size), 1)
         return n_itr
@@ -530,6 +533,11 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                 if (itr + 1) % self.update_landmark_representation_interval_itrs == 0:
                     self.agent.sample_mode(itr)
                     self.agent.update_landmark_representation(itr)
+
+                # Update landmark representation
+                if (itr + 1) % self.add_landmarks_interval_itrs == 0:
+                    self.agent.sample_mode(itr)
+                    self.agent.add_landmarks(itr)
                 
                 # Update landmark graph
                 if (itr + 1) % self.update_landmark_graph_interval_itrs == 0:

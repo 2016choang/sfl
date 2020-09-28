@@ -95,9 +95,9 @@ class LandmarkAgent(FeatureDSRAgent):
                     device=self.device)
                 dsr = self.model(model_inputs, mode='dsr')
                 self.landmarks.set_dsr(dsr, chunk_idxs)
-
+    
     @torch.no_grad()
-    def update_landmark_graph(self, itr):
+    def add_landmarks(self, itr):
         if self.landmarks:
             # Add new landmarks
             if self.landmarks.potential_landmarks:
@@ -116,6 +116,9 @@ class LandmarkAgent(FeatureDSRAgent):
 
                 self.landmarks.add_landmarks(observation, features, dsr)
 
+    @torch.no_grad()
+    def update_landmark_graph(self, itr):
+        if self.landmarks:
             if self.landmarks.num_landmarks > 0:
                 # Reset landmark mode for all environments
                 self.reset(reset_landmarks=False)
