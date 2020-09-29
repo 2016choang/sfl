@@ -20,6 +20,7 @@ class Landmarks(object):
                  use_observations=False,
                  max_landmarks=20,
                  add_threshold=0.75,
+                 add_strategy=0,
                  top_k_similar=None,
                  memory_len=1,
                  landmarks_per_update=None,
@@ -65,6 +66,7 @@ class Landmarks(object):
         self.positions = None
 
         self.potential_landmarks = {}
+
         if top_k_similar is None:
             self.top_k_similar = max(int(max_landmarks * 0.10), 1)
 
@@ -349,7 +351,14 @@ class Landmarks(object):
                 return
 
             # Potential landmarks under similarity threshold w.r.t. existing landmarks
-            potential_idxs = np.sum(similarity < self.add_threshold, axis=0) >= (self.num_landmarks - 1)
+            if isinstance(self.add_strategy, int):
+                existing_landmarks = self.num_landmarks - self.add_strategy
+            elif isinstance(self.add_strategy, float):
+                existing_landmarks = self.num_landmarks * self.add_strategy
+            else:
+                raise NotImplementedError
+
+            potential_idxs = np.sum(similarity < self.add_threshold, axis=0) >= existing_landmarks
 
             if self.use_observations and self.localization_threshold == 1:
                 localized_envs = np.any(self.obs_diff == 0, axis=0)
@@ -459,7 +468,8 @@ class Landmarks(object):
         if self.num_landmarks > 0:
             norm_dsr = dsr.mean(dim=1) / torch.norm(dsr.mean(dim=1), p=2, keepdim=True) # Current SF (A x 512) --> 512, mean over the actions and norm
             max_landmark_similarity = torch.matmul(self.norm_dsr, norm_dsr.T).max(dim=0).values
-            candidates = torch.topk(max_landmark_similarity, self.landmarks_per_update * 10, largest=False, sorted=True).indices.detach().cpu().numpy()
+            num_candidates = min(len(features), self.landmarks_per_update * 10)
+            candidates = torch.topk(max_landmark_similarity, num_candidates, largest=False, sorted=True).indices.detach().cpu().numpy()
         else:
             candidates = list(range(len(features)))
 
@@ -509,7 +519,14 @@ class Landmarks(object):
             similarity = torch.matmul(self.norm_dsr, norm_dsr.T) # Compute similarity w.r.t. each existing landmark |num landmarks|
 
             # Candidate landmark under similarity threshold w.r.t. existing landmarks
-            if torch.sum(similarity < self.add_threshold) >= (self.num_landmarks - 1):
+            if isinstance(self.add_strategy, int):
+                existing_landmarks = self.num_landmarks - self.add_strategy
+            elif isinstance(self.add_strategy, float):
+                existing_landmarks = self.num_landmarks * self.add_strategy
+            else:
+                raise NotImplementedError
+
+            if torch.sum(similarity < self.add_threshold) >= existing_landmarks:
                 self.landmark_adds += 1
 
                 # Add landmark
