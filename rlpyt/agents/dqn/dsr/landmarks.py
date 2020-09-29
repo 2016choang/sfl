@@ -21,6 +21,7 @@ class Landmarks(object):
                  max_landmarks=20,
                  add_threshold=0.75,
                  add_strategy=0,
+                 replace_landmarks=True,
                  top_k_similar=None,
                  memory_len=1,
                  landmarks_per_update=None,
@@ -358,7 +359,10 @@ class Landmarks(object):
             else:
                 raise NotImplementedError
 
-            potential_idxs = np.sum(similarity < self.add_threshold, axis=0) >= existing_landmarks
+            if not self.replace_landmarks and self.num_landmarks == self.max_landmarks:
+                potential_idxs = np.zeros(len(features), dtype=bool)
+            else:
+                potential_idxs = np.sum(similarity < self.add_threshold, axis=0) >= existing_landmarks
 
             if self.use_observations and self.localization_threshold == 1:
                 localized_envs = np.any(self.obs_diff == 0, axis=0)
