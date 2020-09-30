@@ -752,7 +752,10 @@ class Landmarks(object):
 
             if self.use_weighted_edges:
                 # edge_weights = true_edges * (np.exp(-1 * random_transitions))
-                edge_weights = true_edges * (1.0 / np.clip(random_transitions, 1, None))
+                # edge_weights = true_edges * (1.0 / np.clip(random_transitions, 1, None))
+                percentage_out = random_transitions / np.clip(random_transitions.sum(axis=1).reshape(-1, 1), 1, None)
+                percentage_out[percentage_out > 0] = -1 * np.log(percentage_out[percentage_out > 0])
+                edge_weights = true_edges * percentage_out
                 if self.use_temporally_nearby_landmarks:
                     edge_weights = temporally_nearby_landmarks * edge_weights
                 if self.subgoal_failures_true_edges_threshold != -1:
