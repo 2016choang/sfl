@@ -58,8 +58,6 @@ def build_and_train(config_file,
         batch_T=1,  # One time-step per sampler iteration.
         max_decorrelation_steps=0,
         eval_n_envs=1,
-        eval_max_steps=int(5e3),
-        eval_max_trajectories=10,
         **config['sampler']
     )    
 
