@@ -38,7 +38,7 @@ def build_and_train(config_file,
             config = json.load(f)
     except ValueError:
         raise ValueError('Unable to read config file {}'.format(config_file))
-
+    
     env_id = config['env_id']
     mode = config['mode']
     seed = config['seed']

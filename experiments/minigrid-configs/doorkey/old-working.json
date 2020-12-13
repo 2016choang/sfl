@@ -6,28 +6,31 @@
         "model_kwargs": {
             "feature_size": 64,
             "dsr_params": {
-                "fc_sizes": [512],
+                "fc_sizes": [
+                    512
+                ],
                 "nonlinearity": "relu"
-            }   
+            }
         },
         "feature_model_kwargs": {
             "feature_size": 64,
             "norm_output": true,
-            "alpha": 10.0
+            "initial_stride": 1,
+            "alpha": 10
         },
         "use_oracle_graph": false,
         "use_soft_q": false
     },
     "landmarks": {
-        "max_landmarks": 3,
-        "add_threshold": 0.90,
+        "max_landmarks": 10,
+        "add_threshold": 0.75,
         "landmark_mode_interval": 50,
         "steps_per_landmark": 10,
         "success_threshold": 0.01,
         "sim_threshold": 1,
         "max_attempt_threshold": 10,
         "use_oracle_start": false,
-        "reach_threshold": 0.98,
+        "reach_threshold": 0.95,
         "landmark_paths": 5,
         "affinity_decay": 0.99
     },
@@ -35,51 +38,61 @@
         "discount": 0.99,
         "batch_size": 128,
         "min_steps_learn": 1000,
-        "learning_rate": 1e-3,
+        "learning_rate": 0.001,
         "replay_size": 20000,
         "delta_clip": 1,
-        "min_steps_dsr_learn": 2000,
-        "feature_learning_rate": 1e-3,
+        "min_steps_dsr_learn": 20000,
+        "feature_learning_rate": 0.001,
         "pos_threshold": 2,
         "neg_close_threshold": 10,
         "neg_far_threshold": 15,
-        "margin": 2.0
+        "margin": 2
     },
     "env": {
-        "max_steps": 80,
-        "start_pos": [1, 1],
+        "max_steps": 640,
+        "start_pos": [
+            1,
+            1
+        ],
         "reset_same": true,
         "terminate": false,
         "encoding": "obj",
-        "all_actions": true,
-        "num_rooms": 4,
-        "room_size": 5,
-        "true_goal_pos": [6, 1],
+        "use_doors": true,
+        "true_goal_pos": [
+            6,
+            1
+        ],
         "seed": 1
     },
     "eval_env": {
-        "max_steps": 80,
-        "start_pos": [1, 1],
+        "max_steps": 640,
+        "start_pos": [
+            1,
+            1
+        ],
         "reset_same": true,
         "terminate": true,
         "encoding": "obj",
-        "all_actions": true,
-        "num_rooms": 4,
-        "room_size": 5,
-        "true_goal_pos": [6, 1],
+        "use_doors": true,
+        "true_goal_pos": [
+            6,
+            1
+        ],
         "seed": 1
-    }, 
+    },
     "runner": {
-        "log_interval_steps": 1e4,
-        "log_dsr_interval_steps": 1e4,
-        "min_steps_landmark_mode": 5000,
-        "update_landmarks_interval_steps": 1e3,
-        "log_landmarks_interval_steps": 1e4
+        "log_interval_steps": 10000,
+        "log_dsr_interval_steps": 10000,
+        "min_steps_landmark_mode": 40000,
+        "update_landmarks_interval_steps": 1000,
+        "log_landmarks_interval_steps": 10000
     },
     "env_id": "MiniGrid-DoorKey-8x8-v0",
     "mode": "doorkey",
     "seed": 333,
     "tabular": false,
     "feature": "TCF",
-    "samplers": 4
+    "samplers": 1,
+    "name": "dsr_MiniGrid-DoorKey-8x8-v0",
+    "run_ID": 88
 }

@@ -182,7 +182,7 @@ class TCFModel(torch.nn.Module):
         x = obs.type(torch.float)
         if mode == 'encode':
             x = x.permute(0, 3, 1, 2)
-            x = self.encoder(x)
+            x = self.encoder(x.contiguous())
             if self.norm_output:
                 return normalize(x) * self.alpha
             else:
