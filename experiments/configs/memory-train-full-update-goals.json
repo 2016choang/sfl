@@ -30,6 +30,7 @@
         "steps_per_landmark": 30,
         "max_landmark_mode_steps": 1000,
         "localization_threshold": 0.90,
+        "relocalization": true,
         "random_true_edges_threshold": 10,
         "random_transitions_percentile": 50,
         "use_temporally_nearby_landmarks": false,
