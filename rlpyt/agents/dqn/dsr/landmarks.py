@@ -387,7 +387,6 @@ class Landmarks(object):
             self.edge_random_transitions[transition_last_landmarks, transition_next_landmarks] += (random_transitions)
 
             self.edge_subgoal_steps[transition_last_landmarks, transition_next_landmarks] += (subgoal_steps * ~random_transitions)
-
             self.edge_subgoal_transitions[transition_last_landmarks, transition_next_landmarks] += (~random_transitions)
             
             self.last_landmarks[new_localizations] = closest_landmarks[new_localizations]
@@ -547,7 +546,6 @@ class Landmarks(object):
                     
                     else:
                         self.edge_subgoal_steps[last_landmark, new_landmark] += subgoal_steps
-                        self.edge_subgoal_failures[last_landmark, new_landmark] += (subgoal_steps < self.subgoal_success_threshold)
                         self.edge_subgoal_transitions[last_landmark, new_landmark] += 1
                         
                 return True
@@ -812,7 +810,7 @@ class Landmarks(object):
     def disconnect_goal(self):
         self.graph.remove_node(self.num_landmarks - 1)
         self.force_remove_landmark()
-        self.landmark_distances = self.edge_subgoal_transitions[:self.num_landmarks, :self.num_landmarks]
+        self.landmark_distances = self.landmark_distances[:self.num_landmarks, :self.num_landmarks]
     
     def connect_goal(self):
         if self.num_landmarks > 1:

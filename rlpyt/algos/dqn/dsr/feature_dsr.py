@@ -522,12 +522,12 @@ class FixedFeatureDSR(DSR):
 
                 self.dsr_optimizer.step()
 
-                opt_info.dsrLoss.append(dsr_loss.item())
-                opt_info.dsrGradNorm.append(dsr_grad_norm)
-                opt_info.percentDSRLoss.append(dsr_loss.item() / self.initial_dsr_loss)
-                for key, value in norm_info.items():
-                    getattr(opt_info, key).append(value.item())
-                opt_info.tdAbsErr.extend(td_abs_errors[::8].numpy())  # Downsample.
+                # opt_info.dsrLoss.append(dsr_loss.item())
+                # opt_info.dsrGradNorm.append(dsr_grad_norm)
+                # opt_info.percentDSRLoss.append(dsr_loss.item() / self.initial_dsr_loss)
+                # for key, value in norm_info.items():
+                    # getattr(opt_info, key).append(value.item())
+                # opt_info.tdAbsErr.extend(td_abs_errors[::8].numpy())  # Downsample.
 
                 self.update_counter += 1
                 if self.update_counter % self.target_update_interval == 0:
