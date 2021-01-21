@@ -76,7 +76,8 @@ class Landmarks(object):
         self.edge_random_transitions = None
         self.edge_subgoal_steps = None
         self.edge_subgoal_failures = None
-        self.edge_subgoal_transitions = None
+        self.edge_subgoal_successes = None
+        self.edge_subgoal_attempts = None
 
         self.zero_edge_indices = None
 
@@ -193,6 +194,10 @@ class Landmarks(object):
         self.goal_landmark_dist_completed = []
 
         self.high_sim_positions = np.zeros((1, 6))
+
+        # Paths
+        self.log_path_lengths = []
+        self.log_path_idxs = []
     
     def load(self, filename, device):
         # Load landmarks data from a file
@@ -213,7 +218,8 @@ class Landmarks(object):
             self.edge_subgoal_failures = landmarks['edge_subgoal_failures']
         else:
             self.edge_subgoal_failures = np.zeros_like(self.edge_subgoal_steps)
-        self.edge_subgoal_transitions = landmarks['edge_subgoal_transitions']
+        self.edge_subgoal_successes = landmarks['edge_subgoal_successes']
+        self.edge_subgoal_attempts = landmarks['edge_subgoal_attempts']
 
         self.closest_landmarks = landmarks['closest_landmarks']
         self.closest_landmarks_sim = landmarks['closest_landmarks_sim']
@@ -230,7 +236,8 @@ class Landmarks(object):
                 edge_random_transitions=self.edge_random_transitions,
                 edge_subgoal_steps=self.edge_subgoal_steps,
                 edge_subgoal_failures=self.edge_subgoal_failures,
-                edge_subgoal_transitions=self.edge_subgoal_transitions,
+                edge_subgoal_successes=self.edge_subgoal_successes,
+                edge_subgoal_attempts=self.edge_subgoal_attempts,
                 closest_landmarks=self.closest_landmarks,
                 closest_landmarks_sim=self.closest_landmarks_sim,
                 high_sim_positions=self.high_sim_positions[1:])
@@ -273,7 +280,8 @@ class Landmarks(object):
             self.edge_random_transitions = np.array([[0]])
             self.edge_subgoal_steps = np.array([[0]])
             self.edge_subgoal_failures = np.array([[0]])
-            self.edge_subgoal_transitions = np.array([[0]])
+            self.edge_subgoal_successes = np.array([[0]])
+            self.edge_subgoal_attempts = np.array([[0]])
             self.num_landmarks += 1
         else:
             # self.observations = torch.cat((self.observations, observation), dim=0)
@@ -293,8 +301,11 @@ class Landmarks(object):
             self.edge_subgoal_failures = np.append(self.edge_subgoal_failures, np.zeros((self.num_landmarks, 1)), axis=1)
             self.edge_subgoal_failures = np.append(self.edge_subgoal_failures, np.zeros((1, self.num_landmarks + 1)), axis=0)
 
-            self.edge_subgoal_transitions = np.append(self.edge_subgoal_transitions, np.zeros((self.num_landmarks, 1)), axis=1)
-            self.edge_subgoal_transitions = np.append(self.edge_subgoal_transitions, np.zeros((1, self.num_landmarks + 1)), axis=0)
+            self.edge_subgoal_successes = np.append(self.edge_subgoal_successes, np.zeros((self.num_landmarks, 1)), axis=1)
+            self.edge_subgoal_successes = np.append(self.edge_subgoal_successes, np.zeros((1, self.num_landmarks + 1)), axis=0)
+
+            self.edge_subgoal_attempts = np.append(self.edge_subgoal_attempts, np.zeros((self.num_landmarks, 1)), axis=1)
+            self.edge_subgoal_attempts = np.append(self.edge_subgoal_attempts, np.zeros((1, self.num_landmarks + 1)), axis=0)
 
             self.num_landmarks += 1
 
@@ -315,7 +326,8 @@ class Landmarks(object):
         self.edge_random_transitions = self.edge_random_transitions[:self.num_landmarks, :self.num_landmarks]
         self.edge_subgoal_steps = self.edge_subgoal_steps[:self.num_landmarks, :self.num_landmarks]
         self.edge_subgoal_failures = self.edge_subgoal_failures[:self.num_landmarks, :self.num_landmarks]
-        self.edge_subgoal_transitions = self.edge_subgoal_transitions[:self.num_landmarks, :self.num_landmarks]
+        self.edge_subgoal_successes = self.edge_subgoal_successes[:self.num_landmarks, :self.num_landmarks]
+        self.edge_subgoal_attempts = self.edge_subgoal_attempts[:self.num_landmarks, :self.num_landmarks]
     
     def update_similarity_memory(self, similarity):
         # Append SFS to memory
@@ -392,8 +404,8 @@ class Landmarks(object):
             self.edge_random_steps[transition_last_landmarks, transition_next_landmarks] += ((random_steps + subgoal_steps) * (random_transitions))
             self.edge_random_transitions[transition_last_landmarks, transition_next_landmarks] += (random_transitions)
 
-            self.edge_subgoal_steps[transition_last_landmarks, transition_next_landmarks] += (subgoal_steps * ~random_transitions)
-            self.edge_subgoal_transitions[transition_last_landmarks, transition_next_landmarks] += (~random_transitions)
+            # self.edge_subgoal_steps[transition_last_landmarks, transition_next_landmarks] += (subgoal_steps * ~random_transitions)
+            # self.edge_subgoal_successes[transition_last_landmarks, transition_next_landmarks] += (~random_transitions)
             
             self.last_landmarks[new_localizations] = closest_landmarks[new_localizations]
             self.transition_random_steps[new_localizations] = 0
@@ -474,7 +486,8 @@ class Landmarks(object):
             self.edge_random_transitions = np.array([[0]])
             self.edge_subgoal_steps = np.array([[0]])
             self.edge_subgoal_failures = np.array([[0]])
-            self.edge_subgoal_transitions = np.array([[0]])
+            self.edge_subgoal_successes = np.array([[0]])
+            self.edge_subgoal_attempts = np.array([[0]])
             self.landmark_adds += 1
             self.num_landmarks += 1
             return True
@@ -507,8 +520,11 @@ class Landmarks(object):
                     self.edge_subgoal_failures = np.append(self.edge_subgoal_failures, np.zeros((self.num_landmarks, 1)), axis=1)
                     self.edge_subgoal_failures = np.append(self.edge_subgoal_failures, np.zeros((1, self.num_landmarks + 1)), axis=0)
 
-                    self.edge_subgoal_transitions = np.append(self.edge_subgoal_transitions, np.zeros((self.num_landmarks, 1)), axis=1)
-                    self.edge_subgoal_transitions = np.append(self.edge_subgoal_transitions, np.zeros((1, self.num_landmarks + 1)), axis=0)
+                    self.edge_subgoal_successes = np.append(self.edge_subgoal_successes, np.zeros((self.num_landmarks, 1)), axis=1)
+                    self.edge_subgoal_successes = np.append(self.edge_subgoal_successes, np.zeros((1, self.num_landmarks + 1)), axis=0)
+
+                    self.edge_subgoal_attempts = np.append(self.edge_subgoal_attempts, np.zeros((self.num_landmarks, 1)), axis=1)
+                    self.edge_subgoal_attempts = np.append(self.edge_subgoal_attempts, np.zeros((1, self.num_landmarks + 1)), axis=0)
 
                     self.landmark_adds += 1
                     self.num_landmarks += 1
@@ -517,7 +533,7 @@ class Landmarks(object):
 
                 # Replace existing landmark
                 else:
-                    visitations = np.sum(self.edge_random_transitions, axis=0) + np.sum(self.edge_subgoal_transitions, axis=0)
+                    visitations = np.sum(self.edge_random_transitions, axis=0) + np.sum(self.edge_subgoal_successes, axis=0)
                     replace_idx = np.argmin(visitations)
 
                     # self.observations[replace_idx] = observation
@@ -533,8 +549,10 @@ class Landmarks(object):
                     self.edge_subgoal_steps[:, replace_idx] = 0
                     self.edge_subgoal_failures[:, replace_idx] = 0
                     self.edge_subgoal_failures[:, replace_idx] = 0
-                    self.edge_subgoal_transitions[:, replace_idx] = 0
-                    self.edge_subgoal_transitions[:, replace_idx] = 0
+                    self.edge_subgoal_successes[:, replace_idx] = 0
+                    self.edge_subgoal_successes[:, replace_idx] = 0
+                    self.edge_subgoal_attempts[:, replace_idx] = 0
+                    self.edge_subgoal_attempts[:, replace_idx] = 0
 
                     self.landmark_removes += 1
 
@@ -551,9 +569,9 @@ class Landmarks(object):
                         self.edge_random_steps[last_landmark, new_landmark] += (random_steps + subgoal_steps)
                         self.edge_random_transitions[last_landmark, new_landmark] += 1
                     
-                    else:
-                        self.edge_subgoal_steps[last_landmark, new_landmark] += subgoal_steps
-                        self.edge_subgoal_transitions[last_landmark, new_landmark] += 1
+                    # else:
+                    #     self.edge_subgoal_steps[last_landmark, new_landmark] += subgoal_steps
+                    #     self.edge_subgoal_successes[last_landmark, new_landmark] += 1
                         
                 return True
 
@@ -649,20 +667,21 @@ class Landmarks(object):
 
                 subgoal_steps = self.edge_subgoal_steps
                 subgoal_failures = self.edge_subgoal_failures
-                subgoal_transitions = self.edge_subgoal_transitions
+                subgoal_transitions = self.edge_subgoal_successes
 
                 temporally_nearby_landmarks = np.tril(np.triu(np.ones((self.num_landmarks), dtype=bool), 1), temporally_nearby_threshold) 
                 temporally_nearby_landmarks += temporally_nearby_landmarks.T
 
             else:
-                random_steps = self.edge_random_steps + np.tril(self.edge_random_steps, -1).T
-                random_transitions = self.edge_random_transitions + np.tril(self.edge_random_transitions, -1).T
+                random_steps = self.edge_random_steps + np.tril(self.edge_random_steps, -1).T + np.triu(self.edge_random_steps, 1).T
+                random_transitions = self.edge_random_transitions + np.tril(self.edge_random_transitions, -1).T + np.triu(self.edge_random_transitions, 1).T
             
-                subgoal_steps = self.edge_subgoal_steps + np.tril(self.edge_subgoal_steps, -1).T
-                subgoal_failures = self.edge_subgoal_failures + np.tril(self.edge_subgoal_failures, -1).T
-                subgoal_transitions = self.edge_subgoal_transitions + np.tril(self.edge_subgoal_transitions, -1).T
+                subgoal_steps = self.edge_subgoal_steps + np.tril(self.edge_subgoal_steps, -1).T + np.triu(self.edge_subgoal_steps, 1).T
+                subgoal_failures = self.edge_subgoal_failures + np.tril(self.edge_subgoal_failures, -1).T + np.triu(self.edge_subgoal_failures, 1).T
+                subgoal_transitions = self.edge_subgoal_successes + np.tril(self.edge_subgoal_successes, -1).T + np.triu(self.edge_subgoal_successes, 1).T
 
                 temporally_nearby_landmarks = np.tril(np.triu(np.ones((self.num_landmarks), dtype=bool), 1), temporally_nearby_threshold) 
+                temporally_nearby_landmarks += temporally_nearby_landmarks.T
 
             # average_random_steps = random_steps / np.clip(random_transitions, 1, None)
             # average_subgoal_steps = subgoal_steps / np.clip(subgoal_transitions, 1, None)
@@ -812,54 +831,6 @@ class Landmarks(object):
         self.entered_landmark_mode[enter_idxs] = True
         return self.entered_landmark_mode
     
-    def get_intersections(self, edges):
-        # For each edge (line), compute if it intersects with any walls of the maze
-        def orientation(p, q, r):
-            return ((q[1] - p[1]) * (r[0] - q[0])) - ((q[0] - p[0]) * (r[1] - q[1])) 
-        
-        def on_segment(p, q, r):
-            return (q[0] <= max(p[0], r[0])) & (q[0] > min(p[0], r[0])) & (q[1] <= max(p[1], r[1])) & (q[1] >= min(p[1], r[1]))
-
-        orientations = np.zeros((edges.shape[1], len(self.lines), 4))
-        for i, line in enumerate(self.lines):
-            orientations[:, i, 0] = orientation(edges[:2], edges[2:], line[:2])
-            orientations[:, i, 1] = orientation(edges[:2], edges[2:], line[2:])
-            orientations[:, i, 2] = orientation(line[:2], line[2:], edges[:2])
-            orientations[:, i, 3] = orientation(line[:2], line[2:], edges[2:])
-
-        orientations[orientations > 0] = 1
-        orientations[orientations < 0] = 2
-
-        intersections = np.zeros((edges.shape[1], len(self.lines)), dtype=bool)
-        intersections[(orientations[:, :, 0] != orientations[:, :, 1]) & (orientations[:, :, 2] != orientations[:, :, 3])] = True
-
-        for i, j, k in np.argwhere(orientations == 0):
-            if k == 0:
-                p, q, r = edges[:2, i], self.lines[j, :2], edges[2:, i] 
-            elif k == 1:
-                p, q, r = edges[:2, i], self.lines[j, 2:], edges[2:, i]
-            elif k == 2:
-                p, q, r = self.lines[j, :2], edges[:2, i], self.lines[j, 2:]
-            else:
-                p, q, r = self.lines[j, :2], edges[2:, i], self.lines[j, 2:]
-            intersections[i, j] = on_segment(p, q, r)
-        return np.any(intersections, axis=1)
-
-    def get_oracle_distance_to_landmarks(self, pos, idxs=None, intersection_penalty=False):
-        # Get oracle distance from `pos` to landmarks
-        if idxs:
-            positions = self.positions[idxs, :2]
-        else:
-            positions = self.positions[:, :2]
-        distance = np.linalg.norm(positions - pos[:2], ord=2, axis=1)
-
-        broadcasted_pos = np.broadcast_to(pos[np.newaxis, :2], positions.shape)
-        edges = np.hstack((positions, broadcasted_pos)).T
-        intersections = self.get_intersections(edges)
-        if intersection_penalty:
-            distance[intersections] += (distance.max() * self.max_landmarks)
-        return distance, intersections
-        
     def set_paths(self, dsr, position, relocalize_idxs=None):
         # Plan path to goal landmark (sampled during training, given during testing)
         if relocalize_idxs is None:
@@ -909,7 +880,7 @@ class Landmarks(object):
 
         if goal_landmarks is None:
             components = sorted(nx.strongly_connected_components(self.graph), key=len, reverse=True)
-            visitations = np.clip(np.sum(self.edge_random_transitions, axis=0) + np.sum(self.edge_subgoal_transitions, axis=0), 1, None)
+            visitations = np.clip(np.sum(self.edge_random_transitions, axis=0) + np.sum(self.edge_subgoal_successes, axis=0), 1, None)
             inverse_visitations = 1. / visitations
 
         for i, enter_idx, start_pos, start_landmark in zip(range(len(enter_idxs)), enter_idxs, selected_position, start_landmarks):
@@ -953,6 +924,7 @@ class Landmarks(object):
             path_length = len(path)
             self.paths[enter_idx, :path_length] = path            
             self.path_lengths[enter_idx] = path_length
+            self.log_path_lengths.append(path_length)
 
     def log_eval(self, idx, pos):
         # In eval, log end position trying to reach goal and distance away from goal
@@ -1028,9 +1000,21 @@ class Landmarks(object):
 
         if self.mode != 'eval':
             steps_limit = np.minimum(self.path_lengths[self.landmark_mode] * self.steps_per_landmark, self.max_landmark_mode_steps)
-            steps_limit_reached = self.landmark_steps[self.landmark_mode] >= steps_limit
+            steps_limit_reached = (self.landmark_steps[self.landmark_mode] >= steps_limit)
         else:
             steps_limit_reached = False
+
+        transitions = (reached_landmarks | steps_limit_reached) & (current_idxs >= 1)
+        transition_idxs = current_idxs[transitions]
+        transitions_mask = np.where(self.landmark_mode)[0][transitions]
+
+        prev = self.paths[transitions_mask, transition_idxs - 1]
+        cur = self.paths[transitions_mask, transition_idxs]
+        successes = reached_landmarks[transitions]
+
+        self.edge_subgoal_steps[prev[successes], cur[successes]] += self.current_landmark_steps[transitions_mask][successes]
+        self.edge_subgoal_successes[prev[successes], cur[successes]] += 1
+        self.edge_subgoal_attempts[prev, cur] += 1
 
         # If reached (not goal) landmark, move to next landmark
         reached_non_goal_landmarks = reached_landmarks & ~final_goal_landmarks
@@ -1046,6 +1030,7 @@ class Landmarks(object):
         # goal_positions = self.positions[goal_landmarks]
 
         exit_landmark_mode = np.where(self.landmark_mode)[0][reached_goal_landmarks | steps_limit_reached]
+        self.log_path_idxs.extend(self.path_idxs[exit_landmark_mode].tolist())
 
         # Relocalize agent which has failed to reach current landmark in steps_per_landmark
         if self.relocalization:
@@ -1067,6 +1052,56 @@ class Landmarks(object):
         current_idxs = self.path_idxs[self.landmark_mode]
         current_landmarks = self.paths[self.landmark_mode, current_idxs]
         return self.norm_dsr[current_landmarks], self.landmark_mode, self.positions[current_landmarks]
+
+############################# GROUND TRUTH CODE ########################################
+
+    def get_intersections(self, edges):
+        # For each edge (line), compute if it intersects with any walls of the maze
+        def orientation(p, q, r):
+            return ((q[1] - p[1]) * (r[0] - q[0])) - ((q[0] - p[0]) * (r[1] - q[1])) 
+        
+        def on_segment(p, q, r):
+            return (q[0] <= max(p[0], r[0])) & (q[0] > min(p[0], r[0])) & (q[1] <= max(p[1], r[1])) & (q[1] >= min(p[1], r[1]))
+
+        orientations = np.zeros((edges.shape[1], len(self.lines), 4))
+        for i, line in enumerate(self.lines):
+            orientations[:, i, 0] = orientation(edges[:2], edges[2:], line[:2])
+            orientations[:, i, 1] = orientation(edges[:2], edges[2:], line[2:])
+            orientations[:, i, 2] = orientation(line[:2], line[2:], edges[:2])
+            orientations[:, i, 3] = orientation(line[:2], line[2:], edges[2:])
+
+        orientations[orientations > 0] = 1
+        orientations[orientations < 0] = 2
+
+        intersections = np.zeros((edges.shape[1], len(self.lines)), dtype=bool)
+        intersections[(orientations[:, :, 0] != orientations[:, :, 1]) & (orientations[:, :, 2] != orientations[:, :, 3])] = True
+
+        for i, j, k in np.argwhere(orientations == 0):
+            if k == 0:
+                p, q, r = edges[:2, i], self.lines[j, :2], edges[2:, i] 
+            elif k == 1:
+                p, q, r = edges[:2, i], self.lines[j, 2:], edges[2:, i]
+            elif k == 2:
+                p, q, r = self.lines[j, :2], edges[:2, i], self.lines[j, 2:]
+            else:
+                p, q, r = self.lines[j, :2], edges[2:, i], self.lines[j, 2:]
+            intersections[i, j] = on_segment(p, q, r)
+        return np.any(intersections, axis=1)
+
+    def get_oracle_distance_to_landmarks(self, pos, idxs=None, intersection_penalty=False):
+        # Get oracle distance from `pos` to landmarks
+        if idxs:
+            positions = self.positions[idxs, :2]
+        else:
+            positions = self.positions[:, :2]
+        distance = np.linalg.norm(positions - pos[:2], ord=2, axis=1)
+
+        broadcasted_pos = np.broadcast_to(pos[np.newaxis, :2], positions.shape)
+        edges = np.hstack((positions, broadcasted_pos)).T
+        intersections = self.get_intersections(edges)
+        if intersection_penalty:
+            distance[intersections] += (distance.max() * self.max_landmarks)
+        return distance, intersections
 
     ################################## UNUSED CODE ################################## 
 

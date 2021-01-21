@@ -25,15 +25,18 @@
         "max_landmarks": 2500,
         "landmarks_per_update": 50,
         "add_threshold": 0.8,
-        "memory_len": 3,
+        "memory_len": 8,
         "landmark_mode_interval": 500,
-        "steps_per_landmark": 5,
+        "steps_per_landmark": 30,
         "max_landmark_mode_steps": 1000,
-        "localization_threshold": 0.5,
+        "localization_threshold": 0.9,
         "relocalization": false,
-        "random_true_edges_threshold": 20,
-        "subgoal_success_threshold": 10,
-        "subgoal_true_edges_threshold": 10,
+        "random_true_edges_threshold": 10,
+        "random_transitions_percentile": 50,
+        "use_temporally_nearby_landmarks": true,
+        "k_nearest_neighbors": 0,
+        "subgoal_success_threshold": 5,
+        "subgoal_true_edges_threshold": 5,
         "subgoal_failures_true_edges_threshold": 1,
         "subgoal_failures_decay_rate": 0.25,
         "use_digraph": false,
@@ -46,7 +49,7 @@
         "GT_termination_angle_threshold": 45,
         "GT_graph": false,
         "GT_graph_edge_threshold": 100,
-        "reach_threshold": 0.5,
+        "reach_threshold": 0.9,
         "landmark_paths": 1,
         "affinity_decay": 0.99
     },
@@ -64,51 +67,83 @@
     },
     "env": {
         "start_position": [
-            1000,
-            1000,
-            0
+            128,
+            -64,
+            270
         ],
-        "config": "experiments/vizdoom/train_SPTM.cfg",
+        "config": "experiments/vizdoom/small_SPTM.cfg",
         "seed": 100,
         "grayscale": false,
         "map_id": "map05",
         "num_samples": -1,
-        "full_action_set": false
+        "num_img_obs": 4,
+        "full_action_set": true,
+        "step_budget": 2500
     },
     "eval_env": {
         "start_position": [
-            1000,
-            1000,
-            0
+            128,
+            -64,
+            270
         ],
-        "config": "experiments/vizdoom/train_SPTM.cfg",
+        "config": "experiments/vizdoom/small_SPTM.cfg",
         "seed": 100,
         "grayscale": false,
         "map_id": "map05",
         "num_samples": -1,
-        "full_action_set": false,
+        "num_img_obs": 4,
+        "full_action_set": true,
+        "step_budget": 2500,
         "goal_close_terminate": true
-    },
-    "runner": {
-        "log_interval_steps": 1700,
-        "log_dsr_interval_steps": 1700,
-        "min_steps_landmark_mode": 1100,
-        "update_landmark_representation_interval_steps": 250,
-        "update_landmark_graph_interval_steps": 500,
-        "log_feature_info_interval_steps": 1700,
-        "log_landmarks_interval_steps": 1700,
-        "figsize": [14, 7]
     },
     "sampler": {
         "batch_B": 8,
         "eval_settings": {
-            "easy": [100, [0, 200]],
-            "medium": [200, [200 ,400]],
-            "hard": [300, [400, 600]]
+            "easy": [
+                100,
+                [
+                    0,
+                    200
+                ]
+            ],
+            "medium": [
+                200,
+                [
+                    200,
+                    400
+                ]
+            ],
+            "hard": [
+                300,
+                [
+                    400,
+                    600
+                ]
+            ],
+            "hardest": [
+                400,
+                [
+                    600,
+                    800
+                ]
+            ]
         },
-        "start_goal_pairs_path": "experiments/configs/9269-train-random-start-goal-pairs.json",
-        "trajectories_per_setting": 2
+        "start_goal_pairs_path": "experiments/configs/2589-small-fixed-start-goal-pairs.json",
+        "trajectories_per_setting": 20
     },
-    "seed": 333,
+    "runner": {
+        "log_interval_steps": 80000,
+        "log_dsr_interval_steps": 400000,
+        "min_steps_landmark_mode": 40000,
+        "update_landmark_representation_interval_steps": 10000,
+        "update_landmark_graph_interval_steps": 20000,
+        "log_feature_info_interval_steps": 40000,
+        "log_landmarks_interval_steps": 40000,
+        "figsize": [
+            14,
+            7
+        ]
+    },
+    "seed": 3975,
     "feature": "TCF"
 }

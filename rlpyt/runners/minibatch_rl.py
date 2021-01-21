@@ -1049,8 +1049,8 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         #                            np.average(oracle_interval_success_rates), itr)
         average_random_steps = self.agent.landmarks.edge_random_steps / np.clip(self.agent.landmarks.edge_random_transitions, 1, None)
         average_random_steps = average_random_steps[self.agent.landmarks.edge_random_transitions > 0]
-        average_subgoal_steps = self.agent.landmarks.edge_subgoal_steps / np.clip(self.agent.landmarks.edge_subgoal_transitions, 1, None)
-        average_subgoal_steps = average_subgoal_steps[self.agent.landmarks.edge_subgoal_transitions > 0]
+        average_subgoal_steps = self.agent.landmarks.edge_subgoal_steps / np.clip(self.agent.landmarks.edge_subgoal_successes, 1, None)
+        average_subgoal_steps = average_subgoal_steps[self.agent.landmarks.edge_subgoal_successes > 0]
         # average_subgoal_successes = self.agent.landmarks.edge_subgoal_successes / np.clip(self.agent.landmarks.edge_subgoal_transitions, 1, None)
         # average_subgoal_successes = average_subgoal_successes[self.agent.landmarks.edge_subgoal_transitions > 0]
         logger.record_tabular_stat('TransitionRandomSteps',
@@ -1071,6 +1071,11 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         logger.record_tabular_stat('GraphConnectedComponents', np.average(self.agent.landmarks.graph_components), itr)
         logger.record_tabular_stat('GraphSizeLargestComponent',
                                    np.average(self.agent.landmarks.graph_size_largest_component), itr)
+
+        # TEMP. Statistics related to paths constructed
+        logger.record_tabular_stat('PathLengths', np.average(self.agent.landmarks.log_path_lengths), itr)
+        logger.record_tabular_stat('PathIdxsAtTermination', np.average(self.agent.landmarks.log_path_idxs), itr)
+        logger.record_tabular_stat('MaxPathIdxsAtTermination', np.max(self.agent.landmarks.log_path_idxs), itr)
         
         # 3. Positions of landmark successes
         # figure = plt.figure(figsize=self.figsize)
@@ -1086,7 +1091,7 @@ class MinibatchVizDoomLandmarkDSREval(MinibatchLandmarkDSREval):
         
         # 4. Visitation counts of landmarks
         figure = plt.figure(figsize=self.figsize)
-        visitations = np.sum(self.agent.landmarks.edge_random_transitions, axis=0) + np.sum(self.agent.landmarks.edge_subgoal_transitions, axis=0)
+        visitations = np.sum(self.agent.landmarks.edge_random_transitions, axis=0) + np.sum(self.agent.landmarks.edge_subgoal_successes, axis=0)
         plt.bar(np.arange(len(visitations)), visitations)
         plt.xlabel('Landmark')
         plt.ylabel('Visitations')
