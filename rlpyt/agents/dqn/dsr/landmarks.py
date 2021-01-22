@@ -23,6 +23,7 @@ class Landmarks(object):
                  top_k_similar=None,
                  memory_len=1,
                  landmark_mode_interval=100,
+                 success_step_limit=15,
                  steps_per_landmark=10,
                  max_landmark_mode_steps=500,
                  localization_threshold=0.9,
@@ -547,11 +548,11 @@ class Landmarks(object):
                     self.edge_random_transitions[replace_idx, :] = 0
                     self.edge_subgoal_steps[replace_idx, :] = 0
                     self.edge_subgoal_steps[:, replace_idx] = 0
+                    self.edge_subgoal_failures[replace_idx, :] = 0
                     self.edge_subgoal_failures[:, replace_idx] = 0
-                    self.edge_subgoal_failures[:, replace_idx] = 0
+                    self.edge_subgoal_successes[replace_idx] = 0
                     self.edge_subgoal_successes[:, replace_idx] = 0
-                    self.edge_subgoal_successes[:, replace_idx] = 0
-                    self.edge_subgoal_attempts[:, replace_idx] = 0
+                    self.edge_subgoal_attempts[replace_idx, :] = 0
                     self.edge_subgoal_attempts[:, replace_idx] = 0
 
                     self.landmark_removes += 1
@@ -1010,7 +1011,7 @@ class Landmarks(object):
 
         prev = self.paths[transitions_mask, transition_idxs - 1]
         cur = self.paths[transitions_mask, transition_idxs]
-        successes = reached_landmarks[transitions]
+        successes = reached_landmarks[transitions] & (self.current_landmark_steps[transitions_mask] < self.success_step_limit)
 
         self.edge_subgoal_steps[prev[successes], cur[successes]] += self.current_landmark_steps[transitions_mask][successes]
         self.edge_subgoal_successes[prev[successes], cur[successes]] += 1
