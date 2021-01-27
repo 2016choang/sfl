@@ -128,7 +128,7 @@
             ]
         },
         "start_goal_pairs_path": "experiments/configs/4572-open-space-five-fixed-start-goal-pairs.json",
-        "trajectories_per_setting": 20
+        "trajectories_per_setting": 50
     },
     "runner": {
         "log_interval_steps": 80000,
@@ -143,6 +143,6 @@
             7
         ]
     },
-    "seed": 3975,
+    "seed": 88099,
     "feature": "TCF"
 }

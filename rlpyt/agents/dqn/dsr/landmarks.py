@@ -655,14 +655,15 @@ class Landmarks(object):
                 temporally_nearby_landmarks += temporally_nearby_landmarks.T
 
             else:
-                random_steps = self.edge_random_steps + np.tril(self.edge_random_steps, -1).T
-                random_transitions = self.edge_random_transitions + np.tril(self.edge_random_transitions, -1).T
+                random_steps = self.edge_random_steps + np.tril(self.edge_random_steps, -1).T + np.triu(self.edge_random_steps, 1).T
+                random_transitions = self.edge_random_transitions + np.tril(self.edge_random_transitions, -1).T + np.triu(self.edge_random_transitions, 1).T
             
-                subgoal_steps = self.edge_subgoal_steps + np.tril(self.edge_subgoal_steps, -1).T
-                subgoal_failures = self.edge_subgoal_failures + np.tril(self.edge_subgoal_failures, -1).T
-                subgoal_transitions = self.edge_subgoal_transitions + np.tril(self.edge_subgoal_transitions, -1).T
+                subgoal_steps = self.edge_subgoal_steps + np.tril(self.edge_subgoal_steps, -1).T + np.triu(self.edge_subgoal_steps, -1).T
+                subgoal_failures = self.edge_subgoal_failures + np.tril(self.edge_subgoal_failures, -1).T + np.triu(self.edge_subgoal_failures, -1).T
+                subgoal_transitions = self.edge_subgoal_transitions + np.tril(self.edge_subgoal_transitions, -1).T + np.triu(self.edge_subgoal_transitions, -1).T
 
                 temporally_nearby_landmarks = np.tril(np.triu(np.ones((self.num_landmarks), dtype=bool), 1), temporally_nearby_threshold) 
+                temporally_nearby_landmarks += temporally_nearby_landmarks.T
 
             # average_random_steps = random_steps / np.clip(random_transitions, 1, None)
             # average_subgoal_steps = subgoal_steps / np.clip(subgoal_transitions, 1, None)
@@ -700,11 +701,14 @@ class Landmarks(object):
 
             if self.use_weighted_edges:
                 edge_weights = true_edges * (np.exp(-1 * random_transitions))
+
                 if self.use_temporally_nearby_landmarks:
                     edge_weights = temporally_nearby_landmarks * edge_weights
+                    
                 if self.subgoal_failures_true_edges_threshold != -1:
                     edge_weights[(edge_weights > 0) & (subgoal_failures > self.subgoal_failures_true_edges_threshold)] += self.max_landmarks
                     subgoal_failures[subgoal_failures > 0] -= self.subgoal_failures_decay_rate
+
                 # edge_weights = true_edges * ((0.5 * average_random_steps + average_subgoal_steps) / np.clip(0.5 * (random_transitions > 0) + (subgoal_transitions > 0), 1, None))
                 # if self.subgoal_success_true_edges_threshold != -1:
                 #     edge_weights[(percentage_subgoal_successes <= self.subgoal_success_true_edges_threshold) & (true_edges)] += (edge_weights.max() * self.max_landmarks)
