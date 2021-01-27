@@ -106,10 +106,11 @@ class VizDoomEnv(Env):
         self.record_files = None
         self.current_record_file = None
 
-        if self.num_samples == -1:
-            self.generate_full_episode()
-        else:
-            self.generate_samples()
+        if self.num_samples is not None:
+            if self.num_samples == -1:
+                self.generate_full_episode()
+            else:
+                self.generate_samples()
     
     def remove_objects(self):
         for obj in self.game.get_state().objects:
