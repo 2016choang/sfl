@@ -353,7 +353,7 @@ class Landmarks(object):
 
             # Potential landmarks under similarity threshold w.r.t. existing landmarks
             if isinstance(self.add_strategy, int):
-                existing_landmarks = self.num_landmarks - self.add_strategy
+                existing_landmarks = self.num_landmarks - self.add_strategy  # should change to existing_landmarks = self.add_strategy
             elif isinstance(self.add_strategy, float):
                 existing_landmarks = self.num_landmarks * self.add_strategy
             else:
@@ -651,18 +651,19 @@ class Landmarks(object):
             threshold = min(threshold, self.max_attempt_threshold)
         return threshold
     
-    def get_sim_threshold(self, attempt=0, similarity_matrix=None):
-        if attempt:
-            self.current_edge_threshold -= (SIM_THRESHOLD_CHANGE * 2 ** (attempt - 1))
-        if self.sim_threshold:
-            return self.current_edge_threshold      
-        elif self.sim_percentile_threshold and similarity_matrix is not None:
-            return np.percentile(similarity_matrix[~np.eye(self.num_landmarks, dtype=bool)],
-                self.current_edge_threshold)
-        else:
-            raise RuntimeError('Set either sim_threshold or sim_percentile_threshold')
+    # def get_sim_threshold(self, attempt=0, similarity_matrix=None):
+    #     if attempt:
+    #         self.current_edge_threshold -= (SIM_THRESHOLD_CHANGE * 2 ** (attempt - 1))
+    #     if self.sim_threshold:
+    #         return self.current_edge_threshold      
+    #     elif self.sim_percentile_threshold and similarity_matrix is not None:
+    #         return np.percentile(similarity_matrix[~np.eye(self.num_landmarks, dtype=bool)],
+    #             self.current_edge_threshold)
+    #     else:
+    #         raise RuntimeError('Set either sim_threshold or sim_percentile_threshold')
 
     def generate_graph(self):
+        # Add graph edges based on ground-truth distances between landmarks
         if self.GT_graph:
             edges = np.array(list(itertools.product(self.positions[:, :2], self.positions[:, :2]))).reshape(-1, 4)
             self.landmark_distances = np.linalg.norm(edges[:, :2] - edges[:, 2:], ord=2, axis=1)
@@ -707,14 +708,15 @@ class Landmarks(object):
                 temporally_nearby_landmarks += temporally_nearby_landmarks.T
 
             else:
-                random_steps = self.edge_random_steps + np.tril(self.edge_random_steps, -1).T
-                random_transitions = self.edge_random_transitions + np.tril(self.edge_random_transitions, -1).T
+                random_steps = self.edge_random_steps + np.tril(self.edge_random_steps, -1).T + np.triu(self.edge_random_steps, 1).T
+                random_transitions = self.edge_random_transitions + np.tril(self.edge_random_transitions, -1).T + np.triu(self.edge_random_transitions, 1).T
             
-                subgoal_steps = self.edge_subgoal_steps + np.tril(self.edge_subgoal_steps, -1).T
-                subgoal_failures = self.edge_subgoal_failures + np.tril(self.edge_subgoal_failures, -1).T
-                subgoal_transitions = self.edge_subgoal_transitions + np.tril(self.edge_subgoal_transitions, -1).T
+                subgoal_steps = self.edge_subgoal_steps + np.tril(self.edge_subgoal_steps, -1).T + np.triu(self.edge_subgoal_steps, 1).T
+                subgoal_failures = self.edge_subgoal_failures + np.tril(self.edge_subgoal_failures, -1).T + np.triu(self.edge_subgoal_failures, 1).T
+                subgoal_transitions = self.edge_subgoal_transitions + np.tril(self.edge_subgoal_transitions, -1).T + np.triu(self.edge_subgoal_transitions, 1).T
 
                 temporally_nearby_landmarks = np.tril(np.triu(np.ones((self.num_landmarks), dtype=bool), 1), temporally_nearby_threshold) 
+                temporally_nearby_landmarks += temporally_nearby_landmarks.T
 
             # average_random_steps = random_steps / np.clip(random_transitions, 1, None)
             # average_subgoal_steps = subgoal_steps / np.clip(subgoal_transitions, 1, None)
@@ -756,6 +758,7 @@ class Landmarks(object):
                 percentage_out = random_transitions / np.clip(random_transitions.sum(axis=1).reshape(-1, 1), 1, None)
                 percentage_out[percentage_out > 0] = -1 * np.log(percentage_out[percentage_out > 0])
                 edge_weights = true_edges * percentage_out
+                
                 if self.use_temporally_nearby_landmarks:
                     edge_weights = temporally_nearby_landmarks * edge_weights
                 if self.subgoal_failures_true_edges_threshold != -1:
@@ -776,102 +779,6 @@ class Landmarks(object):
             self.graph_size_largest_component.append(len(max(nx.strongly_connected_components(self.graph), key=len)))
 
             return self.graph
-
-        # # Generate landmark graph using empirical transitions
-        # # and similarity in SF space between landmarks
-        # edge_success_rate = self.transition_distances / np.clip(self.attempts, 1, None)
-        # self.landmark_distances = edge_success_rate.copy()
-
-        # # Distance for edges with no successful transitions is based on minimum success rate
-        # non_zero_success = edge_success_rate[edge_success_rate > 0]
-        # if non_zero_success.size == 0:
-        #     zero_success_dist = 1e-3
-        # else:
-        #     zero_success_dist = non_zero_success.min()
-
-        # similarities = torch.clamp(torch.matmul(self.norm_dsr, self.norm_dsr.T), min=1e-3, max=1.0)
-        # similarities = similarities.detach().cpu().numpy()
-        # min_dist = zero_success_dist * similarities
-
-        # # Remove edges with success rate <= success_threshold
-        # non_edges = np.logical_not(edge_success_rate > self.success_threshold)
-
-        # # # If less than 5% of possible edges have non-zero success rates,
-        # # # then use edges with high similarity 
-        # # N = self.num_landmarks
-        # # if torch.sum(edge_success_rate > 0) < 0.05 * (N * (N - 1) / 2):
-        # #     high_similarity_edges = similarities > self.sim_threshold
-        # #     non_edges[high_similarity_edges] = False 
-        # #     landmark_distances[high_similarity_edges] = np.clip(landmark_distances[high_similarity_edges], a_min=min_dist[high_similarity_edges], a_max=None)
-
-        # # Distance = -1 * np.log (transition probability)
-        # self.landmark_distances[non_edges] = 0
-        # self.landmark_distances[self.landmark_distances == 1] = 1 - 1e-6
-        # self.landmark_distances[self.landmark_distances != 0] = -1 * np.log(self.landmark_distances[self.landmark_distances != 0])
-
-        # # # Penalize edges with no success, high attempts
-        # # attempt_threshold = max(non_zero_attempts.mean() + non_zero_attempts.std(), 1)
-        # # high_attempt_edges = self.attempts > attempt_threshold
-        # # edge_success_rate[edge_success_rate == 0 & high_attempt_edges] = -1
-
-        # # Augment G with edges until it is connected
-        # # Edges are sorted by success rate, then similarity
-        # self.zero_edge_indices = set()
-        # self.graph = nx.from_numpy_array(self.landmark_distances, create_using=nx.DiGraph)
-
-        # # attempt_threshold = self.get_low_attempt_threshold()
-
-        # attempt = 0
-        # while not nx.is_strongly_connected(self.graph):
-        #     self.current_sim_threshold = self.get_sim_threshold(attempt, similarities)
-        #     add_edges_by_sim = non_edges & (similarities >= self.current_sim_threshold)
-
-        #     # In all modes except eval, consider edges with low numbers
-        #     # of attempted transitions as valid starting edges
-        #     # if self.mode != 'eval':
-        #     #     low_attempt_edges = self.attempts <= attempt_threshold
-        #     #     self.landmark_distances[add_edges_by_sim] = -1 * np.log(min_dist[add_edges_by_sim])
-        #     #     self.landmark_distances[add_edges_by_sim & ~low_attempt_edges] *= self.max_landmarks 
-
-        #     self.landmark_distances[add_edges_by_sim] = -1 * self.max_landmarks * np.log(min_dist[add_edges_by_sim])
-
-        #     self.graph = nx.from_numpy_array(self.landmark_distances, create_using=nx.DiGraph)
-        #     attempt += 1
-        
-        # # If no need to adjust threshold, then try to make it more conservative
-        # if self.current_edge_threshold:
-        #     if attempt == 1:
-        #         self.consecutive_graph_generation_successes += 1
-        #         self.current_edge_threshold += (SIM_THRESHOLD_CHANGE * self.consecutive_graph_generation_successes)
-        #     else:
-        #         self.consecutive_graph_generation_successes = 0
-        # self.generate_graph_attempts.append(attempt)
-
-        # # if not nx.is_strongly_connected(self.graph):
-        # #     avail = []
-        # #     for index, x in np.ndenumerate(similarities):
-        # #         if non_edges[index]:
-        # #             avail.append((edge_success_rate[index], x, *index))
-        # #     avail = sorted(avail, key=itemgetter(0, 1), reverse=True)
-
-        # #     for success_rate, similarity, u, v in avail:
-        # #         if success_rate > 0:
-        # #             dist = -1 * np.log(success_rate)
-        # #         else:
-        # #             dist = -1 * self.max_landmarks * np.log(zero_success_dist * similarity)
-
-        # #         landmark_distances[(u, v)] = dist
-                
-        # #         self.landmark_distances = landmark_distances
-        # #         self.graph = nx.from_numpy_array(landmark_distances, create_using=nx.DiGraph)
-
-        # #         if success_rate <= 0:
-        # #             self.zero_edge_indices.add((u, v))
-
-        # #         if nx.is_strongly_connected(self.graph):
-        # #             break
-        
-        # return self.graph
     
     def disconnect_goal(self):
         self.graph.remove_node(self.num_landmarks - 1)

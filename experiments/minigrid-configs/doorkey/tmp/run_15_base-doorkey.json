@@ -6,30 +6,32 @@
         "model_kwargs": {
             "feature_size": 64,
             "dsr_params": {
-                "fc_sizes": [512],
+                "fc_sizes": [
+                    512
+                ],
                 "nonlinearity": "relu",
                 "batchnorm": false
-            }   
+            }
         },
         "feature_model_kwargs": {
             "feature_size": 64,
             "norm_output": true,
-            "alpha": 10.0
+            "alpha": 10
         },
         "use_soft_q": false,
         "GT_subgoal_policy": false
     },
     "landmarks": {
         "use_observations": true,
-        "max_landmarks": 10,
-        "add_threshold": 0.8,
+        "max_landmarks": 20,
+        "add_threshold": 0.975,
         "add_strategy": 0,
         "replace_landmarks": false,
         "memory_len": 1,
         "landmarks_per_update": 1,
-        "steps_per_landmark": 10,
-        "landmark_mode_interval": 60,
-        "max_landmark_mode_steps": 60,
+        "steps_per_landmark": 20,
+        "landmark_mode_interval": 80,
+        "max_landmark_mode_steps": 80,
         "localization_threshold": 1,
         "random_true_edges_threshold": 10,
         "random_transitions_percentile": 0,
@@ -60,52 +62,71 @@
         "batch_size": 128,
         "replay_ratio": 8,
         "min_steps_learn": 1000,
-        "learning_rate": 1e-3,
-        "replay_size": 20000,
+        "learning_rate": 0.001,
+        "replay_size": 100000,
         "delta_clip": 1,
-        "min_steps_dsr_learn": 20000,
-        "feature_learning_rate": 1e-3,
+        "min_steps_dsr_learn": 10000,
+        "feature_learning_rate": 0.001,
         "pos_threshold": 2,
         "neg_close_threshold": 10,
         "neg_far_threshold": 15,
-        "margin": 2.0,
+        "margin": 2,
         "target_update_interval": 250
     },
     "env": {
         "max_steps": 640,
-        "start_pos": [1, 1, 0],
+        "start_pos": [
+            1,
+            1,
+            0
+        ],
         "reset_episodes": 1,
         "reset_same": true,
         "terminate": false,
         "encoding": "obj",
         "use_doors": true,
-        "true_goal_pos": [6, 1, 0],
+        "true_goal_pos": [
+            6,
+            1,
+            0
+        ],
         "seed": 1
     },
     "eval_env": {
         "max_steps": 640,
-        "start_pos": [1, 1, 0],
+        "start_pos": [
+            1,
+            1,
+            0
+        ],
         "reset_same": true,
         "terminate": true,
         "encoding": "obj",
         "use_doors": true,
-        "true_goal_pos": [6, 1, 0],
+        "true_goal_pos": [
+            6,
+            1,
+            0
+        ],
         "seed": 1
-    }, 
+    },
     "sampler": {
-        "batch_B": 1, 
+        "batch_B": 1,
         "eval_max_steps": 100000,
         "eval_max_trajectories": 50
     },
     "runner": {
         "log_interval_steps": 10000,
         "log_dsr_interval_steps": 10000,
-        "min_steps_landmark_mode": 40000,
+        "min_steps_landmark_mode": 30000,
         "update_landmark_representation_interval_steps": 1000,
         "add_landmarks_interval_steps": 3000,
         "update_landmark_graph_interval_steps": 1000,
         "log_landmarks_interval_steps": 20000,
-        "figsize": [12, 12]
+        "figsize": [
+            12,
+            12
+        ]
     },
     "env_id": "MiniGrid-DoorKey-8x8-v0",
     "mode": "doorkey",

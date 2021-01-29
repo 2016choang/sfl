@@ -324,15 +324,15 @@ class LandmarkTCFDSR(FeatureDSR):
 
                 feature_loss, feature_opt_info = self.feature_loss(feature_samples_from_replay)
                 feature_loss.backward()
-                feature_grad_norm = torch.nn.utils.clip_grad_norm_(
-                    self.agent.feature_parameters(), self.clip_grad_norm)
+                # feature_grad_norm = torch.nn.utils.clip_grad_norm_(
+                #     self.agent.feature_parameters(), self.clip_grad_norm)
 
                 self.feature_optimizer.step()
 
-                opt_info.featureLoss.append(feature_loss.item())
-                opt_info.featureGradNorm.append(feature_grad_norm)
-                for key, value in feature_opt_info.items():
-                    getattr(opt_info, key).append(value)
+                # opt_info.featureLoss.append(feature_loss.item())
+                # opt_info.featureGradNorm.append(feature_grad_norm)
+                # for key, value in feature_opt_info.items():
+                #     getattr(opt_info, key).append(value)
 
             if itr >= self.min_itr_dsr_learn:
                 # Train successor feature representation
@@ -342,17 +342,17 @@ class LandmarkTCFDSR(FeatureDSR):
                 if self.initial_dsr_loss is None:
                     self.initial_dsr_loss = dsr_loss.item()
                 dsr_loss.backward()
-                dsr_grad_norm = torch.nn.utils.clip_grad_norm_(
-                    self.agent.dsr_parameters(), self.clip_grad_norm)
+                # dsr_grad_norm = torch.nn.utils.clip_grad_norm_(
+                #     self.agent.dsr_parameters(), self.clip_grad_norm)
 
                 self.dsr_optimizer.step()
 
-                opt_info.dsrLoss.append(dsr_loss.item())
-                opt_info.dsrGradNorm.append(dsr_grad_norm)
-                opt_info.percentDSRLoss.append(dsr_loss.item() / self.initial_dsr_loss)
-                for key, value in norm_info.items():
-                    getattr(opt_info, key).append(value.item())
-                opt_info.tdAbsErr.extend(td_abs_errors[::8].numpy())  # Downsample.
+                # opt_info.dsrLoss.append(dsr_loss.item())
+                # opt_info.dsrGradNorm.append(dsr_grad_norm)
+                # opt_info.percentDSRLoss.append(dsr_loss.item() / self.initial_dsr_loss)
+                # for key, value in norm_info.items():
+                #     getattr(opt_info, key).append(value.item())
+                # opt_info.tdAbsErr.extend(td_abs_errors[::8].numpy())  # Downsample.
 
                 self.update_counter += 1
                 if self.update_counter % self.target_update_interval == 0:
