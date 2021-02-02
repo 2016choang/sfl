@@ -85,7 +85,7 @@
     },
     "eval_env": {
         "max_steps": 100,
-        "start_pos": [1, 1, 0],
+        "start_pos": [1, 1],
         "reset_same": true,
         "terminate": true,
         "encoding": "obj",
