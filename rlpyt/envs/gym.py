@@ -704,6 +704,14 @@ class MinigridMultiRoomWrapper(MinigridGeneralWrapper):
         
         return states
 
+class MinigridFourRoomWrapper(MinigridGeneralWrapper):
+    
+    def get_random_start(self):
+        return np.array([*self.env.place_agent(), self.env.unwrapped.agent_dir])
+
+    def get_possible_pos(self):
+        return set(map(tuple, np.argwhere(env.grid.encode()[:, :, 0] != 2)))
+
 class MinigridFeatureWrapper(Wrapper):
     
     def __init__(self, env, num_features=64, fixed_feature_file=None, terminate=False, reset_same=False, reset_episodes=1):
@@ -1040,9 +1048,16 @@ def make(*args, info_example=None, mode=None, minigrid_config=None, **kwargs):
                                          start_pos=start_pos, true_goal_pos=true_goal_pos, reset_same=reset_same, reset_episodes=reset_episodes)
             return GymEnvWrapper(env)
         elif mode == 'fourroom':
-            goal_pos = minigrid_config.get('goal_pos', None)
+            goal_pos = minigrid_config.get('goal_pos', (11, 10))
             env = FourRooms(start_pos=start_pos, goal_pos=goal_pos, max_steps=max_steps)
-            env = FourRoomsWrapper(FullyObsWrapper(ReseedWrapper(env, seeds=[seed])), true_goal_pos=true_goal_pos)
+            env = ReseedWrapper(env, seeds=[seed])
+            if encoding == 'obj':
+                env = FullyObsWrapper(env)
+            else:
+                env = RGBImgObsWrapper(env)
+            env = MinigridFourRoomWrapper(env, all_actions=all_actions, size=size, encoding=encoding, max_steps=max_steps, terminate=terminate,
+                                          start_pos=start_pos, true_goal_pos=true_goal_pos, reset_same=reset_same, reset_episodes=reset_episodes)
+            # env = FourRoomsWrapper(FullyObsWrapper(ReseedWrapper(env, seeds=[seed])), true_goal_pos=true_goal_pos)
             return GymEnvWrapper(env)
         else:
             env = gym.make(*args, **kwargs)
