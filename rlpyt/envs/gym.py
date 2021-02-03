@@ -710,7 +710,7 @@ class MinigridFourRoomWrapper(MinigridGeneralWrapper):
         return np.array([*self.env.place_agent(), self.env.unwrapped.agent_dir])
 
     def get_possible_pos(self):
-        return set(map(tuple, np.argwhere(env.grid.encode()[:, :, 0] != 2)))
+        return set(map(tuple, np.argwhere(self.env.grid.encode()[:, :, 0] != 2)))
     
     def clear_env(self):
         pass

@@ -19,14 +19,13 @@ def run(base_file, start_run_id, cuda_idx, snapshot_gap, steps, checkpoint, slee
     if not os.path.exists(tmp_config_dir):
         os.mkdir(tmp_config_dir)
         
-    values = [507, 9138]
+    values = [0.9]
     cuda_idxs = None
     for i, value in enumerate(values):
-        base_config['seed'] = value
         # base_config['landmarks']['random_transitions_percentile'] = value
         # base_config['landmarks']['landmark_mode_interval'] = value
         # base_config['landmarks']['max_landmark_mode_steps'] = value
-        # base_config['landmarks']['add_threshold'] = value
+        base_config['landmarks']['add_threshold'] = value
         
         mod_config_file = os.path.join(tmp_config_dir, 'run_{}_{}'.format(run_id, os.path.basename(base_file)))  
 
