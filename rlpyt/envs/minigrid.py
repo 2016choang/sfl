@@ -51,7 +51,10 @@ class FourRooms(MiniGridEnv):
 #                     pos = (self._rand_int(xL + 1, xR), yB)
 #                     self.grid.set(*pos, None)
         
-        for pos in [(6, 3), (2, 6), (9, 7), (6, 10)]:
+        # for pos in [(6, 3), (2, 6), (9, 7), (6, 10)]:
+        #     self.grid.set(*pos, None)
+        
+        for pos in [(4, 3), (2, 4), (7, 5), (4, 7)]:
             self.grid.set(*pos, None)
 
         # Randomize the player start position and orientation
