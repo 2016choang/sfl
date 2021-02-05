@@ -1052,7 +1052,8 @@ def make(*args, info_example=None, mode=None, minigrid_config=None, **kwargs):
             return GymEnvWrapper(env)
         elif mode == 'fourroom':
             goal_pos = minigrid_config.get('goal_pos', (11, 10))
-            env = FourRooms(start_pos=start_pos[:2], goal_pos=goal_pos, max_steps=max_steps)
+            grid_size = minigrid_config.get('grid_size', 13)
+            env = FourRooms(start_pos=start_pos[:2], goal_pos=goal_pos, max_steps=max_steps, grid_size=grid_size)
             env = ReseedWrapper(env, seeds=[seed])
             if encoding == 'obj':
                 env = FullyObsWrapper(env)

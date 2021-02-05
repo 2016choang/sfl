@@ -7,12 +7,12 @@ class FourRooms(MiniGridEnv):
     Can specify agent and goal position, if not it set at random.
     """
 
-    def __init__(self, start_pos=None, goal_pos=None, max_steps=100):
+    def __init__(self, start_pos=None, goal_pos=None, max_steps=100, grid_size=13):
         self._agent_default_pos = start_pos
         self._goal_default_pos = goal_pos
         self.start_pos = start_pos
         self.goal_pos = goal_pos
-        super().__init__(grid_size=13, max_steps=max_steps)
+        super().__init__(grid_size=grid_size, max_steps=max_steps)
 
     def _gen_grid(self, width, height):
         # Create the grid
