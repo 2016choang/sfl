@@ -8,6 +8,7 @@ class FourRooms(MiniGridEnv):
     """
 
     def __init__(self, start_pos=None, goal_pos=None, max_steps=100, grid_size=13):
+        self.t_size = grid_size
         self._agent_default_pos = start_pos
         self._goal_default_pos = goal_pos
         self.start_pos = start_pos
@@ -50,12 +51,13 @@ class FourRooms(MiniGridEnv):
                     self.grid.horz_wall(xL, yB, room_w)
 #                     pos = (self._rand_int(xL + 1, xR), yB)
 #                     self.grid.set(*pos, None)
-        
-        # for pos in [(6, 3), (2, 6), (9, 7), (6, 10)]:
-        #     self.grid.set(*pos, None)
-        
-        for pos in [(4, 3), (2, 4), (7, 5), (4, 7)]:
-            self.grid.set(*pos, None)
+
+        if self.t_size == 13:
+            for pos in [(6, 3), (2, 6), (9, 7), (6, 10)]:
+                self.grid.set(*pos, None)
+        else:
+            for pos in [(4, 3), (2, 4), (6, 5), (4, 7)]:
+                self.grid.set(*pos, None)
 
         # Randomize the player start position and orientation
         if self._agent_default_pos is not None:
