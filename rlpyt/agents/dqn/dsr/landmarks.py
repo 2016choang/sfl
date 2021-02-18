@@ -1070,6 +1070,9 @@ class Landmarks(object):
 
         current_idxs = self.path_idxs[self.landmark_mode]
         current_landmarks = self.paths[self.landmark_mode, current_idxs]
+        current_similarity = self.similarity_memory[:, current_landmarks, self.landmark_mode]
+        self.current_sfs = np.median(current_similarity, axis=0)
+        self.current_landmarks = current_landmarks
         return self.norm_dsr[current_landmarks], self.landmark_mode, self.positions[current_landmarks]
 
     ################################## UNUSED CODE ################################## 

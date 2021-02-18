@@ -1,5 +1,6 @@
 
 import numpy as np
+import torch
 
 from rlpyt.samplers.collectors import BaseEvalCollector
 from rlpyt.agents.base import AgentInputs
@@ -150,6 +151,7 @@ class SerialVizdoomEvalCollector(BaseEvalCollector):
         observations = list()
         self.env_positions = np.full((len(self.envs), len(self.envs[0].agent_pos)), -1, dtype=int)
         self.eval_trajectories = [[] for _ in range(len(self.envs))]
+        eval_settings_queue = []
         eval_settings_queue = [[name, self.eval_settings[name][0], pair[0], pair[1]] for name, pairs in \
             self.start_goal_pairs.items() for pair in pairs]
         for b, env in enumerate(self.envs):
@@ -186,6 +188,107 @@ class SerialVizdoomEvalCollector(BaseEvalCollector):
                     self.agent.log_eval(b, self.env_positions[b])
                     completed_traj_infos.append([env.name,
                                                  traj_infos[b].terminate(o)])
+                    if not eval_settings_queue:
+                        finished = True
+                        break
+                    name, step_budget, start_pos, goal_pos = eval_settings_queue.pop()
+                    env.name = name
+                    env.step_budget = step_budget
+                    env.start_position = start_pos
+                    env.set_goal_state(goal_pos)
+                    o = env.reset()
+                    self.agent.update_eval_goal(env.goal_info)
+                    traj_infos[b] = self.TrajInfoCls()
+                    self.env_positions[b] = env.agent_pos
+                    action[b] = 0  # Prev_action for next step.
+                    r = 0
+                    self.agent.reset_one(idx=b)
+                observation[b] = o
+                reward[b] = r
+            if finished:
+                break
+        self.eval_trajectories = np.array(self.eval_trajectories)
+        return completed_traj_infos
+
+
+class SerialVizdoomVideoEvalCollector(BaseEvalCollector):
+    """Does not record intermediate data."""
+
+    def __init__(
+            self,
+            envs,
+            agent,
+            TrajInfoCls,
+            eval_settings,
+            start_goal_pairs,
+            video_data_save_file=None,
+            ):
+        save__init__args(locals())
+
+    def collect_evaluation(self, itr):
+        traj_infos = [self.TrajInfoCls() for _ in range(len(self.envs))]
+        completed_traj_infos = list()
+        observations = list()
+        self.env_positions = np.full((len(self.envs), len(self.envs[0].agent_pos)), -1, dtype=int)
+        self.eval_trajectories = [[] for _ in range(len(self.envs))]
+        eval_settings_queue = []
+        for name, eval_setting in self.eval_settings.items():
+            step_budget, dist_bounds = eval_setting
+            for pair in self.start_goal_pairs[name]:
+                eval_settings_queue.append([name, step_budget, pair[0], pair[1]])
+        for b, env in enumerate(self.envs):
+            env.random_start = False
+            name, step_budget, start_pos, goal_pos = eval_settings_queue.pop()
+            env.name = name
+            env.step_budget = step_budget
+            env.start_position = start_pos
+            env.set_goal_state(goal_pos)
+            observations.append(env.reset())
+            self.agent.update_eval_goal(env.goal_info)
+            self.env_positions[b] = env.agent_pos
+            self.eval_trajectories[b].append(env.agent_pos)
+        observation = buffer_from_example(observations[0], len(self.envs))
+        for b, o in enumerate(observations):
+            observation[b] = o
+        action = buffer_from_example(self.envs[0].action_space.null_value(),
+            len(self.envs))
+        reward = np.zeros(len(self.envs), dtype="float32")
+        obs_pyt, act_pyt, rew_pyt = torchify_buffer((observation, action, reward))
+        self.agent.reset()
+        finished = False
+        while True:
+            act_pyt, agent_info = self.agent.step(obs_pyt, act_pyt, rew_pyt, self.env_positions)
+            action = numpify_buffer(act_pyt)
+            for b, env in enumerate(self.envs):
+                o, r, d, env_info = env.step(action[b])
+                self.env_positions[b] = env.agent_pos
+                if len(completed_traj_infos) < 1:
+                    self.eval_trajectories[b].append(env.agent_pos)
+                traj_infos[b].step(observation[b], action[b], r, d,
+                    agent_info[b], env_info)
+                if d:
+                    self.agent.log_eval(b, self.env_positions[b])
+                    completed_traj_infos.append([env.name,
+                                                 traj_infos[b].terminate(o)])
+                    if r > 0:
+                        # save goal location
+                        np.savez(
+                            self.video_data_save_file + '_itr{}_{}_traj{}.npz'.format(itr, env.name, len(completed_traj_infos) - 1),
+                            start=env.start_position,
+                            goal=env.goal_info[1],
+                            position=np.vstack(self.agent.video_data['agent']['position']),
+                            action=torch.stack(self.agent.video_data['agent']['action']).squeeze().numpy(),
+                            observation=torch.stack(self.agent.video_data['agent']['observation']).squeeze().numpy(),
+                            q_values=torch.stack(self.agent.video_data['sfs']['q-values']).squeeze().numpy(),
+                            current_sfs=np.vstack(self.agent.video_data['sfs']['current']),
+                            closest_landmark=np.vstack(self.agent.video_data['planner']['closest_landmark']),
+                            path_to_goal=self.agent.video_data['planner']['path_to_goal'],
+                            path_idx=np.vstack(self.agent.video_data['planner']['path_idx']),
+                            allow_pickle=True
+                        )
+                    
+                    self.agent.reset_video_data()
+
                     if not eval_settings_queue:
                         finished = True
                         break

@@ -17,7 +17,7 @@ import tensorflow as tf
 import torch
 
 from rlpyt.samplers.serial.sampler import VizdoomSampler
-from rlpyt.samplers.serial.collectors import SerialVizdoomEvalCollector
+from rlpyt.samplers.serial.collectors import SerialVizdoomVideoEvalCollector
 from rlpyt.samplers.parallel.cpu.collectors import CpuLandmarksCollector
 from rlpyt.envs.vizdoom.vizdoom_env import VizDoomEnv
 from rlpyt.algos.dqn.dsr.dsr import DSR
@@ -45,7 +45,7 @@ def build_and_train(config_file,
 
     sampler = VizdoomSampler(
         CollectorCls=CpuLandmarksCollector,
-        eval_CollectorCls=SerialVizdoomEvalCollector,
+        eval_CollectorCls=SerialVizdoomVideoEvalCollector,
         EnvCls=VizDoomEnv,
         env_kwargs=config['env'],
         eval_env_kwargs=config['eval_env'],

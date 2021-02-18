@@ -36,6 +36,22 @@ class LandmarkAgent(FeatureDSRAgent):
         save__init__args(local_args)
         self.landmark_mode_steps = 0
         self.reached_goal = True # False
+        self.video_data = {
+            'agent': {
+                'position': [],
+                'action': [],
+                'observation': []
+            },
+            'sfs': {
+                'q-values': [],
+                'current': []
+            },
+            'planner': {
+                'closest_landmark': [],
+                'path_to_goal': [],
+                'path_idx': []
+            }
+        }
         super().__init__(**kwargs)
     
     def initialize(self, env_spaces, share_memory=False,
@@ -48,6 +64,25 @@ class LandmarkAgent(FeatureDSRAgent):
     def reset_logging(self):
         if self.landmarks:
             self.landmarks.reset_logging()
+    
+    def reset_video_data(self):
+        self.video_data = {
+            'agent': {
+                'position': [],
+                'action': [],
+                'observation': []
+            },
+            'sfs': {
+                'q-values': [],
+                'current': []
+            },
+            'planner': {
+                'closest_landmark': [],
+                'path_to_goal': [],
+                'path_idx': []
+            }
+        }
+
 
     @property
     def landmarks(self):
@@ -181,6 +216,20 @@ class LandmarkAgent(FeatureDSRAgent):
                 self.landmarks.enter_landmark_mode()
             
             mode = torch.from_numpy(landmark_mode)
+
+        if position is not None:
+            self.video_data['agent']['position'].append(position.copy())
+            self.video_data['agent']['action'].append(landmark_action)
+            self.video_data['agent']['observation'].append(observation[:, 9:12].int())
+
+            self.video_data['sfs']['q-values'].append(q_values)
+            self.video_data['sfs']['current'].append(self.landmarks.current_sfs.copy())
+
+            self.video_data['planner']['closest_landmark'].append(self.landmarks.current_landmarks.copy())
+
+            path_to_goal = self.landmarks.paths[self.landmarks.paths != -1].tolist()
+            self.video_data['planner']['path_to_goal'].append(path_to_goal)
+            self.video_data['planner']['path_idx'].append(self.landmarks.path_idxs.copy())
 
         agent_info = AgentInfo(a=action, mode=mode, subgoal=subgoal)
         return AgentStep(action=action, agent_info=agent_info)

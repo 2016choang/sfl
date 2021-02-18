@@ -94,7 +94,7 @@ class VizdoomSampler(BaseSampler):
     with collectors which sample actions themselves (e.g. under cpu
     category)."""
 
-    def __init__(self, *args, eval_settings, start_goal_pairs_path,
+    def __init__(self, *args, eval_settings, start_goal_pairs_path, video_data_save_file,
             trajectories_per_setting,
             CollectorCls=CpuResetCollector,
             eval_CollectorCls=SerialEvalCollector, **kwargs):
@@ -103,6 +103,7 @@ class VizdoomSampler(BaseSampler):
             start_goal_pairs = json.load(f)
             self.start_goal_pairs = {name: pairs[:trajectories_per_setting] \
                 for name, pairs in start_goal_pairs.items()}
+        self.video_data_save_file = video_data_save_file
         super().__init__(*args, CollectorCls=CollectorCls,
             eval_CollectorCls=eval_CollectorCls, **kwargs)
 
@@ -148,6 +149,7 @@ class VizdoomSampler(BaseSampler):
                 TrajInfoCls=self.TrajInfoCls,
                 eval_settings=self.eval_settings,
                 start_goal_pairs=self.start_goal_pairs,
+                video_data_save_file=self.video_data_save_file
             )
 
         agent_inputs, traj_infos = collector.start_envs(
