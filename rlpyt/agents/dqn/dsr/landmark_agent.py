@@ -29,6 +29,7 @@ class LandmarkAgent(FeatureDSRAgent):
             landmarks=None,
             use_soft_q=False,
             GT_subgoal_policy=False,
+            save_observations_toggle=False,
             **kwargs):
         self._landmarks = landmarks
         local_args = locals()
@@ -36,6 +37,9 @@ class LandmarkAgent(FeatureDSRAgent):
         save__init__args(local_args)
         self.landmark_mode_steps = 0
         self.reached_goal = True # False
+        self.add_landmarks_toggle = True
+        self.update_landmark_graph_toggle = True
+        self.saved_observations = []
         super().__init__(**kwargs)
     
     def initialize(self, env_spaces, share_memory=False,
@@ -48,6 +52,11 @@ class LandmarkAgent(FeatureDSRAgent):
     def reset_logging(self):
         if self.landmarks:
             self.landmarks.reset_logging()
+
+    def save_observations(self, filename):
+        if self.save_observations_toggle:
+            observations = np.stack(self.saved_observations, axis=0)
+            np.savez(filename, observations=observations)
 
     @property
     def landmarks(self):
@@ -92,7 +101,7 @@ class LandmarkAgent(FeatureDSRAgent):
     def update_landmark_graph(self, itr):
         if self.landmarks:
             # Add new landmarks
-            if self.landmarks.potential_landmarks:
+            if self.landmarks.potential_landmarks and self.add_landmarks_toggle:
                 features = self.landmarks.potential_landmarks['features']
 
                 # unique_idxs = np.unique(observation.numpy(), return_index=True, axis=0)[1]
@@ -108,7 +117,7 @@ class LandmarkAgent(FeatureDSRAgent):
 
                 self.landmarks.add_landmarks(features, dsr)
 
-            if self.landmarks.num_landmarks > 0:
+            if self.landmarks.num_landmarks > 0 and self.update_landmark_graph_toggle:
                 # Reset landmark mode for all environments
                 self.reset(reset_landmarks=False)
 
@@ -135,6 +144,10 @@ class LandmarkAgent(FeatureDSRAgent):
 
         # Use landmark policy sometimes
         if self.landmarks and not (self._mode == 'eval' and not np.any(self.landmarks.landmark_mode)):
+
+            if self.add_landmarks_toggle and self.save_observations_toggle:
+                self.saved_observations.append(observation.squeeze().cpu().detach().numpy())
+
             model_inputs = buffer_to(observation,
                 device=self.device)
             features = self.feature_model(model_inputs, mode='encode')

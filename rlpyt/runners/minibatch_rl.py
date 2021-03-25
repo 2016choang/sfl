@@ -456,6 +456,9 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                  update_landmark_graph_interval_steps=1e3,
                  log_feature_info_interval_steps=1e3,
                  log_landmarks_interval_steps=1e4,
+                 max_steps_add_landmarks=None,
+                 max_steps_update_landmark_graph=None,
+                 toggle_mode_update_steps=None,
                  **kwargs):
         save__init__args(locals())
         super().__init__(**kwargs)
@@ -472,6 +475,14 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         self.update_landmark_graph_interval_itrs = max(int(self.update_landmark_graph_interval_steps // self.itr_batch_size), 1)
         self.log_feature_info_interval_itrs = max(int(self.log_feature_info_interval_steps // self.itr_batch_size), 1)
         self.log_landmarks_interval_itrs = max(int(self.log_landmarks_interval_steps // self.itr_batch_size), 1)
+        if self.max_steps_add_landmarks:
+            self.max_itr_add_landmarks = max(int(self.max_steps_add_landmarks // self.itr_batch_size), 1) 
+        else:
+            self.max_itr_add_landmarks = None
+        if self.max_steps_update_landmark_graph:
+            self.max_itr_update_landmark_graph = max(int(self.max_steps_update_landmark_graph // self.itr_batch_size), 1) 
+        else:
+            self.max_itr_update_landmark_graph = None
         return n_itr
 
     def startup(self):
@@ -482,6 +493,18 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
         lines = np.array([(l.x1, l.y1, l.x2, l.y2) for l in self.sampler.collector.envs[0].state.sectors[0].lines if l.is_blocking])
         self.agent.initialize_landmarks(train_envs, eval_envs, lines)
         return n_itr
+
+    def update_landmark_representation_itrs(self, itr):
+        if self.max_itr_add_landmarks is None or itr >= self.max_itr_add_landmarks or self.toggle_mode_update_steps is None:
+            return self.update_landmark_representation_interval_itrs
+        else:
+            return max(int(self.toggle_mode_update_steps // self.itr_batch_size), 1)
+
+    def update_landmark_graph_itrs(self, itr):
+        if self.max_itr_add_landmarks is None or itr >= self.max_itr_add_landmarks or self.toggle_mode_update_steps is None:
+            return self.update_landmark_graph_interval_itrs
+        else:
+            return max(int(self.toggle_mode_update_steps // self.itr_batch_size), 1)
 
     def train(self):
         n_itr = self.startup()
@@ -507,6 +530,13 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                     self.agent.landmarks.activate()
                     self.agent.reset()
 
+                if self.max_itr_add_landmarks is not None and itr >= self.max_itr_add_landmarks and self.agent.add_landmarks_toggle:
+                    self.agent.add_landmarks_toggle = False
+                    self.agent.save_observations(os.path.join(logger.get_snapshot_dir(), 'observations_itr_{}.npz'.format(itr)))
+                
+                if self.max_itr_update_landmark_graph is not None and itr >= self.max_itr_update_landmark_graph:
+                    self.agent.update_landmark_graph_toggle = False
+
                 if not self.max_itr_sample or itr < self.max_itr_sample:
                     samples, traj_infos = self.sampler.obtain_samples(itr)
                     self.algo.append_feature_samples(samples)  # feature replay buffer (policy-agnostic)
@@ -522,12 +552,12 @@ class MinibatchLandmarkDSREval(MinibatchDSREval):
                     self.log_feature_info(itr, feature_info)
 
                 # Update landmark representation
-                if (itr + 1) % self.update_landmark_representation_interval_itrs == 0:
+                if (itr + 1) % self.update_landmark_representation_itrs(itr) == 0:
                     self.agent.sample_mode(itr)
                     self.agent.update_landmark_representation(itr)
                 
                 # Update landmark graph
-                if (itr + 1) % self.update_landmark_graph_interval_itrs == 0:
+                if (itr + 1) % self.update_landmark_graph_itrs(itr) == 0:
                     self.agent.sample_mode(itr)
                     self.agent.update_landmark_graph(itr)
 

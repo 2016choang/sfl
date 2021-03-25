@@ -19,6 +19,7 @@ class Landmarks(object):
     def __init__(self,
                  max_landmarks=20,
                  landmarks_per_update=None,
+                 potential_landmarks_limit=False,
                  add_threshold=0.75,
                  top_k_similar=None,
                  memory_len=1,
@@ -405,6 +406,9 @@ class Landmarks(object):
 
         if np.any(potential_idxs):
             if self.potential_landmarks:
+                if self.potential_landmarks_limit and len(self.potential_landmarks['features']) >= 3 * self.landmarks_per_update:
+                    return
+
                 self.potential_landmarks['features'] = torch.cat((self.potential_landmarks['features'],
                                                                   features[potential_idxs]), dim=0)
                 self.potential_landmarks['positions'] = np.append(self.potential_landmarks['positions'],
