@@ -625,7 +625,7 @@ class MinigridDoorKeyWrapper(MinigridGeneralWrapper):
 class MinigridMultiRoomWrapper(MinigridGeneralWrapper):
     
     def get_random_start(self):
-        room = self.env.rooms[np.random.randint(self.num_rooms)]
+        room = self.env.rooms[np.random.randint(len(self.env.rooms))]
         return np.array([*self.env.place_agent(room.top, room.size), self.env.unwrapped.agent_dir])
 
     def get_possible_pos(self):
