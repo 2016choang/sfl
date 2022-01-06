@@ -76,5 +76,5 @@ Please consider citing our paper if you end up using our work.
 
 ## Acknowledgements
 
-- codebase built upon the BAIR's [rlpyt](https://github.com/astooke/rlpyt)
+- codebase built upon BAIR's [rlpyt](https://github.com/astooke/rlpyt)
 - some code and pretrained models from [SPTM](https://github.com/nsavinov/SPTM)
