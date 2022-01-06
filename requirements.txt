@@ -1,0 +1,6 @@
+gym==0.15.4
+gym-minigrid==1.0.2
+Keras==2.2.4
+tensorboard==1.14.0
+tensorflow==1.14.0
+tensorflow-estimator==1.14.0
