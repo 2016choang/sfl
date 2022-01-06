@@ -52,7 +52,7 @@ Example run command for SPTM's Train environment
 ```
 git checkout eval
 
-python experiments/vizdoom_eval.py --config experiments/configs/memory-train-full-update-goals.json --run_ID 1 --cuda_idx 1 --steps 2000000 --gpu_fraction 0.5
+python experiments/vizdoom_eval_original.py --config experiments/configs/memory-train-full-update-goals.json --run_ID 1 --cuda_idx 1 --steps 2000000 --gpu_fraction 0.5
 ```
 
 ### Changing configurations
