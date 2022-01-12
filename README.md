@@ -66,7 +66,7 @@ You can find the experiments configurations in this directory: `experiments/conf
 Please consider citing our paper if you end up using our work.
 
 ```
-@inproceedings{Hoang:NIPS2021:SFL,
+@inproceedings{Hoang:NeurIPS2021:SFL,
     author = {Hoang, Christopher and Sohn, Sungryull and Choi, Jongwook and Carvalho, Wilka and Lee, Honglak},
     title = {{Successor Feature Landmarks for Long-Horizon Goal-Conditioned Reinforcement Learning}},
     booktitle={Thirty-Fifth Conference on Neural Information Processing Systems},
